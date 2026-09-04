@@ -1,0 +1,4 @@
+pass.env
+__pycache__/
+*.pyc
+proyecto-1
