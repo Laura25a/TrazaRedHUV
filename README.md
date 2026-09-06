@@ -1,0 +1,128 @@
+# TrazaRed HUV
+
+Sistema de trazabilidad para la remisión y el traslado de pacientes del Hospital
+Universitario del Valle "Evaristo García" (HUV), desarrollado para la asignatura de
+Salud Digital — Corte 1.
+
+**Equipo:** Luz Angela Carabali Mulato, Laura Daniela Astudillo Ortega, Nicolás Zapata
+Obando, David Ortega Quintero.
+
+## El problema
+
+El HUV no cuenta con un proceso trazable ni verificable para gestionar la remisión y el
+traslado de pacientes hacia y desde otras instituciones. La gestión se hace caso a caso,
+sin un registro único que confirme qué instituciones fueron contactadas, si tenían
+disponibilidad, o si existía convenio vigente — un vacío documentado en la Sentencia
+T-573-23 de la Corte Constitucional.
+
+TrazaRed HUV registra cada gestión de traslado de forma única y visible para todas las
+partes: quién contactó, a quién, cuándo, con qué respuesta, y si existía convenio
+vigente.
+
+## Estructura del repositorio
+
+```
+proyecto 1/
+├── db/
+│   └── schema.sql              # Esquema completo de PostgreSQL
+├── docker/
+│   └── docker-compose.yml      # Servidor HAPI FHIR + su propio PostgreSQL
+├── python/
+│   ├── main.py                 # API (FastAPI): autenticación, roles, CRUD
+│   └── fhir_sync.py            # Servicio de integración PostgreSQL → FHIR
+├── notebooks/
+│   └── proyecto_trazared_huv.ipynb   # Notebook guía paso a paso
+├── documentacion_mapeo_roles.md      # Mapeo BD→FHIR y justificación de roles
+├── pass.env.example             # Plantilla de variables de entorno (sin datos reales)
+└── README.md
+```
+
+`pass.env` (con las credenciales reales) **no está en el repositorio** — cada quien lo
+crea localmente a partir de `pass.env.example`.
+
+## Modelo de datos
+
+**PostgreSQL (Neon):**
+- `pacientes` — nombre, documento (único), género, EPS
+- `usuarios` — con rol (`admin`, `medico`, `eps`, `paciente`) y vínculos opcionales a
+  paciente/EPS
+- `remisiones` — entidad principal: paciente, instituciones de origen/destino, motivo,
+  estado, convenio vigente, creado_por, activo (soft delete)
+- `observaciones` — signos vitales / triage asociados a una remisión, con código LOINC
+- `remisiones_historial` — copia del estado anterior de cada remisión (soft edit)
+- `auditoria` — registro de quién hizo qué acción, sobre qué y cuándo
+
+**MongoDB (Atlas):**
+- `gestiones_contacto` — bitácora anidada de intentos de contacto por remisión
+
+## Roles y permisos
+
+| Rol | Acceso |
+|---|---|
+| **Admin** | Control total; único que restaura registros eliminados |
+| **Médico** | Crea/edita/elimina (soft delete) solo lo que él mismo generó |
+| **EPS** | Lectura completa de sus propios pacientes y del hospital |
+| **Paciente** | Lectura reducida: solo a dónde y en cuánto tiempo será remitido |
+
+## Interoperabilidad FHIR
+
+`fhir_sync.py` sincroniza los datos de negocio con un servidor HAPI FHIR (R4):
+
+| Tabla PostgreSQL | Recurso FHIR |
+|---|---|
+| `pacientes` | `Patient` |
+| `remisiones` | `Encounter` |
+| `observaciones` | `Observation` |
+
+Ver `documentacion_mapeo_roles.md` para el detalle campo por campo y la justificación.
+
+## Cómo correr el proyecto localmente
+
+**1. Clonar el repositorio y crear el entorno virtual**
+```powershell
+git clone https://github.com/Laura25a/TrazaRedHUV.git
+cd TrazaRedHUV
+python -m venv venv
+.\venv\Scripts\Activate.ps1
+pip install psycopg2-binary pymongo python-dotenv fastapi uvicorn python-multipart "passlib[bcrypt]" "python-jose[cryptography]" requests
+```
+
+**2. Configurar las variables de entorno**
+
+Copia `pass.env.example` como `pass.env` (en la raíz del proyecto) y completa tus
+credenciales reales de Neon, MongoDB Atlas, y una `SECRET_KEY` propia.
+
+**3. Crear el esquema en PostgreSQL**
+
+Ejecuta `db/schema.sql` contra tu base de Neon (ver el notebook, Sección 3, o cualquier
+cliente SQL).
+
+**4. Correr la API**
+```powershell
+cd python
+uvicorn main:app --reload
+```
+Documentación interactiva en `http://localhost:8000/docs`.
+
+**5. Levantar el servidor FHIR**
+```powershell
+cd docker
+docker compose up -d
+```
+Servidor disponible en `http://localhost:8080/fhir`.
+
+**6. Notebook guía**
+
+`notebooks/proyecto_trazared_huv.ipynb` recorre todo el proceso paso a paso: creación
+del primer usuario Admin, pruebas de los endpoints, sincronización con FHIR, y
+verificación de la disponibilidad en línea vía Cloudflare Tunnel.
+
+## Entregables del Corte 1
+
+- [x] Modelo relacional multi-tabla (`db/schema.sql`)
+- [x] Servidor y modelado FHIR R4 (`docker/docker-compose.yml`, `documentacion_mapeo_roles.md`)
+- [x] Servicio de integración BD → FHIR (`python/fhir_sync.py`)
+- [x] Roles de usuario con JWT (`python/main.py`)
+- [x] Soft delete, soft edit y restauración
+- [ ] Disponibilidad en línea vía Cloudflare Tunnel (URLs se agregan antes de sustentar)
+- [x] Documentación técnica (`documentacion_mapeo_roles.md`)

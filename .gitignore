@@ -1,0 +1,24 @@
+# Credenciales — NUNCA subir esto
+pass.env
+python/pass.env
+
+# Entornos virtuales
+venv/
+.venv/
+*/venv/
+*/.venv/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Sistema operativo
+.DS_Store
+Thumbs.db
+
+# Volúmenes de Docker (datos de la base de HAPI FHIR, no se versionan)
+docker/pgdata/
