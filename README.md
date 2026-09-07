@@ -32,13 +32,12 @@ proyecto 1/
 │   └── fhir_sync.py            # Servicio de integración PostgreSQL → FHIR
 ├── notebooks/
 │   └── proyecto_trazared_huv.ipynb   # Notebook guía paso a paso
-├── documentacion_mapeo_roles.md      # Mapeo BD→FHIR y justificación de roles
-├── pass.env.example             # Plantilla de variables de entorno (sin datos reales)
 └── README.md
 ```
 
 `pass.env` (con las credenciales reales) **no está en el repositorio** — cada quien lo
-crea localmente a partir de `pass.env.example`.
+crea localmente en la raíz del proyecto con las variables `PG_CONNECTION_STRING`,
+`MONGO_CONNECTION_STRING`, `SECRET_KEY` y `FHIR_BASE_URL`.
 
 ## Modelo de datos
 
@@ -74,7 +73,8 @@ crea localmente a partir de `pass.env.example`.
 | `remisiones` | `Encounter` |
 | `observaciones` | `Observation` |
 
-Ver `documentacion_mapeo_roles.md` para el detalle campo por campo y la justificación.
+El detalle campo por campo del mapeo y la justificación de los roles se agregarán como
+documento de documentación técnica antes de la entrega (requisito del proyecto).
 
 ## Cómo correr el proyecto localmente
 
@@ -89,8 +89,14 @@ pip install psycopg2-binary pymongo python-dotenv fastapi uvicorn python-multipa
 
 **2. Configurar las variables de entorno**
 
-Copia `pass.env.example` como `pass.env` (en la raíz del proyecto) y completa tus
-credenciales reales de Neon, MongoDB Atlas, y una `SECRET_KEY` propia.
+Crea un archivo `pass.env` en la raíz del proyecto con tus credenciales reales:
+
+```
+PG_CONNECTION_STRING=postgresql://usuario:clave@host/neondb?sslmode=require
+MONGO_CONNECTION_STRING=mongodb+srv://usuario:clave@cluster/...
+SECRET_KEY=una_clave_secreta_propia
+FHIR_BASE_URL=http://localhost:8081/fhir
+```
 
 **3. Crear el esquema en PostgreSQL**
 
@@ -109,7 +115,8 @@ Documentación interactiva en `http://localhost:8000/docs`.
 cd docker
 docker compose up -d
 ```
-Servidor disponible en `http://localhost:8080/fhir`.
+Servidor disponible en `http://localhost:8081/fhir` (el compose publica el 8080 del
+contenedor en el puerto 8081 del host — usa 8081 en túneles y navegador).
 
 **6. Notebook guía**
 
@@ -120,9 +127,9 @@ verificación de la disponibilidad en línea vía Cloudflare Tunnel.
 ## Entregables del Corte 1
 
 - [x] Modelo relacional multi-tabla (`db/schema.sql`)
-- [x] Servidor y modelado FHIR R4 (`docker/docker-compose.yml`, `documentacion_mapeo_roles.md`)
+- [x] Servidor y modelado FHIR R4 (`docker/docker-compose.yml`)
 - [x] Servicio de integración BD → FHIR (`python/fhir_sync.py`)
 - [x] Roles de usuario con JWT (`python/main.py`)
 - [x] Soft delete, soft edit y restauración
 - [ ] Disponibilidad en línea vía Cloudflare Tunnel (URLs se agregan antes de sustentar)
-- [x] Documentación técnica (`documentacion_mapeo_roles.md`)
+- [ ] Documentación técnica: mapeo BD → FHIR y justificación de roles (por agregar antes de la entrega)
