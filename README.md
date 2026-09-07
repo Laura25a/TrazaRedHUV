@@ -133,12 +133,20 @@ verificación de la disponibilidad en línea vía Cloudflare Tunnel.
 ## Disponibilidad en línea (Cloudflare Tunnel)
 
 <!-- URLS-DEMO:ini -->
-URLs públicas generadas el **2026-09-07 00:31** con `levantar_demo` (Quick Tunnel:
+URLs públicas generadas el **2026-09-07 12:08** con `levantar_demo` (Quick Tunnel:
 efímeras — cambian en cada arranque):
 
-- **API (FastAPI):** https://compatible-commentary-depend-penguin.trycloudflare.com — `/docs` verificado
-- **Servidor FHIR (HAPI):** https://beneficial-experiencing-invoice-argue.trycloudflare.com — `/fhir/metadata` verificado
+- **API (FastAPI):** https://practices-camp-pan-statutory.trycloudflare.com — `/docs` verificado
+- **Servidor FHIR (HAPI):** https://upcoming-combine-rouge-words.trycloudflare.com — `/fhir/metadata` verificado
 <!-- URLS-DEMO:fin -->
+
+> **Nota sobre la web de HAPI:** su interfaz administrativa (swagger-ui de HAPI) solo
+> funciona completa en `localhost:8081` — HAPI anuncia una URL base fija y, como los
+> Quick Tunnels cambian de dominio en cada arranque, desde fuera esa página no logra
+> cargar su definición (mixed content). Los **recursos REST funcionan perfectamente por
+> cualquier túnel**: para explorar desde fuera abre las URLs directas, p. ej.
+> `https://<túnel>/fhir/Patient/1000`, `.../fhir/Encounter/1001`, `.../fhir/Observation/1002`
+> o búsquedas como `.../fhir/Patient?gender=female`.
 
 Para (re)generarlas no hay que hacer nada manual: corre **`python levantar_demo.py`**
 desde la raíz. El script despierta Neon y MongoDB, levanta HAPI y la API esperando a
