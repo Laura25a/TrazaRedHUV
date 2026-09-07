@@ -128,6 +128,20 @@ contenedor en el puerto 8081 del host — usa 8081 en túneles y navegador).
 del primer usuario Admin, pruebas de los endpoints, sincronización con FHIR, y
 verificación de la disponibilidad en línea vía Cloudflare Tunnel.
 
+## Disponibilidad en línea (Cloudflare Tunnel)
+
+URLs públicas generadas el **6 de septiembre de 2026** con Quick Tunnel (son efímeras:
+cambian si el proceso se detiene):
+
+- **API (FastAPI):** https://partly-yang-brighton-dame.trycloudflare.com — `/docs` responde 200
+- **Servidor FHIR (HAPI):** https://non-webster-occupation-weblogs.trycloudflare.com — `GET /fhir/Patient/1000` verificado
+
+Para regenerarlas (una terminal por servicio):
+```bash
+cloudflared tunnel --url http://localhost:8000   # API
+cloudflared tunnel --url http://localhost:8081   # HAPI FHIR
+```
+
 ## Entregables del Corte 1
 
 - [x] Modelo relacional multi-tabla (`db/schema.sql`)
@@ -135,5 +149,5 @@ verificación de la disponibilidad en línea vía Cloudflare Tunnel.
 - [x] Servicio de integración BD → FHIR (`python/fhir_sync.py`)
 - [x] Roles de usuario con JWT (`python/main.py`)
 - [x] Soft delete, soft edit y restauración
-- [ ] Disponibilidad en línea vía Cloudflare Tunnel (URLs se agregan antes de sustentar)
+- [x] Disponibilidad en línea vía Cloudflare Tunnel (URLs arriba; pendiente prueba desde datos móviles)
 - [x] Documentación técnica: mapeo BD → FHIR y justificación de roles (`documentacion_mapeo_roles.md`)
