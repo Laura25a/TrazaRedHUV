@@ -11,7 +11,7 @@ from dotenv import load_dotenv
 
 load_dotenv(Path(__file__).resolve().parent / "pass.env", override=True)
 PG_CONNECTION_STRING = os.getenv("PG_CONNECTION_STRING")
-FHIR_BASE_URL = os.getenv("FHIR_BASE_URL", "http://localhost:8080/fhir")
+FHIR_BASE_URL = os.getenv("FHIR_BASE_URL", "http://localhost:8081/fhir")
 
 HEADERS = {"Content-Type": "application/fhir+json"}
 
