@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""levantar_demo.py — TrazaRed HUV (versión multiplataforma de levantar_demo.sh).
+"""levantar_demo.py — TrazaRed HUV.
 
 Funciona igual en Windows, macOS y Linux (Python 3.10+ con las dependencias del
 proyecto instaladas: requests, psycopg2-binary, pymongo, python-dotenv).
@@ -53,24 +53,29 @@ def espera_url(url: str, nombre: str, timeout: int = 120) -> bool:
     info(f"Esperando a {nombre} ({url})")
     for _ in range(timeout):
         try:
-            requests.get(url, timeout=8)
-            ok(f"{nombre} responde")
-            return True
+            r = requests.get(url, timeout=8)
+            if r.ok:
+                ok(f"{nombre} responde")
+                return True
+            # 5xx (p. ej. 530 = túnel muerto): no es éxito, seguimos esperando
         except requests.RequestException:
-            # Si el resolvedor local cacheó un NXDOMAIN previo a la publicación del
-            # DNS del túnel, probamos directo contra el edge de Cloudflare por IP
-            # (el enrutado es por SNI/Host). Requiere curl (viene en Windows 10+).
-            curl = shutil.which("curl")
-            host = url.split("//", 1)[1].split("/", 1)[0]
-            if curl and "trycloudflare.com" in host:
-                r = subprocess.run(
-                    [curl, "-s", "-m", "8", "-o", os.devnull,
-                     "--resolve", f"{host}:443:104.16.230.132", url],
-                    capture_output=True)
-                if r.returncode == 0:
-                    ok(f"{nombre} responde (vía edge de Cloudflare)")
-                    return True
-            time.sleep(1)
+            pass
+        # Si el resolvedor local cacheó un NXDOMAIN previo a la publicación del
+        # DNS del túnel, probamos directo contra el edge de Cloudflare por IP
+        # (el enrutado es por SNI/Host). Requiere curl (viene en Windows 10+).
+        # Con -f, curl falla también en respuestas 5xx: evita falsos "OK" con
+        # errores tipo 530 (túnel inexistente).
+        curl = shutil.which("curl")
+        host = url.split("//", 1)[1].split("/", 1)[0]
+        if curl and "trycloudflare.com" in host:
+            r = subprocess.run(
+                [curl, "-sf", "-m", "8", "-o", os.devnull,
+                 "--resolve", f"{host}:443:104.16.230.132", url],
+                capture_output=True)
+            if r.returncode == 0:
+                ok(f"{nombre} responde (vía edge de Cloudflare)")
+                return True
+        time.sleep(1)
     error(f"{nombre} no respondió en {timeout}s")
     return False
 
@@ -151,6 +156,10 @@ def iniciar_tunel(cloudflared: str, puerto: int, nombre: str) -> str:
         if nom == f"tunel_{nombre}":
             matar(pid)
     log = DEMO / f"tunel_{nombre}.log"
+    # Truncar SIEMPRE antes de arrancar: si el log quedara de una corrida
+    # anterior, la búsqueda de URL encontraría la URL vieja (de un túnel ya
+    # muerto) en vez de la del túnel recién creado.
+    log.write_bytes(b"")
     arrancar([cloudflared, "tunnel", "--url", f"http://localhost:{puerto}",
               "--no-autoupdate"], log, f"tunel_{nombre}")
     for _ in range(60):

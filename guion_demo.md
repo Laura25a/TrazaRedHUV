@@ -15,7 +15,7 @@
 
 ## Demo en vivo (7 minutos — contra las URLs públicas, NO localhost)
 
-**Preparación (10–15 min antes):** correr `./levantar_demo.sh` (despierta Neon y Atlas,
+**Preparación (10–15 min antes):** correr `python levantar_demo.py` (despierta Neon y Atlas,
 levanta HAPI, API y los dos túneles, y deja las URLs frescas en pantalla y en el README);
 verificar una URL desde el teléfono con datos móviles; tener el notebook abierto en §8.b
 (auditoría) y §8.c (sincronización FHIR) como respaldo; video de contingencia grabado.
@@ -35,14 +35,9 @@ verificar una URL desde el teléfono con datos móviles; tener el notebook abier
 
 ### Contingencias
 
-- **URL pública no responde** → regenerar todo con `./levantar_demo.sh` (≈1 min) y usar
+- **URL pública no responde** → regenerar todo con `python levantar_demo.py` (≈1 min) y usar
   las URLs nuevas; el guion no depende de URLs memorizadas.
 - **Primera petición lenta** → autosuspend de Neon; el script ya despierta las bases, y
   se puede re-ejecutar su paso 0 solos con las primeras líneas.
 - **Todo lo demás falla** → video de respaldo de la demo completa (grabado con las URLs
   públicas); la demo en vivo es la exigida, el video es el plan B.
-
-### Pruebas automatizadas de respaldo
-
-`cd python && pytest test_roles.py -v` — 10 pruebas end-to-end de la diferenciación de
-roles (útiles si en la demo algo no se puede mostrar en vivo).

@@ -29,11 +29,10 @@ proyecto 1/
 │   └── docker-compose.yml      # Servidor HAPI FHIR + su propio PostgreSQL
 ├── python/
 │   ├── main.py                 # API (FastAPI): autenticación, roles, CRUD
-│   ├── fhir_sync.py            # Servicio de integración PostgreSQL → FHIR
-│   └── test_roles.py           # Suite pytest: diferenciación de roles (10 pruebas)
+│   └── fhir_sync.py            # Servicio de integración PostgreSQL → FHIR
 ├── notebooks/
 │   └── proyecto_trazared_huv.ipynb   # Notebook guía paso a paso
-├── levantar_demo.sh / .py             # Arranque automático de toda la demo (bash / Python multiplataforma)
+├── levantar_demo.py                 # Arranque automático de toda la demo (Windows/macOS/Linux)
 ├── guion_demo.md                    # Guion del pitch (10 min) y la demo (7 min)
 ├── documentacion_mapeo_roles.md      # Doc. técnica: mapeo BD → FHIR y roles
 ├── pass.env.example                  # Plantilla de variables de entorno
@@ -134,20 +133,37 @@ verificación de la disponibilidad en línea vía Cloudflare Tunnel.
 ## Disponibilidad en línea (Cloudflare Tunnel)
 
 <!-- URLS-DEMO:ini -->
-URLs públicas generadas el **2026-09-06 22:52** con `levantar_demo` (Quick Tunnel:
+URLs públicas generadas el **2026-09-06 23:33** con `levantar_demo` (Quick Tunnel:
 efímeras — cambian en cada arranque):
 
-- **API (FastAPI):** https://frederick-claims-pick-marco.trycloudflare.com — `/docs` verificado
-- **Servidor FHIR (HAPI):** https://neon-genetics-adding-windsor.trycloudflare.com — `/fhir/metadata` verificado
+- **API (FastAPI):** https://java-heather-alabama-shoppers.trycloudflare.com — `/docs` verificado
+- **Servidor FHIR (HAPI):** https://popularity-ann-again-pursue.trycloudflare.com — `/fhir/metadata` verificado
 <!-- URLS-DEMO:fin -->
 
-Para (re)generarlas no hay que hacer nada manual: corre **`./levantar_demo.sh`**
-(Linux/macOS, o Windows con Git Bash) o **`python levantar_demo.py`** (Windows,
-macOS o Linux, con el Python del proyecto) desde la raíz. El script despierta Neon y
-MongoDB, levanta HAPI y la API esperando a que cada uno responda, abre los dos túneles,
-detecta las URLs automáticamente, las verifica y actualiza esta misma sección del
-README (quedan también en `URLs_demo.txt`, local). Con `--stop` se detiene todo
-(`python levantar_demo.py --stop` en Windows).
+Para (re)generarlas no hay que hacer nada manual: corre **`python levantar_demo.py`**
+desde la raíz. El script despierta Neon y MongoDB, levanta HAPI y la API esperando a
+que cada uno responda, abre los dos túneles, detecta las URLs automáticamente, las
+verifica y actualiza esta misma sección del README (quedan también en `URLs_demo.txt`,
+local). Con `python levantar_demo.py --stop` se detiene todo.
+
+### Cómo levantar la demo en otra máquina (Windows incluido)
+
+Requisitos: **Python 3.10+**, **Docker Desktop corriendo** y **`cloudflared` instalado**
+(si no lo tienes, instala primero: `winget install --id Cloudflare.cloudflared` o descarga
+[`cloudflared-windows-amd64.exe`](https://github.com/cloudflare/cloudflared/releases/latest)
+y déjalo en el `PATH` o junto a `levantar_demo.py`):
+
+```
+git pull
+# pass.env en la raíz con las 8 variables (las 4 de siempre + las 4 DEMO_*)
+python -m venv venv ; .\venv\Scripts\Activate.ps1
+pip install psycopg2-binary pymongo python-dotenv fastapi uvicorn requests
+python levantar_demo.py          # arranca todo (Docker Desktop debe estar corriendo)
+python levantar_demo.py --stop   # apaga todo
+```
+
+En macOS/Linux el mismo flujo con `python3 -m venv venv && source venv/bin/activate`.
+El script imprime las URLs al final y las deja también en `URLs_demo.txt`.
 
 ## Credenciales de demostración (datos sintéticos)
 
@@ -161,15 +177,10 @@ sección 6b del notebook:
 | EPS (Coosalud) | `eps@coosalud.com` | `DEMO_EPS_PASSWORD` |
 | Paciente (Ana Torres) | `paciente@correo.com` | `DEMO_PACIENTE_PASSWORD` |
 
-Las contraseñas **no están en el repositorio** (es público): cada integrante las pone
-en su `pass.env` (ver `pass.env.example`) y el notebook (§6b) así como la suite de
-pruebas las leen de ahí para crear los usuarios y hacer login. Los valores se comparten
-por el canal privado y **se rotan antes de la sustentación**.
-
-Pruebas automatizadas de los roles (con la API corriendo):
-```bash
-cd python && pytest test_roles.py -v   # 10 pruebas end-to-end
-```
+Las contraseñas **no están en el repositorio**: cada integrante las pone en su
+`pass.env` (ver `pass.env.example`) y el notebook (§6b) las lee de ahí para crear los
+usuarios y hacer login. Los valores se comparten por el canal privado y **se rotan
+antes de la sustentación**.
 
 ## Entregables del Corte 1
 
