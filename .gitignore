@@ -21,3 +21,4 @@ URLs_demo.txt
 # Sistema operativo
 .DS_Store
 Thumbs.db
+.pytest_cache/
