@@ -4,10 +4,10 @@
 # Pruebas end-to-end contra la API corriendo (por defecto http://localhost:8000;
 # se puede apuntar a la URL pública del túnel con API_BASE=... pytest).
 # Requiere los usuarios de prueba creados por el notebook (celdas §6b):
-#   admin@trazared.huv / cambia-esta-clave
-#   medico@huv.gov.co  / medico123
-#   eps@coosalud.com   / eps123
-#   paciente@correo.com / paciente123   (vinculado a la paciente 1: Ana Torres / Coosalud)
+#   admin@trazared.huv, medico@huv.gov.co, eps@coosalud.com y
+#   paciente@correo.com (vinculado a la paciente 1: Ana Torres / Coosalud).
+# Las contraseñas se leen de las variables DEMO_* de pass.env (ver
+# pass.env.example); no viven en este archivo porque el repo es público.
 #
 # Ejecutar (con la API arriba):
 #   cd python && pytest test_roles.py -v
@@ -20,11 +20,29 @@ import requests
 
 BASE = os.getenv("API_BASE", "http://localhost:8000")
 
+def _demo(variable):
+    """Contraseña de prueba: variable de entorno o pass.env del proyecto.
+
+    Las contraseñas no viven en el repo (es público): se definen en pass.env
+    (ver pass.env.example) y se comparten por el canal privado.
+    """
+    valor = os.getenv(variable)
+    if not valor:
+        from pathlib import Path
+        from dotenv import dotenv_values
+        cfg = dotenv_values(Path(__file__).resolve().parent.parent / "pass.env")
+        valor = cfg.get(variable)
+    if not valor:
+        pytest.exit(f"Falta {variable}: agrégala a pass.env (ver pass.env.example); "
+                    "los valores se comparten por el canal privado", returncode=1)
+    return valor
+
+
 CREDENCIALES = {
-    "admin": ("admin@trazared.huv", "cambia-esta-clave"),
-    "medico": ("medico@huv.gov.co", "medico123"),
-    "eps": ("eps@coosalud.com", "eps123"),
-    "paciente": ("paciente@correo.com", "paciente123"),
+    "admin": ("admin@trazared.huv", _demo("DEMO_ADMIN_PASSWORD")),
+    "medico": ("medico@huv.gov.co", _demo("DEMO_MEDICO_PASSWORD")),
+    "eps": ("eps@coosalud.com", _demo("DEMO_EPS_PASSWORD")),
+    "paciente": ("paciente@correo.com", _demo("DEMO_PACIENTE_PASSWORD")),
 }
 
 CAMPOS_PACIENTE = {"id", "institucion_destino", "fecha_solicitud", "estado"}

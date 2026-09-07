@@ -33,7 +33,7 @@ proyecto 1/
 │   └── test_roles.py           # Suite pytest: diferenciación de roles (10 pruebas)
 ├── notebooks/
 │   └── proyecto_trazared_huv.ipynb   # Notebook guía paso a paso
-├── levantar_demo.sh                 # Arranque automático de toda la demo
+├── levantar_demo.sh / .py             # Arranque automático de toda la demo (bash / Python multiplataforma)
 ├── guion_demo.md                    # Guion del pitch (10 min) y la demo (7 min)
 ├── documentacion_mapeo_roles.md      # Doc. técnica: mapeo BD → FHIR y roles
 ├── pass.env.example                  # Plantilla de variables de entorno
@@ -134,34 +134,37 @@ verificación de la disponibilidad en línea vía Cloudflare Tunnel.
 ## Disponibilidad en línea (Cloudflare Tunnel)
 
 <!-- URLS-DEMO:ini -->
-URLs públicas generadas el **2026-09-06 21:46 -05** con `levantar_demo.sh` (Quick Tunnel:
+URLs públicas generadas el **2026-09-06 22:52** con `levantar_demo` (Quick Tunnel:
 efímeras — cambian en cada arranque):
 
 - **API (FastAPI):** https://frederick-claims-pick-marco.trycloudflare.com — `/docs` verificado
 - **Servidor FHIR (HAPI):** https://neon-genetics-adding-windsor.trycloudflare.com — `/fhir/metadata` verificado
 <!-- URLS-DEMO:fin -->
 
-Para (re)generarlas no hay que hacer nada manual: corre **`./levantar_demo.sh`** desde la
-raíz del proyecto. El script despierta Neon y MongoDB, levanta HAPI y la API esperando a
-que cada uno responda, abre los dos túneles, detecta las URLs automáticamente, las
-verifica y actualiza esta misma sección del README (quedan también en `URLs_demo.txt`,
-local). Con `./levantar_demo.sh --stop` se detiene todo.
+Para (re)generarlas no hay que hacer nada manual: corre **`./levantar_demo.sh`**
+(Linux/macOS, o Windows con Git Bash) o **`python levantar_demo.py`** (Windows,
+macOS o Linux, con el Python del proyecto) desde la raíz. El script despierta Neon y
+MongoDB, levanta HAPI y la API esperando a que cada uno responda, abre los dos túneles,
+detecta las URLs automáticamente, las verifica y actualiza esta misma sección del
+README (quedan también en `URLs_demo.txt`, local). Con `--stop` se detiene todo
+(`python levantar_demo.py --stop` en Windows).
 
 ## Credenciales de demostración (datos sintéticos)
 
 Todas las bases manejan **datos sintéticos de prueba**. Los usuarios los crea la
 sección 6b del notebook:
 
-| Rol | Usuario | Clave |
+| Rol | Usuario | Clave (variable en `pass.env`) |
 |---|---|---|
-| Admin | `admin@trazared.huv` | `cambia-esta-clave` |
-| Médico | `medico@huv.gov.co` | `medico123` |
-| EPS (Coosalud) | `eps@coosalud.com` | `eps123` |
-| Paciente (Ana Torres) | `paciente@correo.com` | `paciente123` |
+| Admin | `admin@trazared.huv` | `DEMO_ADMIN_PASSWORD` |
+| Médico | `medico@huv.gov.co` | `DEMO_MEDICO_PASSWORD` |
+| EPS (Coosalud) | `eps@coosalud.com` | `DEMO_EPS_PASSWORD` |
+| Paciente (Ana Torres) | `paciente@correo.com` | `DEMO_PACIENTE_PASSWORD` |
 
-> Este repositorio es público y las claves de prueba viajan en el notebook:
-> **antes de la sustentación se rotan** (y se actualizan las celdas 6b), o simplemente
-> se dejan los túneles apagados hasta la demo con `./levantar_demo.sh --stop`.
+Las contraseñas **no están en el repositorio** (es público): cada integrante las pone
+en su `pass.env` (ver `pass.env.example`) y el notebook (§6b) así como la suite de
+pruebas las leen de ahí para crear los usuarios y hacer login. Los valores se comparten
+por el canal privado y **se rotan antes de la sustentación**.
 
 Pruebas automatizadas de los roles (con la API corriendo):
 ```bash
