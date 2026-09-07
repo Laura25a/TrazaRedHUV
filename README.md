@@ -29,9 +29,12 @@ proyecto 1/
 │   └── docker-compose.yml      # Servidor HAPI FHIR + su propio PostgreSQL
 ├── python/
 │   ├── main.py                 # API (FastAPI): autenticación, roles, CRUD
-│   └── fhir_sync.py            # Servicio de integración PostgreSQL → FHIR
+│   ├── fhir_sync.py            # Servicio de integración PostgreSQL → FHIR
+│   └── test_roles.py           # Suite pytest: diferenciación de roles (10 pruebas)
 ├── notebooks/
 │   └── proyecto_trazared_huv.ipynb   # Notebook guía paso a paso
+├── levantar_demo.sh                 # Arranque automático de toda la demo
+├── guion_demo.md                    # Guion del pitch (10 min) y la demo (7 min)
 ├── documentacion_mapeo_roles.md      # Doc. técnica: mapeo BD → FHIR y roles
 ├── pass.env.example                  # Plantilla de variables de entorno
 └── README.md
@@ -144,6 +147,27 @@ que cada uno responda, abre los dos túneles, detecta las URLs automáticamente,
 verifica y actualiza esta misma sección del README (quedan también en `URLs_demo.txt`,
 local). Con `./levantar_demo.sh --stop` se detiene todo.
 
+## Credenciales de demostración (datos sintéticos)
+
+Todas las bases manejan **datos sintéticos de prueba**. Los usuarios los crea la
+sección 6b del notebook:
+
+| Rol | Usuario | Clave |
+|---|---|---|
+| Admin | `admin@trazared.huv` | `cambia-esta-clave` |
+| Médico | `medico@huv.gov.co` | `medico123` |
+| EPS (Coosalud) | `eps@coosalud.com` | `eps123` |
+| Paciente (Ana Torres) | `paciente@correo.com` | `paciente123` |
+
+> Este repositorio es público y las claves de prueba viajan en el notebook:
+> **antes de la sustentación se rotan** (y se actualizan las celdas 6b), o simplemente
+> se dejan los túneles apagados hasta la demo con `./levantar_demo.sh --stop`.
+
+Pruebas automatizadas de los roles (con la API corriendo):
+```bash
+cd python && pytest test_roles.py -v   # 10 pruebas end-to-end
+```
+
 ## Entregables del Corte 1
 
 - [x] Modelo relacional multi-tabla (`db/schema.sql`)
@@ -152,4 +176,5 @@ local). Con `./levantar_demo.sh --stop` se detiene todo.
 - [x] Roles de usuario con JWT (`python/main.py`)
 - [x] Soft delete, soft edit y restauración
 - [x] Disponibilidad en línea vía Cloudflare Tunnel (URLs arriba; pendiente prueba desde datos móviles)
+- [x] Guion de pitch y demo (`guion_demo.md`)
 - [x] Documentación técnica: mapeo BD → FHIR y justificación de roles (`documentacion_mapeo_roles.md`)
