@@ -130,17 +130,19 @@ verificación de la disponibilidad en línea vía Cloudflare Tunnel.
 
 ## Disponibilidad en línea (Cloudflare Tunnel)
 
-URLs públicas generadas el **6 de septiembre de 2026** con Quick Tunnel (son efímeras:
-cambian si el proceso se detiene):
+<!-- URLS-DEMO:ini -->
+URLs públicas generadas el **2026-09-06 21:46 -05** con `levantar_demo.sh` (Quick Tunnel:
+efímeras — cambian en cada arranque):
 
-- **API (FastAPI):** https://partly-yang-brighton-dame.trycloudflare.com — `/docs` responde 200
-- **Servidor FHIR (HAPI):** https://non-webster-occupation-weblogs.trycloudflare.com — `GET /fhir/Patient/1000` verificado
+- **API (FastAPI):** https://frederick-claims-pick-marco.trycloudflare.com — `/docs` verificado
+- **Servidor FHIR (HAPI):** https://neon-genetics-adding-windsor.trycloudflare.com — `/fhir/metadata` verificado
+<!-- URLS-DEMO:fin -->
 
-Para regenerarlas (una terminal por servicio):
-```bash
-cloudflared tunnel --url http://localhost:8000   # API
-cloudflared tunnel --url http://localhost:8081   # HAPI FHIR
-```
+Para (re)generarlas no hay que hacer nada manual: corre **`./levantar_demo.sh`** desde la
+raíz del proyecto. El script despierta Neon y MongoDB, levanta HAPI y la API esperando a
+que cada uno responda, abre los dos túneles, detecta las URLs automáticamente, las
+verifica y actualiza esta misma sección del README (quedan también en `URLs_demo.txt`,
+local). Con `./levantar_demo.sh --stop` se detiene todo.
 
 ## Entregables del Corte 1
 

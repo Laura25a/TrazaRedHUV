@@ -14,6 +14,10 @@ __pycache__/
 # Plan de acción local (no se comparte por el repo)
 plan/
 
+# Artefactos de levantar_demo.sh (el README es el registro que se comparte)
+.demo/
+URLs_demo.txt
+
 # Sistema operativo
 .DS_Store
 Thumbs.db
