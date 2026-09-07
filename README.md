@@ -133,11 +133,11 @@ verificación de la disponibilidad en línea vía Cloudflare Tunnel.
 ## Disponibilidad en línea (Cloudflare Tunnel)
 
 <!-- URLS-DEMO:ini -->
-URLs públicas generadas el **2026-09-06 23:33** con `levantar_demo` (Quick Tunnel:
+URLs públicas generadas el **2026-09-07 00:31** con `levantar_demo` (Quick Tunnel:
 efímeras — cambian en cada arranque):
 
-- **API (FastAPI):** https://java-heather-alabama-shoppers.trycloudflare.com — `/docs` verificado
-- **Servidor FHIR (HAPI):** https://popularity-ann-again-pursue.trycloudflare.com — `/fhir/metadata` verificado
+- **API (FastAPI):** https://compatible-commentary-depend-penguin.trycloudflare.com — `/docs` verificado
+- **Servidor FHIR (HAPI):** https://beneficial-experiencing-invoice-argue.trycloudflare.com — `/fhir/metadata` verificado
 <!-- URLS-DEMO:fin -->
 
 Para (re)generarlas no hay que hacer nada manual: corre **`python levantar_demo.py`**
