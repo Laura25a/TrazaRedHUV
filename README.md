@@ -133,11 +133,11 @@ verificación de la disponibilidad en línea vía Cloudflare Tunnel.
 ## Disponibilidad en línea (Cloudflare Tunnel)
 
 <!-- URLS-DEMO:ini -->
-URLs públicas generadas el **2026-09-07 19:12** con `levantar_demo` (Quick Tunnel:
+URLs públicas generadas el **2026-09-07 20:21** con `levantar_demo` (Quick Tunnel:
 efímeras — cambian en cada arranque):
 
-- **API (FastAPI):** https://mid-alumni-country-residents.trycloudflare.com — `/docs` verificado
-- **Servidor FHIR (HAPI):** https://alice-treat-bacteria-welcome.trycloudflare.com — `/fhir/metadata` verificado
+- **API (FastAPI):** https://feature-value-venue-describes.trycloudflare.com — `/docs` verificado
+- **Servidor FHIR (HAPI):** https://united-elections-fairfield-same.trycloudflare.com — `/fhir/metadata` verificado
 <!-- URLS-DEMO:fin -->
 
 > **Nota sobre la web de HAPI:** su interfaz administrativa (swagger-ui de HAPI) solo
