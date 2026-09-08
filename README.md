@@ -165,7 +165,7 @@ y déjalo en el `PATH` o junto a `levantar_demo.py`):
 git pull
 # pass.env en la raíz con las 8 variables (las 4 de siempre + las 4 DEMO_*)
 python -m venv venv ; .\venv\Scripts\Activate.ps1
-pip install psycopg2-binary pymongo python-dotenv fastapi uvicorn requests
+pip install psycopg2-binary pymongo python-dotenv fastapi uvicorn python-multipart "passlib[bcrypt]" "python-jose[cryptography]" requests
 python levantar_demo.py          # arranca todo (Docker Desktop debe estar corriendo)
 python levantar_demo.py --stop   # apaga todo
 ```

@@ -3,7 +3,8 @@
 """levantar_demo.py — TrazaRed HUV.
 
 Funciona igual en Windows, macOS y Linux (Python 3.10+ con las dependencias del
-proyecto instaladas: requests, psycopg2-binary, pymongo, python-dotenv).
+proyecto instaladas — la lista completa está en el README y el script avisa
+cuáles faltan si no están).
 
 Orden de arranque (esperando a que cada servicio responda antes de continuar):
   0. Despierta Neon y MongoDB Atlas (evita el retardo del autosuspend)
@@ -40,6 +41,30 @@ RE_URL_TUNEL = re.compile(r"https://[a-z0-9-]+\.trycloudflare\.com")
 ES_WINDOWS = os.name == "nt"
 
 import requests  # noqa: E402  (después de las rutas, igual que el resto del proyecto)
+
+# (módulo a importar, paquete de pip que lo provee): la API (main.py) importa
+# todos estos; si falta uno, uvicorn muere al importar y el fallo sería críptico.
+DEPENDENCIAS = [
+    ("requests", "requests"),
+    ("dotenv", "python-dotenv"),
+    ("psycopg2", "psycopg2-binary"),
+    ("pymongo", "pymongo"),
+    ("fastapi", "fastapi"),
+    ("uvicorn", "uvicorn"),
+    ("multipart", "python-multipart"),
+    ("jose", "python-jose[cryptography]"),
+    ("passlib", "passlib[bcrypt]"),
+]
+
+
+def faltan_dependencias() -> list[str]:
+    faltan = []
+    for modulo, paquete in DEPENDENCIAS:
+        try:
+            __import__(modulo)
+        except ImportError:
+            faltan.append(paquete)
+    return faltan
 
 
 def ok(msg):    print(f"[OK]  {msg}")
@@ -190,6 +215,11 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Arranque de la demo TrazaRed HUV")
     parser.add_argument("--stop", action="store_true", help="detiene todo lo registrado")
     args = parser.parse_args()
+
+    faltan = faltan_dependencias()
+    if faltan:
+        raise SystemExit(error("faltan dependencias de Python. Instálalas con:\n"
+                               "  pip install " + " ".join(f'"{p}"' for p in faltan)))
 
     DEMO.mkdir(exist_ok=True)
     if args.stop:
