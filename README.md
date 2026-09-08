@@ -133,11 +133,11 @@ verificación de la disponibilidad en línea vía Cloudflare Tunnel.
 ## Disponibilidad en línea (Cloudflare Tunnel)
 
 <!-- URLS-DEMO:ini -->
-URLs públicas generadas el **2026-09-07 19:08** con `levantar_demo` (Quick Tunnel:
+URLs públicas generadas el **2026-09-07 19:12** con `levantar_demo` (Quick Tunnel:
 efímeras — cambian en cada arranque):
 
-- **API (FastAPI):** https://tackle-renewable-fresh-occasions.trycloudflare.com — `/docs` verificado
-- **Servidor FHIR (HAPI):** https://singles-generation-sink-college.trycloudflare.com — `/fhir/metadata` verificado
+- **API (FastAPI):** https://mid-alumni-country-residents.trycloudflare.com — `/docs` verificado
+- **Servidor FHIR (HAPI):** https://alice-treat-bacteria-welcome.trycloudflare.com — `/fhir/metadata` verificado
 <!-- URLS-DEMO:fin -->
 
 > **Nota sobre la web de HAPI:** su interfaz administrativa (swagger-ui de HAPI) solo
@@ -151,8 +151,8 @@ efímeras — cambian en cada arranque):
 Para (re)generarlas no hay que hacer nada manual: corre **`python levantar_demo.py`**
 desde la raíz. El script despierta Neon y MongoDB, levanta HAPI y la API esperando a
 que cada uno responda, abre los dos túneles, detecta las URLs automáticamente, las
-verifica y actualiza esta misma sección del README (quedan también en `URLs_demo.txt`,
-local). Con `python levantar_demo.py --stop` se detiene todo.
+verifica y actualiza esta misma sección del README (quedan también en
+`notebooks/URLs_demo.txt`, local). Con `python levantar_demo.py --stop` se detiene todo.
 
 ### Cómo levantar la demo en otra máquina (Windows incluido)
 
@@ -171,7 +171,7 @@ python levantar_demo.py --stop   # apaga todo
 ```
 
 En macOS/Linux el mismo flujo con `python3 -m venv venv && source venv/bin/activate`.
-El script imprime las URLs al final y las deja también en `URLs_demo.txt`.
+El script imprime las URLs al final y las deja también en `notebooks/URLs_demo.txt`.
 
 ## Credenciales de demostración (datos sintéticos)
 

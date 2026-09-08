@@ -11,8 +11,8 @@ Orden de arranque (esperando a que cada servicio responda antes de continuar):
   2. API FastAPI con uvicorn           -> http://localhost:8000/docs
   3. Dos Quick Tunnels de Cloudflare   -> URLs públicas (detección automática)
 
-Las URLs se imprimen al final, quedan en URLs_demo.txt y se actualizan solas en
-la sección "Disponibilidad en línea" del README (entre los marcadores
+Las URLs se imprimen al final, quedan en notebooks/URLs_demo.txt y se actualizan
+solas en la sección "Disponibilidad en línea" del README (entre los marcadores
 URLS-DEMO). Son Quick Tunnels: cambian en cada arranque.
 
 Uso:
@@ -34,7 +34,7 @@ from pathlib import Path
 RAIZ = Path(__file__).resolve().parent
 DEMO = RAIZ / ".demo"
 PIDS = DEMO / "pids.txt"
-URLS_TXT = RAIZ / "URLs_demo.txt"
+URLS_TXT = RAIZ / "notebooks" / "URLs_demo.txt"
 MARCADOR_RE = re.compile(r"(<!-- URLS-DEMO:ini -->).*?(<!-- URLS-DEMO:fin -->)", re.S)
 RE_URL_TUNEL = re.compile(r"https://[a-z0-9-]+\.trycloudflare\.com")
 ES_WINDOWS = os.name == "nt"
@@ -256,7 +256,7 @@ def main() -> None:
     print(f"================ DEMO LISTA ({fecha}) ================")
     print(f"  API pública:  {url_api}/docs")
     print(f"  HAPI público: {url_hapi}/fhir")
-    print(f"  URLs también en {URLS_TXT.name}")
+    print(f"  URLs también en {URLS_TXT.relative_to(RAIZ)}")
     print("=====================================================")
     print("Recuerda: probar desde datos móviles, y si quieres dejar estas URLs")
     print("en el repo, haz commit del README actualizado.")
