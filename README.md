@@ -133,11 +133,11 @@ verificación de la disponibilidad en línea vía Cloudflare Tunnel.
 ## Disponibilidad en línea (Cloudflare Tunnel)
 
 <!-- URLS-DEMO:ini -->
-URLs públicas generadas el **2026-09-07 12:08** con `levantar_demo` (Quick Tunnel:
+URLs públicas generadas el **2026-09-07 19:08** con `levantar_demo` (Quick Tunnel:
 efímeras — cambian en cada arranque):
 
-- **API (FastAPI):** https://practices-camp-pan-statutory.trycloudflare.com — `/docs` verificado
-- **Servidor FHIR (HAPI):** https://upcoming-combine-rouge-words.trycloudflare.com — `/fhir/metadata` verificado
+- **API (FastAPI):** https://tackle-renewable-fresh-occasions.trycloudflare.com — `/docs` verificado
+- **Servidor FHIR (HAPI):** https://singles-generation-sink-college.trycloudflare.com — `/fhir/metadata` verificado
 <!-- URLS-DEMO:fin -->
 
 > **Nota sobre la web de HAPI:** su interfaz administrativa (swagger-ui de HAPI) solo
