@@ -1,14 +1,23 @@
--- TrazaRed HUV — Esquema completo de PostgreSQL
+-- TrazaRed HUV — Esquema de PostgreSQL (IDEMPOTENTE)
+--
+-- Este archivo se puede ejecutar las veces que sea contra la MISMA base:
+-- si las tablas ya existen, CREATE TABLE IF NOT EXISTS no hace nada y NO
+-- borra datos. Cualquier integrante del equipo puede correrlo sin riesgo
+-- de reiniciar lo que los demás ya crearon.
+--
+-- ¿RESET TOTAL de verdad? Solo en un momento acordado por el equipo (borra
+-- pacientes, remisiones, usuarios y gestiones de TODOS): descomenta el
+-- bloque DROP, córrelo, y vuelve a correr este archivo para recrear tablas.
 
-DROP TABLE IF EXISTS auditoria;
-DROP TABLE IF EXISTS remisiones_historial;
-DROP TABLE IF EXISTS observaciones;
-DROP TABLE IF EXISTS remisiones;
-DROP TABLE IF EXISTS usuarios;
-DROP TABLE IF EXISTS consultas;
-DROP TABLE IF EXISTS pacientes;
+-- DROP TABLE IF EXISTS auditoria;
+-- DROP TABLE IF EXISTS remisiones_historial;
+-- DROP TABLE IF EXISTS observaciones;
+-- DROP TABLE IF EXISTS remisiones;
+-- DROP TABLE IF EXISTS usuarios;
+-- DROP TABLE IF EXISTS consultas;
+-- DROP TABLE IF EXISTS pacientes;
 
-CREATE TABLE pacientes (
+CREATE TABLE IF NOT EXISTS pacientes (
     id SERIAL PRIMARY KEY,
     nombre TEXT NOT NULL,
     documento TEXT NOT NULL UNIQUE,
@@ -16,7 +25,7 @@ CREATE TABLE pacientes (
     eps TEXT NOT NULL
 );
 
-CREATE TABLE usuarios (
+CREATE TABLE IF NOT EXISTS usuarios (
     id SERIAL PRIMARY KEY,
     nombre TEXT NOT NULL,
     correo TEXT NOT NULL UNIQUE,
@@ -27,7 +36,7 @@ CREATE TABLE usuarios (
     eps_nombre TEXT
 );
 
-CREATE TABLE remisiones (
+CREATE TABLE IF NOT EXISTS remisiones (
     id SERIAL PRIMARY KEY,
     paciente_id INTEGER NOT NULL REFERENCES pacientes(id) ON DELETE RESTRICT,
     institucion_origen TEXT NOT NULL,
@@ -40,7 +49,7 @@ CREATE TABLE remisiones (
     activo BOOLEAN NOT NULL DEFAULT TRUE
 );
 
-CREATE TABLE observaciones (
+CREATE TABLE IF NOT EXISTS observaciones (
     id SERIAL PRIMARY KEY,
     remision_id INTEGER NOT NULL REFERENCES remisiones(id) ON DELETE RESTRICT,
     tipo TEXT NOT NULL,
@@ -50,7 +59,7 @@ CREATE TABLE observaciones (
     fecha_observacion TIMESTAMP NOT NULL DEFAULT now()
 );
 
-CREATE TABLE remisiones_historial (
+CREATE TABLE IF NOT EXISTS remisiones_historial (
     id SERIAL PRIMARY KEY,
     remision_id INTEGER NOT NULL REFERENCES remisiones(id),
     dato_anterior JSONB NOT NULL,
@@ -58,7 +67,7 @@ CREATE TABLE remisiones_historial (
     modificado_en TIMESTAMP NOT NULL DEFAULT now()
 );
 
-CREATE TABLE auditoria (
+CREATE TABLE IF NOT EXISTS auditoria (
     id SERIAL PRIMARY KEY,
     usuario_id INTEGER REFERENCES usuarios(id),
     accion TEXT NOT NULL,
