@@ -87,9 +87,9 @@ frente al modelo de la Semana 3 están en [`documentacion_mapeo_roles.md`](docum
 ```powershell
 git clone https://github.com/Laura25a/TrazaRedHUV.git
 cd TrazaRedHUV
-python -m venv venv
-.\venv\Scripts\Activate.ps1
-pip install psycopg2-binary pymongo python-dotenv fastapi uvicorn python-multipart "passlib[bcrypt]" "python-jose[cryptography]" requests
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
 ```
 
 **2. Configurar las variables de entorno**
@@ -133,11 +133,11 @@ verificación de la disponibilidad en línea vía Cloudflare Tunnel.
 ## Disponibilidad en línea (Cloudflare Tunnel)
 
 <!-- URLS-DEMO:ini -->
-URLs públicas generadas el **2026-09-07 20:21** con `levantar_demo` (Quick Tunnel:
+URLs públicas generadas el **2026-09-08 08:30** con `levantar_demo` (Quick Tunnel:
 efímeras — cambian en cada arranque):
 
-- **API (FastAPI):** https://feature-value-venue-describes.trycloudflare.com — `/docs` verificado
-- **Servidor FHIR (HAPI):** https://united-elections-fairfield-same.trycloudflare.com — `/fhir/metadata` verificado
+- **API (FastAPI):** https://collar-september-finals-warming.trycloudflare.com — `/docs` verificado
+- **Servidor FHIR (HAPI):** https://housewives-privacy-colour-ipod.trycloudflare.com — `/fhir/metadata` verificado
 <!-- URLS-DEMO:fin -->
 
 > **Nota sobre la web de HAPI:** su interfaz administrativa (swagger-ui de HAPI) solo
@@ -164,13 +164,13 @@ y déjalo en el `PATH` o junto a `levantar_demo.py`):
 ```
 git pull
 # pass.env en la raíz con las 8 variables (las 4 de siempre + las 4 DEMO_*)
-python -m venv venv ; .\venv\Scripts\Activate.ps1
-pip install psycopg2-binary pymongo python-dotenv fastapi uvicorn python-multipart "passlib[bcrypt]" "python-jose[cryptography]" requests
+python -m venv .venv ; .\.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
 python levantar_demo.py          # arranca todo (Docker Desktop debe estar corriendo)
 python levantar_demo.py --stop   # apaga todo
 ```
 
-En macOS/Linux el mismo flujo con `python3 -m venv venv && source venv/bin/activate`.
+En macOS/Linux el mismo flujo con `python3 -m venv .venv && source .venv/bin/activate`.
 El script imprime las URLs al final y las deja también en `notebooks/URLs_demo.txt`.
 
 ## Credenciales de demostración (datos sintéticos)
