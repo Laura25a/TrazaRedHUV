@@ -1,0 +1,601 @@
+ref,paciente_ref,grupo,institucion_origen,institucion_destino,fecha_solicitud,motivo,estado,convenio_vigente
+1,1,fallida,Hospital Raúl Orejuela Bueno (Palmira),Hospital Universitario del Valle,2026-04-20,Infarto agudo de miocardio con elevación del ST; requiere hemodinamia,rechazada,False
+2,2,fallida,Hospital Departamental de Buenaventura,Hospital Universitario del Valle,2026-05-30,Insuficiencia respiratoria aguda; requiere ventilación mecánica en UCI,rechazada,False
+3,3,efectiva,Hospital Raúl Orejuela Bueno (Palmira),Hospital Universitario del Valle,2026-04-13,Politraumatismo por accidente de tránsito; requiere UCI y cirugía,aceptada,True
+4,4,efectiva,Hospital Universitario del Valle,Fundación Valle del Lili,2026-05-04,Leucemia en estudio; requiere hematología oncológica,aceptada,True
+5,5,borderline,Hospital Universitario del Valle,Clínica Sebastián de Belalcázar,2026-09-11,Diabetes descompensada; requiere manejo por medicina interna,en_gestion,False
+6,6,fallida,Hospital Universitario del Valle,Clínica Farallones,2026-04-02,Leucemia en estudio; requiere hematología oncológica,rechazada,False
+7,7,borderline,Hospital Universitario del Valle,Clínica Versalles,2026-07-16,Infarto agudo de miocardio con elevación del ST; requiere hemodinamia,pendiente,True
+8,8,borderline,Hospital Universitario del Valle,Clínica de Occidente,2026-06-25,Leucemia en estudio; requiere hematología oncológica,en_gestion,False
+9,9,fallida,Hospital Universitario del Valle,Fundación Valle del Lili,2026-04-13,Choque séptico de origen abdominal; requiere UCI adultos,rechazada,False
+10,10,efectiva,ESE Norte 2 (Caloto),Hospital Universitario del Valle,2026-07-12,Hemorragia subaracnoidea; requiere neurocirugía,completada,True
+11,11,borderline,Hospital Isaías Duarte Cancino,Hospital Universitario del Valle,2026-08-09,Falla renal aguda con hiperpotasemia; requiere hemodiálisis urgente,pendiente,False
+12,12,efectiva,Hospital Universitario del Valle,Fundación Valle del Lili,2026-07-16,Dolor torácico en estudio; requiere valoración por cardiología,completada,True
+13,13,efectiva,ESE Norte 2 (Caloto),Hospital Universitario del Valle,2026-06-30,Dolor torácico en estudio; requiere valoración por cardiología,aceptada,True
+14,14,fallida,Hospital Universitario del Valle,Clínica Sebastián de Belalcázar,2026-05-27,Choque séptico de origen abdominal; requiere UCI adultos,rechazada,False
+15,15,borderline,Hospital San Rafael (Buga),Hospital Universitario del Valle,2026-06-14,Hemorragia subaracnoidea; requiere neurocirugía,en_gestion,False
+16,16,efectiva,Hospital Universitario del Valle,Hospital Universitario San José (Popayán),2026-04-13,Colecistitis aguda; requiere cirugía general,aceptada,True
+17,17,fallida,Hospital Universitario del Valle,Fundación Valle del Lili,2026-06-08,Insuficiencia respiratoria aguda; requiere ventilación mecánica en UCI,rechazada,False
+18,18,fallida,Hospital Universitario del Valle,Hospital San Juan de Dios Cali,2026-06-28,Insuficiencia respiratoria aguda; requiere ventilación mecánica en UCI,rechazada,False
+19,19,fallida,Hospital Mario Correa Rengifo,Hospital Universitario del Valle,2026-09-09,Trauma craneoencefálico severo; requiere neurocirugía y UCI,rechazada,True
+20,20,efectiva,Hospital Mario Correa Rengifo,Hospital Universitario del Valle,2026-08-13,Insuficiencia cardiaca descompensada; requiere cardiología,completada,True
+21,21,efectiva,Hospital Universitario del Valle,Clínica Farallones,2026-03-30,Neumonía adquirida en la comunidad; requiere hospitalización en piso,aceptada,True
+22,22,borderline,Hospital Universitario del Valle,Hospital Universitario San José (Popayán),2026-03-10,Insuficiencia cardiaca descompensada; requiere cardiología,en_gestion,False
+23,23,fallida,Hospital Universitario del Valle,Clínica Farallones,2026-07-13,Pie diabético infectado; requiere cirugía vascular,rechazada,False
+24,24,borderline,Hospital Universitario del Valle,Clínica de Occidente,2026-03-17,Pie diabético infectado; requiere cirugía vascular,pendiente,False
+25,25,fallida,Hospital Departamental Tomás Uribe Uribe (Tuluá),Hospital Universitario del Valle,2026-05-21,Falla renal aguda con hiperpotasemia; requiere hemodiálisis urgente,rechazada,True
+26,26,efectiva,Hospital Universitario del Valle,Clínica Nuestra Señora de los Remedios,2026-04-01,Neumonía adquirida en la comunidad; requiere hospitalización en piso,completada,False
+27,27,borderline,ESE Norte 2 (Caloto),Hospital Universitario del Valle,2026-05-07,Pie diabético infectado; requiere cirugía vascular,pendiente,False
+28,28,efectiva,Hospital Universitario del Valle,Fundación Valle del Lili,2026-05-03,Diabetes descompensada; requiere manejo por medicina interna,aceptada,True
+29,29,borderline,Hospital Universitario del Valle,Clínica Colombia Cali,2026-09-06,Neumonía adquirida en la comunidad; requiere hospitalización en piso,en_gestion,True
+30,30,efectiva,Hospital Universitario del Valle,Clínica Imbanaco,2026-03-08,Infarto agudo de miocardio con elevación del ST; requiere hemodinamia,completada,True
+31,31,efectiva,Hospital Universitario del Valle,Clínica Versalles,2026-03-24,Politraumatismo por accidente de tránsito; requiere UCI y cirugía,aceptada,True
+32,32,efectiva,Hospital Raúl Orejuela Bueno (Palmira),Hospital Universitario del Valle,2026-06-29,Insuficiencia cardiaca descompensada; requiere cardiología,aceptada,True
+33,33,efectiva,Hospital Universitario del Valle,Clínica Versalles,2026-06-05,Diabetes descompensada; requiere manejo por medicina interna,completada,True
+34,34,fallida,Hospital Universitario del Valle,Hospital San Juan de Dios Cali,2026-08-13,Choque séptico de origen abdominal; requiere UCI adultos,rechazada,True
+35,35,efectiva,Hospital Universitario del Valle,Hospital San Juan de Dios Cali,2026-04-02,Infarto agudo de miocardio con elevación del ST; requiere hemodinamia,completada,True
+36,36,efectiva,Hospital Universitario del Valle,Clínica Sebastián de Belalcázar,2026-09-14,Neumonía adquirida en la comunidad; requiere hospitalización en piso,completada,True
+37,37,efectiva,Hospital Departamental de Buenaventura,Hospital Universitario del Valle,2026-03-30,Colecistitis aguda; requiere cirugía general,aceptada,False
+38,38,fallida,Hospital Universitario del Valle,Clínica de Occidente,2026-07-12,Insuficiencia respiratoria aguda; requiere ventilación mecánica en UCI,rechazada,False
+39,39,efectiva,ESE Norte 2 (Caloto),Hospital Universitario del Valle,2026-07-02,Hemorragia subaracnoidea; requiere neurocirugía,completada,True
+40,40,fallida,Hospital Universitario del Valle,Clínica Colombia Cali,2026-03-15,Hemorragia subaracnoidea; requiere neurocirugía,rechazada,False
+41,41,borderline,Hospital Universitario del Valle,Clínica Versalles,2026-08-27,Neumonía adquirida en la comunidad; requiere hospitalización en piso,en_gestion,False
+42,42,fallida,Hospital Universitario del Valle,Clínica de Occidente,2026-07-26,Hemorragia subaracnoidea; requiere neurocirugía,rechazada,True
+43,43,fallida,Hospital Universitario del Valle,Clínica Imbanaco,2026-04-25,Insuficiencia respiratoria aguda; requiere ventilación mecánica en UCI,rechazada,False
+44,44,fallida,Hospital Departamental Tomás Uribe Uribe (Tuluá),Hospital Universitario del Valle,2026-08-03,Fractura de cadera; requiere ortopedia y cirugía programada,rechazada,False
+45,45,borderline,Hospital Universitario del Valle,Clínica Colombia Cali,2026-07-23,Pie diabético infectado; requiere cirugía vascular,en_gestion,False
+46,46,borderline,Hospital Universitario del Valle,Hospital San Juan de Dios Cali,2026-08-27,Hemorragia subaracnoidea; requiere neurocirugía,en_gestion,True
+47,47,fallida,Hospital Universitario del Valle,Clínica Farallones,2026-06-18,Falla renal aguda con hiperpotasemia; requiere hemodiálisis urgente,rechazada,False
+48,48,borderline,Hospital Universitario del Valle,Clínica Versalles,2026-07-05,Hemorragia subaracnoidea; requiere neurocirugía,en_gestion,False
+49,49,fallida,Hospital Universitario del Valle,Clínica Nuestra Señora de los Remedios,2026-03-11,Trauma craneoencefálico severo; requiere neurocirugía y UCI,rechazada,False
+50,50,fallida,Hospital Universitario del Valle,Hospital San Juan de Dios Cali,2026-05-23,Fractura de cadera; requiere ortopedia y cirugía programada,rechazada,False
+51,51,fallida,Hospital Universitario del Valle,Hospital Universitario San José (Popayán),2026-05-12,Pie diabético infectado; requiere cirugía vascular,rechazada,False
+52,52,fallida,Hospital Departamental de Buenaventura,Hospital Universitario del Valle,2026-08-08,Choque séptico de origen abdominal; requiere UCI adultos,rechazada,True
+53,53,efectiva,Hospital Universitario del Valle,Hospital Universitario San José (Popayán),2026-06-21,Falla renal aguda con hiperpotasemia; requiere hemodiálisis urgente,completada,True
+54,54,fallida,Hospital Universitario del Valle,Clínica Nuestra Señora de los Remedios,2026-04-24,Insuficiencia respiratoria aguda; requiere ventilación mecánica en UCI,rechazada,True
+55,55,fallida,Hospital Universitario del Valle,Clínica Farallones,2026-05-15,Insuficiencia respiratoria aguda; requiere ventilación mecánica en UCI,rechazada,False
+56,56,efectiva,Hospital Raúl Orejuela Bueno (Palmira),Hospital Universitario del Valle,2026-06-08,Neumonía adquirida en la comunidad; requiere hospitalización en piso,completada,True
+57,57,efectiva,Hospital Universitario del Valle,Hospital Universitario San José (Popayán),2026-03-12,Insuficiencia cardiaca descompensada; requiere cardiología,completada,True
+58,58,efectiva,Hospital Universitario del Valle,Clínica Imbanaco,2026-04-30,Hemorragia subaracnoidea; requiere neurocirugía,completada,True
+59,59,fallida,Hospital Departamental Tomás Uribe Uribe (Tuluá),Hospital Universitario del Valle,2026-06-25,Fractura de cadera; requiere ortopedia y cirugía programada,rechazada,False
+60,60,fallida,Hospital Universitario del Valle,Hospital Universitario San José (Popayán),2026-09-15,Politraumatismo por accidente de tránsito; requiere UCI y cirugía,rechazada,False
+61,61,borderline,Hospital Universitario del Valle,Clínica Versalles,2026-09-02,Fractura de cadera; requiere ortopedia y cirugía programada,en_gestion,True
+62,62,efectiva,Hospital Mario Correa Rengifo,Hospital Universitario del Valle,2026-06-17,Pie diabético infectado; requiere cirugía vascular,aceptada,True
+63,63,efectiva,Hospital Universitario del Valle,Hospital San Juan de Dios Cali,2026-07-01,Colecistitis aguda; requiere cirugía general,completada,True
+64,64,efectiva,Hospital Universitario del Valle,Fundación Valle del Lili,2026-03-16,Dolor torácico en estudio; requiere valoración por cardiología,completada,True
+65,65,efectiva,Hospital San Rafael (Buga),Hospital Universitario del Valle,2026-06-22,Dolor torácico en estudio; requiere valoración por cardiología,completada,False
+66,66,fallida,Hospital Universitario del Valle,Fundación Valle del Lili,2026-06-02,Insuficiencia respiratoria aguda; requiere ventilación mecánica en UCI,rechazada,False
+67,67,efectiva,Hospital Universitario del Valle,Clínica Farallones,2026-05-12,Diabetes descompensada; requiere manejo por medicina interna,completada,False
+68,68,borderline,Hospital Mario Correa Rengifo,Hospital Universitario del Valle,2026-06-14,Fractura de cadera; requiere ortopedia y cirugía programada,en_gestion,False
+69,69,fallida,Hospital Universitario del Valle,Clínica Farallones,2026-05-18,Hemorragia subaracnoidea; requiere neurocirugía,rechazada,False
+70,70,efectiva,Hospital Universitario del Valle,Fundación Valle del Lili,2026-03-09,Colecistitis aguda; requiere cirugía general,aceptada,True
+71,71,efectiva,Hospital Isaías Duarte Cancino,Hospital Universitario del Valle,2026-05-28,Fractura de cadera; requiere ortopedia y cirugía programada,aceptada,True
+72,72,fallida,Hospital Universitario del Valle,Clínica de Occidente,2026-05-08,Politraumatismo por accidente de tránsito; requiere UCI y cirugía,rechazada,True
+73,73,efectiva,Hospital Universitario del Valle,Clínica Versalles,2026-08-27,Diabetes descompensada; requiere manejo por medicina interna,aceptada,True
+74,74,efectiva,Hospital Universitario del Valle,Fundación Valle del Lili,2026-09-05,Colecistitis aguda; requiere cirugía general,completada,True
+75,75,fallida,Hospital Universitario del Valle,Fundación Valle del Lili,2026-04-30,Insuficiencia respiratoria aguda; requiere ventilación mecánica en UCI,rechazada,False
+76,76,efectiva,Hospital Universitario del Valle,Clínica Nuestra Señora de los Remedios,2026-07-06,Diabetes descompensada; requiere manejo por medicina interna,completada,True
+77,77,borderline,Hospital Universitario del Valle,Clínica Imbanaco,2026-04-13,Colecistitis aguda; requiere cirugía general,en_gestion,True
+78,78,borderline,Hospital Universitario del Valle,Clínica de Occidente,2026-09-02,Trauma craneoencefálico severo; requiere neurocirugía y UCI,en_gestion,True
+79,79,borderline,Hospital Universitario del Valle,Clínica Colombia Cali,2026-09-13,Leucemia en estudio; requiere hematología oncológica,en_gestion,True
+80,80,borderline,Hospital San Rafael (Buga),Hospital Universitario del Valle,2026-03-23,Insuficiencia respiratoria aguda; requiere ventilación mecánica en UCI,pendiente,True
+81,81,borderline,Hospital Universitario del Valle,Hospital Universitario San José (Popayán),2026-06-25,Insuficiencia respiratoria aguda; requiere ventilación mecánica en UCI,pendiente,False
+82,82,efectiva,Hospital Universitario del Valle,Clínica Versalles,2026-03-20,Neumonía adquirida en la comunidad; requiere hospitalización en piso,aceptada,True
+83,83,fallida,Hospital Universitario del Valle,Clínica Imbanaco,2026-06-04,Hemorragia subaracnoidea; requiere neurocirugía,rechazada,False
+84,84,fallida,Hospital Universitario del Valle,Clínica Colombia Cali,2026-06-25,Colecistitis aguda; requiere cirugía general,rechazada,False
+85,85,fallida,Hospital Departamental de Buenaventura,Hospital Universitario del Valle,2026-08-11,Insuficiencia respiratoria aguda; requiere ventilación mecánica en UCI,rechazada,False
+86,86,borderline,Hospital Universitario del Valle,Clínica Nuestra Señora de los Remedios,2026-05-22,Choque séptico de origen abdominal; requiere UCI adultos,en_gestion,False
+87,87,fallida,Hospital Universitario del Valle,Clínica Sebastián de Belalcázar,2026-06-08,Infarto agudo de miocardio con elevación del ST; requiere hemodinamia,rechazada,False
+88,88,fallida,Hospital Universitario del Valle,Clínica Colombia Cali,2026-08-15,Falla renal aguda con hiperpotasemia; requiere hemodiálisis urgente,rechazada,False
+89,89,efectiva,Hospital Universitario del Valle,Clínica Sebastián de Belalcázar,2026-05-02,Colecistitis aguda; requiere cirugía general,completada,True
+90,90,fallida,Hospital San Rafael (Buga),Hospital Universitario del Valle,2026-06-06,Colecistitis aguda; requiere cirugía general,rechazada,True
+91,91,efectiva,Hospital Universitario del Valle,Clínica de Occidente,2026-05-06,Colecistitis aguda; requiere cirugía general,completada,True
+92,92,fallida,Hospital Universitario del Valle,Clínica Nuestra Señora de los Remedios,2026-07-21,Insuficiencia cardiaca descompensada; requiere cardiología,rechazada,False
+93,93,fallida,Hospital Universitario del Valle,Clínica Nuestra Señora de los Remedios,2026-07-27,Infarto agudo de miocardio con elevación del ST; requiere hemodinamia,rechazada,False
+94,94,efectiva,Hospital Departamental Tomás Uribe Uribe (Tuluá),Hospital Universitario del Valle,2026-06-20,Diabetes descompensada; requiere manejo por medicina interna,completada,True
+95,95,efectiva,Hospital Departamental de Buenaventura,Hospital Universitario del Valle,2026-03-23,Leucemia en estudio; requiere hematología oncológica,completada,True
+96,96,fallida,Hospital Local de Villa Rica,Hospital Universitario del Valle,2026-08-26,Hemorragia subaracnoidea; requiere neurocirugía,rechazada,False
+97,97,efectiva,Hospital Universitario del Valle,Hospital Universitario San José (Popayán),2026-05-26,Diabetes descompensada; requiere manejo por medicina interna,aceptada,True
+98,98,efectiva,Hospital Universitario del Valle,Fundación Valle del Lili,2026-08-04,Diabetes descompensada; requiere manejo por medicina interna,completada,True
+99,99,efectiva,Hospital Universitario del Valle,Hospital Universitario San José (Popayán),2026-03-17,Pie diabético infectado; requiere cirugía vascular,aceptada,True
+100,100,efectiva,Hospital Local de Villa Rica,Hospital Universitario del Valle,2026-04-29,Choque séptico de origen abdominal; requiere UCI adultos,completada,True
+101,101,efectiva,Hospital Universitario del Valle,Clínica Sebastián de Belalcázar,2026-06-21,Leucemia en estudio; requiere hematología oncológica,completada,False
+102,102,fallida,Hospital Universitario del Valle,Clínica Farallones,2026-06-22,Infarto agudo de miocardio con elevación del ST; requiere hemodinamia,rechazada,False
+103,103,borderline,ESE Norte 2 (Caloto),Hospital Universitario del Valle,2026-03-24,Neumonía adquirida en la comunidad; requiere hospitalización en piso,en_gestion,False
+104,104,fallida,Hospital Raúl Orejuela Bueno (Palmira),Hospital Universitario del Valle,2026-04-10,Falla renal aguda con hiperpotasemia; requiere hemodiálisis urgente,rechazada,False
+105,105,borderline,Hospital Departamental Tomás Uribe Uribe (Tuluá),Hospital Universitario del Valle,2026-08-17,Dolor torácico en estudio; requiere valoración por cardiología,pendiente,True
+106,106,fallida,Hospital Mario Correa Rengifo,Hospital Universitario del Valle,2026-09-18,Leucemia en estudio; requiere hematología oncológica,rechazada,True
+107,107,borderline,Hospital Universitario del Valle,Fundación Valle del Lili,2026-03-28,Insuficiencia respiratoria aguda; requiere ventilación mecánica en UCI,en_gestion,True
+108,108,fallida,Hospital Carlos Holmes Trujillo,Hospital Universitario del Valle,2026-04-23,Insuficiencia respiratoria aguda; requiere ventilación mecánica en UCI,rechazada,False
+109,109,borderline,Hospital Mario Correa Rengifo,Hospital Universitario del Valle,2026-03-07,Trauma craneoencefálico severo; requiere neurocirugía y UCI,pendiente,False
+110,110,borderline,Hospital Universitario del Valle,Clínica Versalles,2026-07-12,Politraumatismo por accidente de tránsito; requiere UCI y cirugía,en_gestion,False
+111,111,fallida,Hospital Universitario del Valle,Clínica de Occidente,2026-03-02,Choque séptico de origen abdominal; requiere UCI adultos,rechazada,False
+112,112,efectiva,Hospital Universitario del Valle,Clínica Colombia Cali,2026-03-29,Fractura de cadera; requiere ortopedia y cirugía programada,aceptada,True
+113,113,borderline,Hospital Universitario del Valle,Clínica Sebastián de Belalcázar,2026-06-10,Choque séptico de origen abdominal; requiere UCI adultos,en_gestion,True
+114,114,efectiva,Hospital Departamental de Buenaventura,Hospital Universitario del Valle,2026-07-29,Leucemia en estudio; requiere hematología oncológica,completada,False
+115,115,borderline,Hospital Local de Villa Rica,Hospital Universitario del Valle,2026-08-17,Insuficiencia respiratoria aguda; requiere ventilación mecánica en UCI,pendiente,True
+116,116,fallida,Hospital Universitario del Valle,Clínica Farallones,2026-04-14,Insuficiencia respiratoria aguda; requiere ventilación mecánica en UCI,rechazada,False
+117,117,borderline,Hospital Local de Villa Rica,Hospital Universitario del Valle,2026-09-19,Dolor torácico en estudio; requiere valoración por cardiología,pendiente,True
+118,118,fallida,Hospital Carlos Holmes Trujillo,Hospital Universitario del Valle,2026-08-17,Politraumatismo por accidente de tránsito; requiere UCI y cirugía,rechazada,False
+119,119,efectiva,Hospital Local de Villa Rica,Hospital Universitario del Valle,2026-08-10,Insuficiencia cardiaca descompensada; requiere cardiología,completada,True
+120,120,borderline,Hospital Universitario del Valle,Fundación Valle del Lili,2026-04-17,Fractura de cadera; requiere ortopedia y cirugía programada,en_gestion,False
+121,121,borderline,Hospital Universitario del Valle,Clínica Colombia Cali,2026-06-11,Colecistitis aguda; requiere cirugía general,pendiente,True
+122,122,borderline,Hospital Universitario del Valle,Fundación Valle del Lili,2026-05-26,Infarto agudo de miocardio con elevación del ST; requiere hemodinamia,en_gestion,False
+123,123,borderline,Hospital Francisco de Paula Santander (Santander de Quilichao),Hospital Universitario del Valle,2026-07-09,Falla renal aguda con hiperpotasemia; requiere hemodiálisis urgente,en_gestion,True
+124,124,efectiva,Hospital Universitario del Valle,Clínica Imbanaco,2026-03-10,Trauma craneoencefálico severo; requiere neurocirugía y UCI,aceptada,True
+125,125,efectiva,Hospital Universitario del Valle,Fundación Valle del Lili,2026-05-06,Leucemia en estudio; requiere hematología oncológica,completada,True
+126,126,efectiva,Hospital Universitario del Valle,Clínica de Occidente,2026-08-16,Pie diabético infectado; requiere cirugía vascular,aceptada,False
+127,127,efectiva,Hospital Universitario del Valle,Clínica Sebastián de Belalcázar,2026-04-05,Leucemia en estudio; requiere hematología oncológica,aceptada,True
+128,128,borderline,Hospital Universitario del Valle,Clínica Sebastián de Belalcázar,2026-03-18,Leucemia en estudio; requiere hematología oncológica,en_gestion,True
+129,129,borderline,Hospital Universitario del Valle,Fundación Valle del Lili,2026-08-20,Falla renal aguda con hiperpotasemia; requiere hemodiálisis urgente,pendiente,False
+130,130,borderline,Hospital Universitario del Valle,Hospital San Juan de Dios Cali,2026-03-12,Choque séptico de origen abdominal; requiere UCI adultos,en_gestion,False
+131,131,efectiva,ESE Norte 2 (Caloto),Hospital Universitario del Valle,2026-04-20,Insuficiencia cardiaca descompensada; requiere cardiología,completada,True
+132,132,efectiva,Hospital Universitario del Valle,Clínica Sebastián de Belalcázar,2026-04-02,Infarto agudo de miocardio con elevación del ST; requiere hemodinamia,aceptada,True
+133,133,efectiva,Hospital Universitario del Valle,Hospital San Juan de Dios Cali,2026-09-20,Neumonía adquirida en la comunidad; requiere hospitalización en piso,aceptada,True
+134,134,borderline,Hospital Departamental Tomás Uribe Uribe (Tuluá),Hospital Universitario del Valle,2026-08-22,Insuficiencia cardiaca descompensada; requiere cardiología,pendiente,False
+135,135,fallida,Hospital Universitario del Valle,Clínica Sebastián de Belalcázar,2026-03-05,Trauma craneoencefálico severo; requiere neurocirugía y UCI,rechazada,False
+136,136,borderline,Hospital Departamental Tomás Uribe Uribe (Tuluá),Hospital Universitario del Valle,2026-07-31,Neumonía adquirida en la comunidad; requiere hospitalización en piso,pendiente,True
+137,137,efectiva,Hospital Universitario del Valle,Hospital San Juan de Dios Cali,2026-05-05,Neumonía adquirida en la comunidad; requiere hospitalización en piso,completada,True
+138,138,efectiva,Hospital Universitario del Valle,Clínica de Occidente,2026-09-11,Insuficiencia cardiaca descompensada; requiere cardiología,aceptada,True
+139,139,borderline,Hospital Universitario del Valle,Clínica Nuestra Señora de los Remedios,2026-08-26,Diabetes descompensada; requiere manejo por medicina interna,pendiente,False
+140,140,efectiva,Hospital Universitario del Valle,Clínica Versalles,2026-03-15,Colecistitis aguda; requiere cirugía general,aceptada,True
+141,141,efectiva,Hospital Mario Correa Rengifo,Hospital Universitario del Valle,2026-09-08,Dolor torácico en estudio; requiere valoración por cardiología,completada,True
+142,142,efectiva,Hospital Francisco de Paula Santander (Santander de Quilichao),Hospital Universitario del Valle,2026-06-14,Dolor torácico en estudio; requiere valoración por cardiología,aceptada,True
+143,143,efectiva,Hospital Universitario del Valle,Clínica Imbanaco,2026-05-11,Neumonía adquirida en la comunidad; requiere hospitalización en piso,completada,True
+144,144,fallida,Hospital Mario Correa Rengifo,Hospital Universitario del Valle,2026-04-10,Politraumatismo por accidente de tránsito; requiere UCI y cirugía,rechazada,False
+145,145,fallida,Hospital Universitario del Valle,Hospital Universitario San José (Popayán),2026-09-11,Politraumatismo por accidente de tránsito; requiere UCI y cirugía,rechazada,False
+146,146,fallida,Hospital Carlos Holmes Trujillo,Hospital Universitario del Valle,2026-05-17,Pie diabético infectado; requiere cirugía vascular,rechazada,False
+147,147,borderline,Hospital Universitario del Valle,Clínica Imbanaco,2026-06-04,Leucemia en estudio; requiere hematología oncológica,en_gestion,True
+148,148,fallida,Hospital Isaías Duarte Cancino,Hospital Universitario del Valle,2026-07-07,Choque séptico de origen abdominal; requiere UCI adultos,rechazada,False
+149,149,fallida,Hospital Universitario del Valle,Clínica Colombia Cali,2026-07-16,Diabetes descompensada; requiere manejo por medicina interna,rechazada,False
+150,150,efectiva,Hospital Universitario del Valle,Clínica Versalles,2026-03-10,Colecistitis aguda; requiere cirugía general,completada,True
+151,151,borderline,Hospital Universitario del Valle,Clínica Nuestra Señora de los Remedios,2026-03-26,Politraumatismo por accidente de tránsito; requiere UCI y cirugía,pendiente,False
+152,152,fallida,Hospital Universitario del Valle,Hospital San Juan de Dios Cali,2026-03-17,Politraumatismo por accidente de tránsito; requiere UCI y cirugía,rechazada,False
+153,153,fallida,Hospital Universitario del Valle,Clínica de Occidente,2026-03-21,Diabetes descompensada; requiere manejo por medicina interna,rechazada,False
+154,154,efectiva,Hospital San Rafael (Buga),Hospital Universitario del Valle,2026-07-27,Trauma craneoencefálico severo; requiere neurocirugía y UCI,completada,True
+155,155,fallida,Hospital Universitario del Valle,Clínica Imbanaco,2026-03-12,Fractura de cadera; requiere ortopedia y cirugía programada,rechazada,False
+156,156,efectiva,Hospital Raúl Orejuela Bueno (Palmira),Hospital Universitario del Valle,2026-05-17,Dolor torácico en estudio; requiere valoración por cardiología,completada,True
+157,157,borderline,Hospital Mario Correa Rengifo,Hospital Universitario del Valle,2026-06-28,Diabetes descompensada; requiere manejo por medicina interna,en_gestion,True
+158,158,efectiva,Hospital Universitario del Valle,Clínica Imbanaco,2026-03-17,Diabetes descompensada; requiere manejo por medicina interna,completada,True
+159,159,fallida,Hospital Universitario del Valle,Hospital Universitario San José (Popayán),2026-06-29,Hemorragia subaracnoidea; requiere neurocirugía,rechazada,False
+160,160,fallida,Hospital Departamental Tomás Uribe Uribe (Tuluá),Hospital Universitario del Valle,2026-04-12,Falla renal aguda con hiperpotasemia; requiere hemodiálisis urgente,rechazada,False
+161,161,borderline,Hospital Universitario del Valle,Hospital San Juan de Dios Cali,2026-09-11,Dolor torácico en estudio; requiere valoración por cardiología,pendiente,True
+162,162,fallida,Hospital Local de Villa Rica,Hospital Universitario del Valle,2026-03-30,Hemorragia subaracnoidea; requiere neurocirugía,rechazada,True
+163,163,efectiva,Hospital Universitario del Valle,Hospital San Juan de Dios Cali,2026-04-10,Insuficiencia cardiaca descompensada; requiere cardiología,completada,True
+164,164,fallida,ESE Norte 2 (Caloto),Hospital Universitario del Valle,2026-05-02,Falla renal aguda con hiperpotasemia; requiere hemodiálisis urgente,rechazada,False
+165,165,borderline,Hospital Raúl Orejuela Bueno (Palmira),Hospital Universitario del Valle,2026-07-15,Infarto agudo de miocardio con elevación del ST; requiere hemodinamia,en_gestion,True
+166,166,efectiva,Hospital Universitario del Valle,Hospital San Juan de Dios Cali,2026-05-15,Leucemia en estudio; requiere hematología oncológica,aceptada,True
+167,167,borderline,Hospital Isaías Duarte Cancino,Hospital Universitario del Valle,2026-03-20,Choque séptico de origen abdominal; requiere UCI adultos,en_gestion,True
+168,168,efectiva,Hospital Universitario del Valle,Clínica de Occidente,2026-05-19,Diabetes descompensada; requiere manejo por medicina interna,aceptada,True
+169,169,borderline,Hospital Universitario del Valle,Clínica Colombia Cali,2026-04-11,Neumonía adquirida en la comunidad; requiere hospitalización en piso,en_gestion,True
+170,170,efectiva,Hospital Francisco de Paula Santander (Santander de Quilichao),Hospital Universitario del Valle,2026-06-01,Pie diabético infectado; requiere cirugía vascular,aceptada,True
+171,171,borderline,Hospital Universitario del Valle,Clínica de Occidente,2026-08-29,Diabetes descompensada; requiere manejo por medicina interna,en_gestion,False
+172,172,efectiva,Hospital Departamental Tomás Uribe Uribe (Tuluá),Hospital Universitario del Valle,2026-03-18,Insuficiencia respiratoria aguda; requiere ventilación mecánica en UCI,completada,True
+173,173,borderline,Hospital Universitario del Valle,Hospital Universitario San José (Popayán),2026-06-14,Pie diabético infectado; requiere cirugía vascular,pendiente,True
+174,174,borderline,Hospital Raúl Orejuela Bueno (Palmira),Hospital Universitario del Valle,2026-09-08,Politraumatismo por accidente de tránsito; requiere UCI y cirugía,en_gestion,False
+175,175,borderline,Hospital Universitario del Valle,Hospital Universitario San José (Popayán),2026-07-17,Infarto agudo de miocardio con elevación del ST; requiere hemodinamia,en_gestion,False
+176,176,fallida,Hospital Universitario del Valle,Hospital San Juan de Dios Cali,2026-07-24,Falla renal aguda con hiperpotasemia; requiere hemodiálisis urgente,rechazada,False
+177,177,efectiva,Hospital Universitario del Valle,Clínica Versalles,2026-05-03,Neumonía adquirida en la comunidad; requiere hospitalización en piso,completada,True
+178,178,fallida,Hospital San Rafael (Buga),Hospital Universitario del Valle,2026-08-23,Choque séptico de origen abdominal; requiere UCI adultos,rechazada,True
+179,179,borderline,Hospital Francisco de Paula Santander (Santander de Quilichao),Hospital Universitario del Valle,2026-03-19,Diabetes descompensada; requiere manejo por medicina interna,pendiente,True
+180,180,borderline,Hospital Universitario del Valle,Clínica Colombia Cali,2026-08-13,Falla renal aguda con hiperpotasemia; requiere hemodiálisis urgente,en_gestion,False
+181,181,efectiva,Hospital Raúl Orejuela Bueno (Palmira),Hospital Universitario del Valle,2026-07-10,Fractura de cadera; requiere ortopedia y cirugía programada,aceptada,True
+182,182,fallida,Hospital Universitario del Valle,Clínica Farallones,2026-03-18,Choque séptico de origen abdominal; requiere UCI adultos,rechazada,False
+183,183,fallida,Hospital Universitario del Valle,Clínica Nuestra Señora de los Remedios,2026-08-16,Trauma craneoencefálico severo; requiere neurocirugía y UCI,rechazada,False
+184,184,efectiva,Hospital Local de Villa Rica,Hospital Universitario del Valle,2026-08-30,Pie diabético infectado; requiere cirugía vascular,completada,True
+185,185,fallida,Hospital Raúl Orejuela Bueno (Palmira),Hospital Universitario del Valle,2026-04-07,Leucemia en estudio; requiere hematología oncológica,rechazada,False
+186,186,borderline,ESE Norte 2 (Caloto),Hospital Universitario del Valle,2026-06-04,Insuficiencia respiratoria aguda; requiere ventilación mecánica en UCI,en_gestion,False
+187,187,borderline,Hospital Universitario del Valle,Clínica Nuestra Señora de los Remedios,2026-09-02,Hemorragia subaracnoidea; requiere neurocirugía,en_gestion,False
+188,188,borderline,Hospital Universitario del Valle,Clínica Nuestra Señora de los Remedios,2026-03-30,Pie diabético infectado; requiere cirugía vascular,en_gestion,False
+189,189,efectiva,Hospital Francisco de Paula Santander (Santander de Quilichao),Hospital Universitario del Valle,2026-04-01,Falla renal aguda con hiperpotasemia; requiere hemodiálisis urgente,completada,False
+190,190,borderline,Hospital Francisco de Paula Santander (Santander de Quilichao),Hospital Universitario del Valle,2026-08-19,Dolor torácico en estudio; requiere valoración por cardiología,pendiente,True
+191,191,efectiva,Hospital Universitario del Valle,Hospital San Juan de Dios Cali,2026-05-28,Neumonía adquirida en la comunidad; requiere hospitalización en piso,aceptada,False
+192,192,fallida,Hospital Universitario del Valle,Clínica Versalles,2026-08-27,Trauma craneoencefálico severo; requiere neurocirugía y UCI,rechazada,False
+193,193,efectiva,Hospital Universitario del Valle,Clínica Versalles,2026-08-26,Falla renal aguda con hiperpotasemia; requiere hemodiálisis urgente,aceptada,False
+194,194,fallida,Hospital Local de Villa Rica,Hospital Universitario del Valle,2026-04-05,Infarto agudo de miocardio con elevación del ST; requiere hemodinamia,rechazada,False
+195,195,borderline,Hospital Departamental Tomás Uribe Uribe (Tuluá),Hospital Universitario del Valle,2026-08-21,Choque séptico de origen abdominal; requiere UCI adultos,en_gestion,True
+196,196,fallida,Hospital Universitario del Valle,Hospital Universitario San José (Popayán),2026-07-28,Infarto agudo de miocardio con elevación del ST; requiere hemodinamia,rechazada,True
+197,197,fallida,Hospital Universitario del Valle,Hospital San Juan de Dios Cali,2026-05-03,Insuficiencia respiratoria aguda; requiere ventilación mecánica en UCI,rechazada,False
+198,198,fallida,Hospital Carlos Holmes Trujillo,Hospital Universitario del Valle,2026-09-01,Insuficiencia respiratoria aguda; requiere ventilación mecánica en UCI,rechazada,False
+199,199,fallida,ESE Norte 2 (Caloto),Hospital Universitario del Valle,2026-04-01,Diabetes descompensada; requiere manejo por medicina interna,rechazada,False
+200,200,borderline,Hospital Universitario del Valle,Clínica Colombia Cali,2026-05-03,Infarto agudo de miocardio con elevación del ST; requiere hemodinamia,pendiente,True
+201,201,fallida,Hospital Raúl Orejuela Bueno (Palmira),Hospital Universitario del Valle,2026-05-13,Insuficiencia respiratoria aguda; requiere ventilación mecánica en UCI,rechazada,False
+202,202,efectiva,Hospital Universitario del Valle,Clínica Imbanaco,2026-05-01,Neumonía adquirida en la comunidad; requiere hospitalización en piso,aceptada,True
+203,203,efectiva,Hospital Local de Villa Rica,Hospital Universitario del Valle,2026-05-28,Colecistitis aguda; requiere cirugía general,aceptada,True
+204,204,efectiva,Hospital Universitario del Valle,Clínica Imbanaco,2026-06-16,Fractura de cadera; requiere ortopedia y cirugía programada,completada,False
+205,205,fallida,Hospital Mario Correa Rengifo,Hospital Universitario del Valle,2026-03-31,Politraumatismo por accidente de tránsito; requiere UCI y cirugía,rechazada,True
+206,206,borderline,Hospital Universitario del Valle,Clínica Versalles,2026-04-26,Leucemia en estudio; requiere hematología oncológica,en_gestion,False
+207,207,borderline,Hospital Universitario del Valle,Clínica Farallones,2026-03-13,Dolor torácico en estudio; requiere valoración por cardiología,en_gestion,False
+208,208,borderline,Hospital Universitario del Valle,Clínica Imbanaco,2026-06-02,Politraumatismo por accidente de tránsito; requiere UCI y cirugía,en_gestion,True
+209,209,efectiva,ESE Norte 2 (Caloto),Hospital Universitario del Valle,2026-05-16,Falla renal aguda con hiperpotasemia; requiere hemodiálisis urgente,completada,True
+210,210,efectiva,Hospital Universitario del Valle,Hospital Universitario San José (Popayán),2026-05-15,Dolor torácico en estudio; requiere valoración por cardiología,completada,True
+211,211,fallida,Hospital Universitario del Valle,Clínica Colombia Cali,2026-06-12,Insuficiencia respiratoria aguda; requiere ventilación mecánica en UCI,rechazada,False
+212,212,borderline,Hospital Universitario del Valle,Clínica Farallones,2026-08-07,Colecistitis aguda; requiere cirugía general,pendiente,True
+213,213,efectiva,Hospital Universitario del Valle,Clínica Versalles,2026-07-09,Diabetes descompensada; requiere manejo por medicina interna,aceptada,True
+214,214,borderline,ESE Norte 2 (Caloto),Hospital Universitario del Valle,2026-08-16,Fractura de cadera; requiere ortopedia y cirugía programada,en_gestion,False
+215,215,borderline,Hospital Universitario del Valle,Clínica Imbanaco,2026-07-05,Insuficiencia respiratoria aguda; requiere ventilación mecánica en UCI,en_gestion,True
+216,216,efectiva,Hospital Departamental de Buenaventura,Hospital Universitario del Valle,2026-08-11,Leucemia en estudio; requiere hematología oncológica,completada,True
+217,217,borderline,Hospital Universitario del Valle,Hospital Universitario San José (Popayán),2026-07-08,Choque séptico de origen abdominal; requiere UCI adultos,pendiente,False
+218,218,fallida,Hospital Universitario del Valle,Fundación Valle del Lili,2026-07-12,Politraumatismo por accidente de tránsito; requiere UCI y cirugía,rechazada,False
+219,219,efectiva,Hospital Universitario del Valle,Clínica Nuestra Señora de los Remedios,2026-07-28,Dolor torácico en estudio; requiere valoración por cardiología,aceptada,True
+220,220,fallida,Hospital Universitario del Valle,Fundación Valle del Lili,2026-04-15,Trauma craneoencefálico severo; requiere neurocirugía y UCI,rechazada,False
+221,221,efectiva,Hospital Universitario del Valle,Fundación Valle del Lili,2026-07-19,Fractura de cadera; requiere ortopedia y cirugía programada,completada,True
+222,222,borderline,Hospital Universitario del Valle,Hospital Universitario San José (Popayán),2026-04-03,Neumonía adquirida en la comunidad; requiere hospitalización en piso,pendiente,True
+223,223,efectiva,Hospital Universitario del Valle,Clínica Imbanaco,2026-05-05,Fractura de cadera; requiere ortopedia y cirugía programada,completada,True
+224,224,efectiva,Hospital Universitario del Valle,Clínica Imbanaco,2026-09-19,Neumonía adquirida en la comunidad; requiere hospitalización en piso,aceptada,False
+225,225,fallida,Hospital Isaías Duarte Cancino,Hospital Universitario del Valle,2026-04-07,Hemorragia subaracnoidea; requiere neurocirugía,rechazada,False
+226,226,efectiva,Hospital Universitario del Valle,Clínica de Occidente,2026-06-13,Colecistitis aguda; requiere cirugía general,completada,True
+227,227,efectiva,Hospital Universitario del Valle,Clínica Nuestra Señora de los Remedios,2026-06-14,Fractura de cadera; requiere ortopedia y cirugía programada,completada,True
+228,228,efectiva,Hospital Universitario del Valle,Clínica Imbanaco,2026-05-16,Diabetes descompensada; requiere manejo por medicina interna,completada,True
+229,229,borderline,Hospital Universitario del Valle,Hospital Universitario San José (Popayán),2026-04-15,Leucemia en estudio; requiere hematología oncológica,pendiente,True
+230,230,fallida,Hospital Universitario del Valle,Hospital San Juan de Dios Cali,2026-04-16,Neumonía adquirida en la comunidad; requiere hospitalización en piso,rechazada,False
+231,231,borderline,Hospital Universitario del Valle,Clínica de Occidente,2026-06-04,Politraumatismo por accidente de tránsito; requiere UCI y cirugía,en_gestion,False
+232,232,borderline,Hospital Departamental de Buenaventura,Hospital Universitario del Valle,2026-03-19,Dolor torácico en estudio; requiere valoración por cardiología,en_gestion,False
+233,233,efectiva,Hospital Departamental Tomás Uribe Uribe (Tuluá),Hospital Universitario del Valle,2026-07-20,Insuficiencia cardiaca descompensada; requiere cardiología,aceptada,True
+234,234,efectiva,Hospital Universitario del Valle,Clínica Sebastián de Belalcázar,2026-06-02,Insuficiencia cardiaca descompensada; requiere cardiología,completada,True
+235,235,efectiva,Hospital Universitario del Valle,Clínica Imbanaco,2026-08-16,Pie diabético infectado; requiere cirugía vascular,completada,True
+236,236,fallida,Hospital Universitario del Valle,Hospital Universitario San José (Popayán),2026-05-04,Infarto agudo de miocardio con elevación del ST; requiere hemodinamia,rechazada,True
+237,237,fallida,Hospital San Rafael (Buga),Hospital Universitario del Valle,2026-03-29,Choque séptico de origen abdominal; requiere UCI adultos,rechazada,False
+238,238,efectiva,Hospital Universitario del Valle,Clínica de Occidente,2026-05-17,Colecistitis aguda; requiere cirugía general,aceptada,True
+239,239,fallida,Hospital Departamental Tomás Uribe Uribe (Tuluá),Hospital Universitario del Valle,2026-03-14,Infarto agudo de miocardio con elevación del ST; requiere hemodinamia,rechazada,False
+240,240,borderline,Hospital Universitario del Valle,Clínica Farallones,2026-04-10,Insuficiencia cardiaca descompensada; requiere cardiología,en_gestion,True
+241,241,efectiva,Hospital Departamental de Buenaventura,Hospital Universitario del Valle,2026-06-04,Pie diabético infectado; requiere cirugía vascular,aceptada,True
+242,242,fallida,Hospital Departamental de Buenaventura,Hospital Universitario del Valle,2026-06-25,Choque séptico de origen abdominal; requiere UCI adultos,rechazada,False
+243,243,borderline,Hospital Carlos Holmes Trujillo,Hospital Universitario del Valle,2026-04-29,Hemorragia subaracnoidea; requiere neurocirugía,en_gestion,False
+244,244,efectiva,Hospital Universitario del Valle,Hospital San Juan de Dios Cali,2026-06-25,Neumonía adquirida en la comunidad; requiere hospitalización en piso,completada,True
+245,245,efectiva,Hospital Universitario del Valle,Clínica Sebastián de Belalcázar,2026-09-13,Falla renal aguda con hiperpotasemia; requiere hemodiálisis urgente,aceptada,True
+246,246,fallida,Hospital Universitario del Valle,Hospital Universitario San José (Popayán),2026-04-14,Neumonía adquirida en la comunidad; requiere hospitalización en piso,rechazada,False
+247,247,fallida,Hospital Universitario del Valle,Clínica Colombia Cali,2026-07-15,Politraumatismo por accidente de tránsito; requiere UCI y cirugía,rechazada,False
+248,248,efectiva,Hospital Universitario del Valle,Clínica de Occidente,2026-06-23,Colecistitis aguda; requiere cirugía general,completada,False
+249,249,fallida,Hospital Departamental Tomás Uribe Uribe (Tuluá),Hospital Universitario del Valle,2026-03-29,Infarto agudo de miocardio con elevación del ST; requiere hemodinamia,rechazada,False
+250,250,borderline,Hospital Universitario del Valle,Hospital San Juan de Dios Cali,2026-09-06,Colecistitis aguda; requiere cirugía general,en_gestion,True
+251,251,efectiva,Hospital Carlos Holmes Trujillo,Hospital Universitario del Valle,2026-08-17,Falla renal aguda con hiperpotasemia; requiere hemodiálisis urgente,aceptada,True
+252,252,fallida,Hospital Universitario del Valle,Hospital Universitario San José (Popayán),2026-09-11,Infarto agudo de miocardio con elevación del ST; requiere hemodinamia,rechazada,False
+253,253,borderline,Hospital Universitario del Valle,Clínica Imbanaco,2026-03-14,Falla renal aguda con hiperpotasemia; requiere hemodiálisis urgente,pendiente,True
+254,254,fallida,ESE Norte 2 (Caloto),Hospital Universitario del Valle,2026-06-02,Falla renal aguda con hiperpotasemia; requiere hemodiálisis urgente,rechazada,False
+255,255,fallida,Hospital Universitario del Valle,Clínica Farallones,2026-08-03,Infarto agudo de miocardio con elevación del ST; requiere hemodinamia,rechazada,False
+256,256,fallida,Hospital Departamental de Buenaventura,Hospital Universitario del Valle,2026-03-11,Falla renal aguda con hiperpotasemia; requiere hemodiálisis urgente,rechazada,False
+257,257,fallida,Hospital Universitario del Valle,Clínica Versalles,2026-06-15,Fractura de cadera; requiere ortopedia y cirugía programada,rechazada,False
+258,258,efectiva,Hospital Universitario del Valle,Fundación Valle del Lili,2026-06-24,Trauma craneoencefálico severo; requiere neurocirugía y UCI,completada,True
+259,259,fallida,Hospital Departamental Tomás Uribe Uribe (Tuluá),Hospital Universitario del Valle,2026-03-27,Infarto agudo de miocardio con elevación del ST; requiere hemodinamia,rechazada,False
+260,260,fallida,Hospital Universitario del Valle,Clínica Colombia Cali,2026-08-05,Falla renal aguda con hiperpotasemia; requiere hemodiálisis urgente,rechazada,False
+261,261,efectiva,Hospital Carlos Holmes Trujillo,Hospital Universitario del Valle,2026-08-13,Dolor torácico en estudio; requiere valoración por cardiología,aceptada,False
+262,262,borderline,Hospital Universitario del Valle,Clínica Farallones,2026-04-04,Leucemia en estudio; requiere hematología oncológica,en_gestion,False
+263,263,efectiva,Hospital Universitario del Valle,Clínica Nuestra Señora de los Remedios,2026-09-10,Insuficiencia cardiaca descompensada; requiere cardiología,completada,True
+264,264,fallida,Hospital Carlos Holmes Trujillo,Hospital Universitario del Valle,2026-06-11,Politraumatismo por accidente de tránsito; requiere UCI y cirugía,rechazada,False
+265,265,efectiva,Hospital Universitario del Valle,Clínica Versalles,2026-08-21,Leucemia en estudio; requiere hematología oncológica,aceptada,True
+266,266,borderline,Hospital Universitario del Valle,Clínica Colombia Cali,2026-06-25,Dolor torácico en estudio; requiere valoración por cardiología,en_gestion,True
+267,267,borderline,Hospital Raúl Orejuela Bueno (Palmira),Hospital Universitario del Valle,2026-09-01,Choque séptico de origen abdominal; requiere UCI adultos,en_gestion,False
+268,268,fallida,Hospital Universitario del Valle,Clínica Imbanaco,2026-04-11,Diabetes descompensada; requiere manejo por medicina interna,rechazada,True
+269,269,borderline,Hospital Universitario del Valle,Hospital San Juan de Dios Cali,2026-06-29,Colecistitis aguda; requiere cirugía general,en_gestion,True
+270,270,borderline,Hospital Universitario del Valle,Clínica Versalles,2026-03-03,Politraumatismo por accidente de tránsito; requiere UCI y cirugía,en_gestion,False
+271,271,fallida,Hospital Universitario del Valle,Clínica Imbanaco,2026-05-09,Politraumatismo por accidente de tránsito; requiere UCI y cirugía,rechazada,False
+272,272,efectiva,Hospital Universitario del Valle,Clínica Farallones,2026-08-30,Trauma craneoencefálico severo; requiere neurocirugía y UCI,aceptada,True
+273,273,efectiva,Hospital Local de Villa Rica,Hospital Universitario del Valle,2026-03-23,Insuficiencia cardiaca descompensada; requiere cardiología,completada,True
+274,274,fallida,Hospital Universitario del Valle,Clínica Farallones,2026-07-21,Colecistitis aguda; requiere cirugía general,rechazada,False
+275,275,efectiva,Hospital Universitario del Valle,Clínica Sebastián de Belalcázar,2026-07-13,Leucemia en estudio; requiere hematología oncológica,completada,True
+276,276,efectiva,Hospital Departamental Tomás Uribe Uribe (Tuluá),Hospital Universitario del Valle,2026-07-06,Diabetes descompensada; requiere manejo por medicina interna,aceptada,True
+277,277,borderline,Hospital Universitario del Valle,Hospital Universitario San José (Popayán),2026-04-08,Insuficiencia cardiaca descompensada; requiere cardiología,pendiente,True
+278,278,efectiva,Hospital Universitario del Valle,Clínica Imbanaco,2026-03-14,Diabetes descompensada; requiere manejo por medicina interna,aceptada,False
+279,279,borderline,Hospital San Rafael (Buga),Hospital Universitario del Valle,2026-03-25,Pie diabético infectado; requiere cirugía vascular,en_gestion,True
+280,280,borderline,Hospital Universitario del Valle,Clínica Colombia Cali,2026-07-24,Dolor torácico en estudio; requiere valoración por cardiología,en_gestion,False
+281,281,fallida,Hospital Francisco de Paula Santander (Santander de Quilichao),Hospital Universitario del Valle,2026-06-16,Hemorragia subaracnoidea; requiere neurocirugía,rechazada,False
+282,282,efectiva,Hospital Universitario del Valle,Hospital Universitario San José (Popayán),2026-09-02,Pie diabético infectado; requiere cirugía vascular,completada,True
+283,283,borderline,Hospital Local de Villa Rica,Hospital Universitario del Valle,2026-09-13,Trauma craneoencefálico severo; requiere neurocirugía y UCI,pendiente,True
+284,284,efectiva,Hospital Universitario del Valle,Hospital San Juan de Dios Cali,2026-04-06,Colecistitis aguda; requiere cirugía general,aceptada,True
+285,285,borderline,Hospital Universitario del Valle,Clínica Nuestra Señora de los Remedios,2026-08-10,Neumonía adquirida en la comunidad; requiere hospitalización en piso,en_gestion,False
+286,286,fallida,Hospital Universitario del Valle,Clínica de Occidente,2026-08-23,Hemorragia subaracnoidea; requiere neurocirugía,rechazada,False
+287,287,fallida,Hospital Universitario del Valle,Fundación Valle del Lili,2026-09-18,Insuficiencia respiratoria aguda; requiere ventilación mecánica en UCI,rechazada,True
+288,288,borderline,Hospital Universitario del Valle,Clínica Farallones,2026-04-15,Falla renal aguda con hiperpotasemia; requiere hemodiálisis urgente,en_gestion,False
+289,289,efectiva,Hospital Universitario del Valle,Clínica de Occidente,2026-08-25,Insuficiencia cardiaca descompensada; requiere cardiología,completada,False
+290,290,efectiva,Hospital Universitario del Valle,Clínica Farallones,2026-06-21,Pie diabético infectado; requiere cirugía vascular,aceptada,True
+291,291,borderline,Hospital Universitario del Valle,Clínica Imbanaco,2026-09-20,Trauma craneoencefálico severo; requiere neurocirugía y UCI,en_gestion,False
+292,292,borderline,Hospital Raúl Orejuela Bueno (Palmira),Hospital Universitario del Valle,2026-07-02,Leucemia en estudio; requiere hematología oncológica,pendiente,False
+293,293,borderline,Hospital Universitario del Valle,Clínica Nuestra Señora de los Remedios,2026-08-06,Insuficiencia respiratoria aguda; requiere ventilación mecánica en UCI,en_gestion,True
+294,294,fallida,Hospital Universitario del Valle,Hospital Universitario San José (Popayán),2026-04-12,Choque séptico de origen abdominal; requiere UCI adultos,rechazada,False
+295,295,efectiva,Hospital Universitario del Valle,Hospital Universitario San José (Popayán),2026-06-29,Fractura de cadera; requiere ortopedia y cirugía programada,aceptada,False
+296,296,fallida,Hospital Universitario del Valle,Clínica de Occidente,2026-06-29,Fractura de cadera; requiere ortopedia y cirugía programada,rechazada,False
+297,297,borderline,Hospital Universitario del Valle,Hospital San Juan de Dios Cali,2026-03-04,Pie diabético infectado; requiere cirugía vascular,pendiente,True
+298,298,fallida,Hospital Universitario del Valle,Clínica Nuestra Señora de los Remedios,2026-06-22,Infarto agudo de miocardio con elevación del ST; requiere hemodinamia,rechazada,False
+299,299,fallida,Hospital Francisco de Paula Santander (Santander de Quilichao),Hospital Universitario del Valle,2026-08-02,Trauma craneoencefálico severo; requiere neurocirugía y UCI,rechazada,False
+300,300,efectiva,Hospital Universitario del Valle,Clínica Versalles,2026-08-02,Colecistitis aguda; requiere cirugía general,aceptada,True
+301,301,efectiva,Hospital Universitario del Valle,Clínica de Occidente,2026-05-26,Infarto agudo de miocardio con elevación del ST; requiere hemodinamia,completada,True
+302,302,efectiva,Hospital Universitario del Valle,Hospital Universitario San José (Popayán),2026-07-20,Neumonía adquirida en la comunidad; requiere hospitalización en piso,aceptada,True
+303,303,borderline,Hospital Departamental Tomás Uribe Uribe (Tuluá),Hospital Universitario del Valle,2026-06-25,Falla renal aguda con hiperpotasemia; requiere hemodiálisis urgente,pendiente,True
+304,304,fallida,Hospital Universitario del Valle,Hospital Universitario San José (Popayán),2026-07-29,Insuficiencia respiratoria aguda; requiere ventilación mecánica en UCI,rechazada,False
+305,305,fallida,Hospital Universitario del Valle,Clínica Versalles,2026-04-30,Hemorragia subaracnoidea; requiere neurocirugía,rechazada,False
+306,306,fallida,Hospital Universitario del Valle,Hospital Universitario San José (Popayán),2026-08-14,Choque séptico de origen abdominal; requiere UCI adultos,rechazada,False
+307,307,efectiva,Hospital Departamental Tomás Uribe Uribe (Tuluá),Hospital Universitario del Valle,2026-07-16,Politraumatismo por accidente de tránsito; requiere UCI y cirugía,aceptada,True
+308,308,fallida,Hospital San Rafael (Buga),Hospital Universitario del Valle,2026-08-26,Diabetes descompensada; requiere manejo por medicina interna,rechazada,True
+309,309,fallida,Hospital Isaías Duarte Cancino,Hospital Universitario del Valle,2026-03-03,Politraumatismo por accidente de tránsito; requiere UCI y cirugía,rechazada,False
+310,310,borderline,Hospital Universitario del Valle,Clínica Colombia Cali,2026-03-20,Insuficiencia cardiaca descompensada; requiere cardiología,pendiente,False
+311,311,borderline,Hospital Universitario del Valle,Clínica Imbanaco,2026-05-01,Hemorragia subaracnoidea; requiere neurocirugía,en_gestion,False
+312,312,fallida,Hospital San Rafael (Buga),Hospital Universitario del Valle,2026-08-10,Hemorragia subaracnoidea; requiere neurocirugía,rechazada,True
+313,313,efectiva,Hospital Universitario del Valle,Clínica Imbanaco,2026-09-03,Dolor torácico en estudio; requiere valoración por cardiología,aceptada,True
+314,314,fallida,Hospital Universitario del Valle,Clínica Colombia Cali,2026-07-16,Infarto agudo de miocardio con elevación del ST; requiere hemodinamia,rechazada,False
+315,315,borderline,Hospital Universitario del Valle,Clínica de Occidente,2026-04-07,Colecistitis aguda; requiere cirugía general,pendiente,False
+316,316,borderline,Hospital Universitario del Valle,Clínica Nuestra Señora de los Remedios,2026-07-26,Diabetes descompensada; requiere manejo por medicina interna,pendiente,False
+317,317,efectiva,Hospital Universitario del Valle,Clínica Sebastián de Belalcázar,2026-07-23,Dolor torácico en estudio; requiere valoración por cardiología,aceptada,True
+318,318,efectiva,Hospital Universitario del Valle,Clínica Farallones,2026-03-07,Insuficiencia respiratoria aguda; requiere ventilación mecánica en UCI,aceptada,True
+319,319,efectiva,Hospital Universitario del Valle,Hospital Universitario San José (Popayán),2026-07-14,Fractura de cadera; requiere ortopedia y cirugía programada,completada,True
+320,320,efectiva,Hospital Universitario del Valle,Clínica Farallones,2026-07-18,Dolor torácico en estudio; requiere valoración por cardiología,aceptada,True
+321,321,fallida,Hospital Universitario del Valle,Hospital San Juan de Dios Cali,2026-09-20,Trauma craneoencefálico severo; requiere neurocirugía y UCI,rechazada,True
+322,322,fallida,Hospital Universitario del Valle,Clínica Sebastián de Belalcázar,2026-08-13,Insuficiencia respiratoria aguda; requiere ventilación mecánica en UCI,rechazada,True
+323,323,borderline,Hospital Isaías Duarte Cancino,Hospital Universitario del Valle,2026-07-31,Infarto agudo de miocardio con elevación del ST; requiere hemodinamia,pendiente,True
+324,324,fallida,Hospital San Rafael (Buga),Hospital Universitario del Valle,2026-03-27,Fractura de cadera; requiere ortopedia y cirugía programada,rechazada,False
+325,325,fallida,Hospital Universitario del Valle,Clínica Sebastián de Belalcázar,2026-06-27,Fractura de cadera; requiere ortopedia y cirugía programada,rechazada,False
+326,326,fallida,Hospital Universitario del Valle,Clínica Farallones,2026-04-17,Insuficiencia cardiaca descompensada; requiere cardiología,rechazada,True
+327,327,fallida,Hospital Raúl Orejuela Bueno (Palmira),Hospital Universitario del Valle,2026-05-02,Choque séptico de origen abdominal; requiere UCI adultos,rechazada,False
+328,328,efectiva,Hospital Universitario del Valle,Fundación Valle del Lili,2026-03-15,Trauma craneoencefálico severo; requiere neurocirugía y UCI,aceptada,True
+329,329,fallida,Hospital Departamental de Buenaventura,Hospital Universitario del Valle,2026-03-22,Falla renal aguda con hiperpotasemia; requiere hemodiálisis urgente,rechazada,False
+330,330,efectiva,ESE Norte 2 (Caloto),Hospital Universitario del Valle,2026-06-13,Trauma craneoencefálico severo; requiere neurocirugía y UCI,completada,True
+331,331,borderline,Hospital Universitario del Valle,Hospital Universitario San José (Popayán),2026-05-10,Neumonía adquirida en la comunidad; requiere hospitalización en piso,en_gestion,False
+332,332,borderline,Hospital Universitario del Valle,Clínica Imbanaco,2026-05-22,Dolor torácico en estudio; requiere valoración por cardiología,en_gestion,True
+333,333,fallida,Hospital Universitario del Valle,Hospital San Juan de Dios Cali,2026-08-25,Dolor torácico en estudio; requiere valoración por cardiología,rechazada,False
+334,334,efectiva,Hospital Local de Villa Rica,Hospital Universitario del Valle,2026-05-07,Insuficiencia respiratoria aguda; requiere ventilación mecánica en UCI,aceptada,True
+335,335,efectiva,Hospital Raúl Orejuela Bueno (Palmira),Hospital Universitario del Valle,2026-07-29,Insuficiencia respiratoria aguda; requiere ventilación mecánica en UCI,aceptada,False
+336,336,efectiva,Hospital Universitario del Valle,Clínica Colombia Cali,2026-08-20,Colecistitis aguda; requiere cirugía general,aceptada,True
+337,337,fallida,Hospital Universitario del Valle,Clínica Versalles,2026-09-18,Insuficiencia respiratoria aguda; requiere ventilación mecánica en UCI,rechazada,False
+338,338,borderline,Hospital Universitario del Valle,Clínica Imbanaco,2026-06-06,Pie diabético infectado; requiere cirugía vascular,pendiente,True
+339,339,efectiva,Hospital Universitario del Valle,Hospital San Juan de Dios Cali,2026-08-25,Politraumatismo por accidente de tránsito; requiere UCI y cirugía,completada,True
+340,340,efectiva,Hospital Departamental Tomás Uribe Uribe (Tuluá),Hospital Universitario del Valle,2026-04-09,Fractura de cadera; requiere ortopedia y cirugía programada,aceptada,True
+341,341,fallida,Hospital Universitario del Valle,Clínica Nuestra Señora de los Remedios,2026-08-17,Infarto agudo de miocardio con elevación del ST; requiere hemodinamia,rechazada,False
+342,342,fallida,Hospital Universitario del Valle,Clínica Farallones,2026-07-02,Leucemia en estudio; requiere hematología oncológica,rechazada,True
+343,343,borderline,Hospital Universitario del Valle,Fundación Valle del Lili,2026-08-29,Leucemia en estudio; requiere hematología oncológica,pendiente,False
+344,344,efectiva,Hospital Universitario del Valle,Clínica Farallones,2026-06-11,Leucemia en estudio; requiere hematología oncológica,completada,True
+345,345,borderline,Hospital Universitario del Valle,Hospital San Juan de Dios Cali,2026-06-24,Dolor torácico en estudio; requiere valoración por cardiología,pendiente,True
+346,346,efectiva,Hospital Universitario del Valle,Clínica Sebastián de Belalcázar,2026-07-11,Fractura de cadera; requiere ortopedia y cirugía programada,aceptada,True
+347,347,fallida,Hospital Universitario del Valle,Hospital Universitario San José (Popayán),2026-03-25,Infarto agudo de miocardio con elevación del ST; requiere hemodinamia,rechazada,False
+348,348,borderline,Hospital Carlos Holmes Trujillo,Hospital Universitario del Valle,2026-08-06,Infarto agudo de miocardio con elevación del ST; requiere hemodinamia,pendiente,True
+349,349,efectiva,Hospital Universitario del Valle,Hospital San Juan de Dios Cali,2026-09-16,Diabetes descompensada; requiere manejo por medicina interna,completada,True
+350,350,borderline,Hospital Universitario del Valle,Clínica de Occidente,2026-06-23,Choque séptico de origen abdominal; requiere UCI adultos,en_gestion,True
+351,351,efectiva,Hospital Universitario del Valle,Clínica Versalles,2026-05-06,Diabetes descompensada; requiere manejo por medicina interna,aceptada,True
+352,352,fallida,Hospital Universitario del Valle,Clínica Imbanaco,2026-04-04,Leucemia en estudio; requiere hematología oncológica,rechazada,False
+353,353,borderline,Hospital Universitario del Valle,Hospital Universitario San José (Popayán),2026-05-01,Diabetes descompensada; requiere manejo por medicina interna,en_gestion,False
+354,354,efectiva,Hospital Isaías Duarte Cancino,Hospital Universitario del Valle,2026-06-22,Leucemia en estudio; requiere hematología oncológica,aceptada,True
+355,355,efectiva,Hospital Universitario del Valle,Hospital San Juan de Dios Cali,2026-05-15,Insuficiencia cardiaca descompensada; requiere cardiología,aceptada,False
+356,356,borderline,Hospital Universitario del Valle,Clínica Versalles,2026-05-24,Colecistitis aguda; requiere cirugía general,en_gestion,False
+357,357,fallida,Hospital Universitario del Valle,Clínica Imbanaco,2026-07-31,Insuficiencia cardiaca descompensada; requiere cardiología,rechazada,False
+358,358,efectiva,Hospital Universitario del Valle,Clínica Sebastián de Belalcázar,2026-04-04,Leucemia en estudio; requiere hematología oncológica,completada,True
+359,359,fallida,Hospital Departamental Tomás Uribe Uribe (Tuluá),Hospital Universitario del Valle,2026-05-10,Insuficiencia respiratoria aguda; requiere ventilación mecánica en UCI,rechazada,False
+360,360,borderline,Hospital Universitario del Valle,Clínica Imbanaco,2026-04-08,Diabetes descompensada; requiere manejo por medicina interna,en_gestion,True
+361,361,efectiva,Hospital Mario Correa Rengifo,Hospital Universitario del Valle,2026-08-28,Hemorragia subaracnoidea; requiere neurocirugía,aceptada,True
+362,362,fallida,Hospital Universitario del Valle,Hospital San Juan de Dios Cali,2026-07-02,Falla renal aguda con hiperpotasemia; requiere hemodiálisis urgente,rechazada,False
+363,363,borderline,Hospital Universitario del Valle,Clínica Sebastián de Belalcázar,2026-05-19,Leucemia en estudio; requiere hematología oncológica,en_gestion,True
+364,364,efectiva,Hospital Universitario del Valle,Clínica Imbanaco,2026-03-05,Hemorragia subaracnoidea; requiere neurocirugía,completada,False
+365,365,efectiva,Hospital Universitario del Valle,Fundación Valle del Lili,2026-07-31,Dolor torácico en estudio; requiere valoración por cardiología,completada,True
+366,366,fallida,Hospital Francisco de Paula Santander (Santander de Quilichao),Hospital Universitario del Valle,2026-04-30,Neumonía adquirida en la comunidad; requiere hospitalización en piso,rechazada,False
+367,367,borderline,Hospital Universitario del Valle,Hospital San Juan de Dios Cali,2026-09-17,Colecistitis aguda; requiere cirugía general,en_gestion,True
+368,368,borderline,Hospital Universitario del Valle,Clínica Versalles,2026-03-17,Hemorragia subaracnoidea; requiere neurocirugía,en_gestion,True
+369,369,borderline,Hospital Local de Villa Rica,Hospital Universitario del Valle,2026-03-18,Pie diabético infectado; requiere cirugía vascular,en_gestion,True
+370,370,fallida,Hospital Mario Correa Rengifo,Hospital Universitario del Valle,2026-05-13,Falla renal aguda con hiperpotasemia; requiere hemodiálisis urgente,rechazada,False
+371,371,efectiva,Hospital Universitario del Valle,Hospital San Juan de Dios Cali,2026-08-17,Dolor torácico en estudio; requiere valoración por cardiología,aceptada,True
+372,372,fallida,Hospital Universitario del Valle,Hospital San Juan de Dios Cali,2026-04-27,Insuficiencia cardiaca descompensada; requiere cardiología,rechazada,False
+373,373,fallida,Hospital Universitario del Valle,Clínica de Occidente,2026-04-17,Trauma craneoencefálico severo; requiere neurocirugía y UCI,rechazada,False
+374,374,borderline,Hospital San Rafael (Buga),Hospital Universitario del Valle,2026-03-28,Falla renal aguda con hiperpotasemia; requiere hemodiálisis urgente,pendiente,False
+375,375,borderline,Hospital Departamental Tomás Uribe Uribe (Tuluá),Hospital Universitario del Valle,2026-09-19,Diabetes descompensada; requiere manejo por medicina interna,en_gestion,True
+376,376,borderline,Hospital Universitario del Valle,Clínica Versalles,2026-03-16,Infarto agudo de miocardio con elevación del ST; requiere hemodinamia,en_gestion,False
+377,377,efectiva,Hospital Universitario del Valle,Hospital Universitario San José (Popayán),2026-09-20,Insuficiencia cardiaca descompensada; requiere cardiología,aceptada,True
+378,378,fallida,Hospital Universitario del Valle,Clínica de Occidente,2026-09-10,Falla renal aguda con hiperpotasemia; requiere hemodiálisis urgente,rechazada,True
+379,379,borderline,Hospital Universitario del Valle,Hospital Universitario San José (Popayán),2026-07-30,Politraumatismo por accidente de tránsito; requiere UCI y cirugía,en_gestion,False
+380,380,borderline,Hospital Mario Correa Rengifo,Hospital Universitario del Valle,2026-05-03,Choque séptico de origen abdominal; requiere UCI adultos,pendiente,False
+381,381,borderline,Hospital Universitario del Valle,Hospital Universitario San José (Popayán),2026-04-25,Diabetes descompensada; requiere manejo por medicina interna,en_gestion,False
+382,382,fallida,Hospital Universitario del Valle,Clínica Sebastián de Belalcázar,2026-03-31,Hemorragia subaracnoidea; requiere neurocirugía,rechazada,False
+383,383,borderline,Hospital Universitario del Valle,Hospital San Juan de Dios Cali,2026-08-01,Diabetes descompensada; requiere manejo por medicina interna,en_gestion,False
+384,384,efectiva,Hospital Universitario del Valle,Clínica Imbanaco,2026-08-01,Dolor torácico en estudio; requiere valoración por cardiología,aceptada,True
+385,385,borderline,Hospital Universitario del Valle,Clínica Nuestra Señora de los Remedios,2026-06-20,Neumonía adquirida en la comunidad; requiere hospitalización en piso,en_gestion,True
+386,386,fallida,Hospital Universitario del Valle,Clínica Nuestra Señora de los Remedios,2026-09-12,Hemorragia subaracnoidea; requiere neurocirugía,rechazada,False
+387,387,borderline,Hospital Raúl Orejuela Bueno (Palmira),Hospital Universitario del Valle,2026-03-03,Trauma craneoencefálico severo; requiere neurocirugía y UCI,en_gestion,False
+388,388,borderline,Hospital Universitario del Valle,Hospital San Juan de Dios Cali,2026-05-02,Fractura de cadera; requiere ortopedia y cirugía programada,en_gestion,False
+389,389,efectiva,Hospital Universitario del Valle,Clínica Farallones,2026-04-23,Leucemia en estudio; requiere hematología oncológica,completada,True
+390,390,efectiva,Hospital Carlos Holmes Trujillo,Hospital Universitario del Valle,2026-07-30,Pie diabético infectado; requiere cirugía vascular,completada,True
+391,391,borderline,Hospital Universitario del Valle,Hospital Universitario San José (Popayán),2026-05-23,Leucemia en estudio; requiere hematología oncológica,pendiente,True
+392,392,efectiva,Hospital Universitario del Valle,Clínica de Occidente,2026-05-15,Neumonía adquirida en la comunidad; requiere hospitalización en piso,aceptada,True
+393,393,fallida,Hospital Universitario del Valle,Clínica Nuestra Señora de los Remedios,2026-05-10,Hemorragia subaracnoidea; requiere neurocirugía,rechazada,False
+394,394,efectiva,Hospital Universitario del Valle,Clínica Nuestra Señora de los Remedios,2026-07-15,Falla renal aguda con hiperpotasemia; requiere hemodiálisis urgente,aceptada,True
+395,395,fallida,Hospital Universitario del Valle,Hospital San Juan de Dios Cali,2026-04-24,Choque séptico de origen abdominal; requiere UCI adultos,rechazada,False
+396,396,borderline,Hospital Isaías Duarte Cancino,Hospital Universitario del Valle,2026-06-04,Choque séptico de origen abdominal; requiere UCI adultos,pendiente,False
+397,397,fallida,Hospital Universitario del Valle,Clínica Sebastián de Belalcázar,2026-03-23,Infarto agudo de miocardio con elevación del ST; requiere hemodinamia,rechazada,False
+398,398,efectiva,Hospital Carlos Holmes Trujillo,Hospital Universitario del Valle,2026-08-18,Neumonía adquirida en la comunidad; requiere hospitalización en piso,completada,False
+399,399,fallida,Hospital Universitario del Valle,Clínica Farallones,2026-08-09,Insuficiencia respiratoria aguda; requiere ventilación mecánica en UCI,rechazada,False
+400,400,efectiva,Hospital Carlos Holmes Trujillo,Hospital Universitario del Valle,2026-05-27,Dolor torácico en estudio; requiere valoración por cardiología,completada,True
+401,401,fallida,Hospital Universitario del Valle,Hospital San Juan de Dios Cali,2026-07-06,Choque séptico de origen abdominal; requiere UCI adultos,rechazada,False
+402,402,efectiva,Hospital San Rafael (Buga),Hospital Universitario del Valle,2026-08-08,Leucemia en estudio; requiere hematología oncológica,completada,True
+403,403,efectiva,Hospital Universitario del Valle,Hospital San Juan de Dios Cali,2026-03-23,Pie diabético infectado; requiere cirugía vascular,aceptada,True
+404,404,efectiva,Hospital Mario Correa Rengifo,Hospital Universitario del Valle,2026-05-01,Colecistitis aguda; requiere cirugía general,aceptada,True
+405,405,borderline,Hospital Universitario del Valle,Clínica Nuestra Señora de los Remedios,2026-04-11,Trauma craneoencefálico severo; requiere neurocirugía y UCI,en_gestion,True
+406,406,efectiva,Hospital Universitario del Valle,Clínica Farallones,2026-03-31,Politraumatismo por accidente de tránsito; requiere UCI y cirugía,completada,False
+407,407,borderline,Hospital Universitario del Valle,Clínica Imbanaco,2026-06-22,Neumonía adquirida en la comunidad; requiere hospitalización en piso,pendiente,False
+408,408,efectiva,Hospital Mario Correa Rengifo,Hospital Universitario del Valle,2026-09-20,Falla renal aguda con hiperpotasemia; requiere hemodiálisis urgente,completada,True
+409,409,borderline,Hospital Francisco de Paula Santander (Santander de Quilichao),Hospital Universitario del Valle,2026-04-29,Insuficiencia respiratoria aguda; requiere ventilación mecánica en UCI,en_gestion,True
+410,410,borderline,Hospital Universitario del Valle,Hospital Universitario San José (Popayán),2026-07-04,Dolor torácico en estudio; requiere valoración por cardiología,en_gestion,True
+411,411,efectiva,Hospital Universitario del Valle,Clínica Colombia Cali,2026-05-09,Neumonía adquirida en la comunidad; requiere hospitalización en piso,aceptada,True
+412,412,efectiva,Hospital Universitario del Valle,Clínica Imbanaco,2026-04-17,Dolor torácico en estudio; requiere valoración por cardiología,completada,False
+413,413,borderline,Hospital Universitario del Valle,Clínica Colombia Cali,2026-04-22,Insuficiencia cardiaca descompensada; requiere cardiología,en_gestion,True
+414,414,fallida,Hospital Universitario del Valle,Clínica de Occidente,2026-07-30,Diabetes descompensada; requiere manejo por medicina interna,rechazada,True
+415,415,efectiva,Hospital Universitario del Valle,Hospital Universitario San José (Popayán),2026-07-07,Pie diabético infectado; requiere cirugía vascular,completada,True
+416,416,fallida,ESE Norte 2 (Caloto),Hospital Universitario del Valle,2026-05-09,Trauma craneoencefálico severo; requiere neurocirugía y UCI,rechazada,False
+417,417,borderline,Hospital Universitario del Valle,Clínica Nuestra Señora de los Remedios,2026-06-21,Diabetes descompensada; requiere manejo por medicina interna,en_gestion,False
+418,418,borderline,Hospital San Rafael (Buga),Hospital Universitario del Valle,2026-09-07,Infarto agudo de miocardio con elevación del ST; requiere hemodinamia,en_gestion,False
+419,419,borderline,Hospital Universitario del Valle,Clínica Farallones,2026-05-13,Hemorragia subaracnoidea; requiere neurocirugía,en_gestion,False
+420,420,efectiva,Hospital Universitario del Valle,Clínica Nuestra Señora de los Remedios,2026-07-13,Hemorragia subaracnoidea; requiere neurocirugía,completada,True
+421,421,borderline,Hospital Raúl Orejuela Bueno (Palmira),Hospital Universitario del Valle,2026-08-06,Infarto agudo de miocardio con elevación del ST; requiere hemodinamia,en_gestion,False
+422,422,fallida,Hospital Universitario del Valle,Clínica Sebastián de Belalcázar,2026-08-28,Neumonía adquirida en la comunidad; requiere hospitalización en piso,rechazada,True
+423,423,efectiva,Hospital Mario Correa Rengifo,Hospital Universitario del Valle,2026-08-15,Insuficiencia cardiaca descompensada; requiere cardiología,completada,True
+424,424,borderline,Hospital Universitario del Valle,Clínica de Occidente,2026-08-29,Colecistitis aguda; requiere cirugía general,en_gestion,True
+425,425,fallida,Hospital Local de Villa Rica,Hospital Universitario del Valle,2026-04-16,Falla renal aguda con hiperpotasemia; requiere hemodiálisis urgente,rechazada,True
+426,426,borderline,Hospital Departamental de Buenaventura,Hospital Universitario del Valle,2026-05-15,Leucemia en estudio; requiere hematología oncológica,en_gestion,False
+427,427,fallida,Hospital Mario Correa Rengifo,Hospital Universitario del Valle,2026-08-18,Infarto agudo de miocardio con elevación del ST; requiere hemodinamia,rechazada,False
+428,428,efectiva,Hospital Universitario del Valle,Clínica Colombia Cali,2026-05-12,Leucemia en estudio; requiere hematología oncológica,aceptada,True
+429,429,borderline,Hospital Francisco de Paula Santander (Santander de Quilichao),Hospital Universitario del Valle,2026-04-15,Politraumatismo por accidente de tránsito; requiere UCI y cirugía,pendiente,True
+430,430,fallida,Hospital Departamental de Buenaventura,Hospital Universitario del Valle,2026-07-08,Colecistitis aguda; requiere cirugía general,rechazada,False
+431,431,efectiva,Hospital Departamental Tomás Uribe Uribe (Tuluá),Hospital Universitario del Valle,2026-05-13,Choque séptico de origen abdominal; requiere UCI adultos,aceptada,True
+432,432,borderline,Hospital Universitario del Valle,Hospital San Juan de Dios Cali,2026-06-27,Dolor torácico en estudio; requiere valoración por cardiología,en_gestion,True
+433,433,efectiva,Hospital Universitario del Valle,Clínica Versalles,2026-07-12,Colecistitis aguda; requiere cirugía general,completada,True
+434,434,borderline,Hospital Mario Correa Rengifo,Hospital Universitario del Valle,2026-07-27,Fractura de cadera; requiere ortopedia y cirugía programada,en_gestion,False
+435,435,fallida,Hospital Francisco de Paula Santander (Santander de Quilichao),Hospital Universitario del Valle,2026-04-06,Trauma craneoencefálico severo; requiere neurocirugía y UCI,rechazada,False
+436,436,fallida,Hospital Universitario del Valle,Clínica de Occidente,2026-06-14,Politraumatismo por accidente de tránsito; requiere UCI y cirugía,rechazada,True
+437,437,fallida,Hospital Universitario del Valle,Clínica Versalles,2026-03-13,Politraumatismo por accidente de tránsito; requiere UCI y cirugía,rechazada,True
+438,438,borderline,Hospital Universitario del Valle,Hospital Universitario San José (Popayán),2026-06-16,Colecistitis aguda; requiere cirugía general,en_gestion,False
+439,439,fallida,Hospital Universitario del Valle,Fundación Valle del Lili,2026-05-12,Politraumatismo por accidente de tránsito; requiere UCI y cirugía,rechazada,False
+440,440,fallida,Hospital Universitario del Valle,Clínica de Occidente,2026-08-28,Diabetes descompensada; requiere manejo por medicina interna,rechazada,False
+441,441,efectiva,Hospital Isaías Duarte Cancino,Hospital Universitario del Valle,2026-05-20,Politraumatismo por accidente de tránsito; requiere UCI y cirugía,completada,True
+442,442,borderline,Hospital Raúl Orejuela Bueno (Palmira),Hospital Universitario del Valle,2026-08-05,Colecistitis aguda; requiere cirugía general,en_gestion,False
+443,443,efectiva,Hospital Departamental Tomás Uribe Uribe (Tuluá),Hospital Universitario del Valle,2026-09-12,Pie diabético infectado; requiere cirugía vascular,aceptada,True
+444,444,efectiva,Hospital Universitario del Valle,Hospital Universitario San José (Popayán),2026-03-21,Neumonía adquirida en la comunidad; requiere hospitalización en piso,aceptada,False
+445,445,fallida,Hospital Universitario del Valle,Clínica Imbanaco,2026-07-19,Insuficiencia cardiaca descompensada; requiere cardiología,rechazada,False
+446,446,fallida,Hospital Universitario del Valle,Clínica Sebastián de Belalcázar,2026-08-08,Choque séptico de origen abdominal; requiere UCI adultos,rechazada,False
+447,447,fallida,Hospital Isaías Duarte Cancino,Hospital Universitario del Valle,2026-03-15,Politraumatismo por accidente de tránsito; requiere UCI y cirugía,rechazada,False
+448,448,efectiva,Hospital Raúl Orejuela Bueno (Palmira),Hospital Universitario del Valle,2026-08-02,Neumonía adquirida en la comunidad; requiere hospitalización en piso,completada,True
+449,449,borderline,Hospital Universitario del Valle,Fundación Valle del Lili,2026-05-25,Diabetes descompensada; requiere manejo por medicina interna,en_gestion,True
+450,450,fallida,Hospital Universitario del Valle,Clínica Imbanaco,2026-05-21,Politraumatismo por accidente de tránsito; requiere UCI y cirugía,rechazada,True
+451,451,efectiva,Hospital Universitario del Valle,Clínica Imbanaco,2026-06-23,Colecistitis aguda; requiere cirugía general,aceptada,False
+452,452,fallida,Hospital Universitario del Valle,Clínica Colombia Cali,2026-06-02,Insuficiencia respiratoria aguda; requiere ventilación mecánica en UCI,rechazada,False
+453,453,efectiva,Hospital Universitario del Valle,Clínica Imbanaco,2026-05-12,Colecistitis aguda; requiere cirugía general,completada,True
+454,454,efectiva,ESE Norte 2 (Caloto),Hospital Universitario del Valle,2026-04-14,Colecistitis aguda; requiere cirugía general,completada,True
+455,455,efectiva,Hospital Universitario del Valle,Hospital San Juan de Dios Cali,2026-06-28,Colecistitis aguda; requiere cirugía general,completada,True
+456,456,borderline,Hospital Universitario del Valle,Clínica Imbanaco,2026-08-14,Insuficiencia cardiaca descompensada; requiere cardiología,pendiente,False
+457,457,fallida,Hospital Universitario del Valle,Clínica Imbanaco,2026-04-20,Neumonía adquirida en la comunidad; requiere hospitalización en piso,rechazada,False
+458,458,efectiva,Hospital Universitario del Valle,Clínica Farallones,2026-03-28,Fractura de cadera; requiere ortopedia y cirugía programada,completada,True
+459,459,borderline,Hospital Universitario del Valle,Hospital San Juan de Dios Cali,2026-03-13,Neumonía adquirida en la comunidad; requiere hospitalización en piso,en_gestion,False
+460,460,fallida,Hospital Universitario del Valle,Clínica Nuestra Señora de los Remedios,2026-03-19,Hemorragia subaracnoidea; requiere neurocirugía,rechazada,False
+461,461,fallida,ESE Norte 2 (Caloto),Hospital Universitario del Valle,2026-07-21,Politraumatismo por accidente de tránsito; requiere UCI y cirugía,rechazada,False
+462,462,borderline,Hospital Universitario del Valle,Clínica Nuestra Señora de los Remedios,2026-04-25,Insuficiencia respiratoria aguda; requiere ventilación mecánica en UCI,pendiente,False
+463,463,efectiva,ESE Norte 2 (Caloto),Hospital Universitario del Valle,2026-09-18,Neumonía adquirida en la comunidad; requiere hospitalización en piso,completada,True
+464,464,efectiva,Hospital Universitario del Valle,Fundación Valle del Lili,2026-05-14,Colecistitis aguda; requiere cirugía general,completada,True
+465,465,efectiva,Hospital Departamental Tomás Uribe Uribe (Tuluá),Hospital Universitario del Valle,2026-09-03,Hemorragia subaracnoidea; requiere neurocirugía,completada,True
+466,466,fallida,Hospital Universitario del Valle,Clínica Colombia Cali,2026-08-04,Trauma craneoencefálico severo; requiere neurocirugía y UCI,rechazada,False
+467,467,efectiva,Hospital Universitario del Valle,Clínica Imbanaco,2026-05-30,Fractura de cadera; requiere ortopedia y cirugía programada,aceptada,False
+468,468,fallida,Hospital Universitario del Valle,Clínica Imbanaco,2026-04-13,Colecistitis aguda; requiere cirugía general,rechazada,False
+469,469,borderline,Hospital Universitario del Valle,Clínica Imbanaco,2026-08-11,Pie diabético infectado; requiere cirugía vascular,en_gestion,False
+470,470,fallida,Hospital Mario Correa Rengifo,Hospital Universitario del Valle,2026-05-04,Trauma craneoencefálico severo; requiere neurocirugía y UCI,rechazada,False
+471,471,efectiva,Hospital Universitario del Valle,Hospital Universitario San José (Popayán),2026-03-27,Neumonía adquirida en la comunidad; requiere hospitalización en piso,completada,True
+472,472,efectiva,Hospital Departamental Tomás Uribe Uribe (Tuluá),Hospital Universitario del Valle,2026-07-14,Hemorragia subaracnoidea; requiere neurocirugía,aceptada,True
+473,473,efectiva,Hospital Universitario del Valle,Clínica Sebastián de Belalcázar,2026-08-28,Diabetes descompensada; requiere manejo por medicina interna,aceptada,True
+474,474,fallida,Hospital Universitario del Valle,Clínica de Occidente,2026-08-27,Hemorragia subaracnoidea; requiere neurocirugía,rechazada,False
+475,475,borderline,Hospital Universitario del Valle,Fundación Valle del Lili,2026-05-04,Neumonía adquirida en la comunidad; requiere hospitalización en piso,pendiente,False
+476,476,efectiva,Hospital Universitario del Valle,Clínica Colombia Cali,2026-08-08,Insuficiencia cardiaca descompensada; requiere cardiología,completada,True
+477,477,fallida,Hospital Universitario del Valle,Clínica Nuestra Señora de los Remedios,2026-07-26,Hemorragia subaracnoidea; requiere neurocirugía,rechazada,False
+478,478,efectiva,Hospital Universitario del Valle,Clínica Colombia Cali,2026-03-30,Dolor torácico en estudio; requiere valoración por cardiología,completada,False
+479,479,borderline,Hospital Universitario del Valle,Clínica Versalles,2026-09-05,Hemorragia subaracnoidea; requiere neurocirugía,pendiente,False
+480,480,borderline,Hospital Universitario del Valle,Hospital San Juan de Dios Cali,2026-04-17,Choque séptico de origen abdominal; requiere UCI adultos,en_gestion,True
+481,481,borderline,Hospital Mario Correa Rengifo,Hospital Universitario del Valle,2026-05-05,Insuficiencia respiratoria aguda; requiere ventilación mecánica en UCI,en_gestion,False
+482,482,fallida,Hospital Universitario del Valle,Clínica Versalles,2026-08-30,Choque séptico de origen abdominal; requiere UCI adultos,rechazada,False
+483,483,efectiva,Hospital Departamental de Buenaventura,Hospital Universitario del Valle,2026-05-27,Colecistitis aguda; requiere cirugía general,aceptada,True
+484,484,borderline,Hospital Universitario del Valle,Hospital Universitario San José (Popayán),2026-08-30,Politraumatismo por accidente de tránsito; requiere UCI y cirugía,pendiente,False
+485,485,fallida,Hospital Universitario del Valle,Clínica de Occidente,2026-09-05,Hemorragia subaracnoidea; requiere neurocirugía,rechazada,False
+486,486,borderline,Hospital Universitario del Valle,Hospital San Juan de Dios Cali,2026-05-05,Neumonía adquirida en la comunidad; requiere hospitalización en piso,en_gestion,True
+487,487,fallida,Hospital Universitario del Valle,Clínica Sebastián de Belalcázar,2026-06-21,Infarto agudo de miocardio con elevación del ST; requiere hemodinamia,rechazada,False
+488,488,borderline,Hospital Universitario del Valle,Hospital San Juan de Dios Cali,2026-03-13,Trauma craneoencefálico severo; requiere neurocirugía y UCI,en_gestion,False
+489,489,fallida,Hospital Universitario del Valle,Clínica Imbanaco,2026-05-24,Hemorragia subaracnoidea; requiere neurocirugía,rechazada,False
+490,490,fallida,Hospital Universitario del Valle,Clínica Imbanaco,2026-04-17,Choque séptico de origen abdominal; requiere UCI adultos,rechazada,False
+491,491,fallida,Hospital Universitario del Valle,Clínica Colombia Cali,2026-04-08,Infarto agudo de miocardio con elevación del ST; requiere hemodinamia,rechazada,False
+492,492,borderline,Hospital Universitario del Valle,Clínica Imbanaco,2026-05-31,Diabetes descompensada; requiere manejo por medicina interna,en_gestion,False
+493,493,borderline,Hospital Local de Villa Rica,Hospital Universitario del Valle,2026-04-02,Choque séptico de origen abdominal; requiere UCI adultos,en_gestion,False
+494,494,borderline,Hospital Departamental Tomás Uribe Uribe (Tuluá),Hospital Universitario del Valle,2026-03-05,Diabetes descompensada; requiere manejo por medicina interna,pendiente,True
+495,495,borderline,Hospital Universitario del Valle,Clínica Farallones,2026-04-05,Neumonía adquirida en la comunidad; requiere hospitalización en piso,en_gestion,True
+496,496,efectiva,Hospital Universitario del Valle,Hospital Universitario San José (Popayán),2026-04-16,Pie diabético infectado; requiere cirugía vascular,aceptada,True
+497,497,efectiva,Hospital Universitario del Valle,Clínica Sebastián de Belalcázar,2026-09-01,Insuficiencia respiratoria aguda; requiere ventilación mecánica en UCI,aceptada,True
+498,498,borderline,Hospital Francisco de Paula Santander (Santander de Quilichao),Hospital Universitario del Valle,2026-07-13,Infarto agudo de miocardio con elevación del ST; requiere hemodinamia,pendiente,False
+499,499,efectiva,Hospital Mario Correa Rengifo,Hospital Universitario del Valle,2026-07-11,Fractura de cadera; requiere ortopedia y cirugía programada,aceptada,True
+500,500,borderline,Hospital Departamental Tomás Uribe Uribe (Tuluá),Hospital Universitario del Valle,2026-05-05,Choque séptico de origen abdominal; requiere UCI adultos,pendiente,True
+501,501,fallida,Hospital Universitario del Valle,Clínica Sebastián de Belalcázar,2026-03-06,Trauma craneoencefálico severo; requiere neurocirugía y UCI,rechazada,False
+502,502,fallida,Hospital Universitario del Valle,Clínica Versalles,2026-03-08,Fractura de cadera; requiere ortopedia y cirugía programada,rechazada,False
+503,503,fallida,Hospital Universitario del Valle,Fundación Valle del Lili,2026-05-17,Insuficiencia cardiaca descompensada; requiere cardiología,rechazada,False
+504,504,borderline,Hospital Universitario del Valle,Hospital Universitario San José (Popayán),2026-06-15,Hemorragia subaracnoidea; requiere neurocirugía,en_gestion,True
+505,505,fallida,Hospital Universitario del Valle,Hospital Universitario San José (Popayán),2026-06-09,Trauma craneoencefálico severo; requiere neurocirugía y UCI,rechazada,False
+506,506,borderline,Hospital Universitario del Valle,Clínica Imbanaco,2026-05-23,Politraumatismo por accidente de tránsito; requiere UCI y cirugía,en_gestion,True
+507,507,fallida,Hospital Universitario del Valle,Clínica Sebastián de Belalcázar,2026-08-27,Insuficiencia respiratoria aguda; requiere ventilación mecánica en UCI,rechazada,True
+508,508,fallida,ESE Norte 2 (Caloto),Hospital Universitario del Valle,2026-08-20,Infarto agudo de miocardio con elevación del ST; requiere hemodinamia,rechazada,False
+509,509,fallida,ESE Norte 2 (Caloto),Hospital Universitario del Valle,2026-07-15,Falla renal aguda con hiperpotasemia; requiere hemodiálisis urgente,rechazada,True
+510,510,fallida,Hospital Universitario del Valle,Clínica de Occidente,2026-07-25,Politraumatismo por accidente de tránsito; requiere UCI y cirugía,rechazada,False
+511,511,fallida,Hospital San Rafael (Buga),Hospital Universitario del Valle,2026-05-13,Leucemia en estudio; requiere hematología oncológica,rechazada,False
+512,512,fallida,Hospital Universitario del Valle,Hospital San Juan de Dios Cali,2026-05-12,Insuficiencia respiratoria aguda; requiere ventilación mecánica en UCI,rechazada,False
+513,513,fallida,Hospital Universitario del Valle,Clínica Colombia Cali,2026-06-14,Infarto agudo de miocardio con elevación del ST; requiere hemodinamia,rechazada,False
+514,514,fallida,Hospital Universitario del Valle,Clínica Colombia Cali,2026-04-22,Falla renal aguda con hiperpotasemia; requiere hemodiálisis urgente,rechazada,True
+515,515,borderline,Hospital Universitario del Valle,Clínica Versalles,2026-08-10,Fractura de cadera; requiere ortopedia y cirugía programada,pendiente,True
+516,516,borderline,Hospital Universitario del Valle,Hospital San Juan de Dios Cali,2026-04-08,Diabetes descompensada; requiere manejo por medicina interna,en_gestion,True
+517,517,efectiva,ESE Norte 2 (Caloto),Hospital Universitario del Valle,2026-08-19,Leucemia en estudio; requiere hematología oncológica,completada,True
+518,518,efectiva,Hospital Universitario del Valle,Clínica Colombia Cali,2026-03-31,Colecistitis aguda; requiere cirugía general,aceptada,True
+519,519,efectiva,Hospital Departamental Tomás Uribe Uribe (Tuluá),Hospital Universitario del Valle,2026-03-06,Dolor torácico en estudio; requiere valoración por cardiología,completada,True
+520,520,fallida,Hospital Universitario del Valle,Clínica Colombia Cali,2026-05-24,Hemorragia subaracnoidea; requiere neurocirugía,rechazada,False
+521,521,fallida,Hospital Universitario del Valle,Clínica de Occidente,2026-05-17,Infarto agudo de miocardio con elevación del ST; requiere hemodinamia,rechazada,True
+522,522,fallida,Hospital Mario Correa Rengifo,Hospital Universitario del Valle,2026-05-13,Neumonía adquirida en la comunidad; requiere hospitalización en piso,rechazada,False
+523,523,borderline,Hospital Universitario del Valle,Clínica Sebastián de Belalcázar,2026-03-19,Insuficiencia cardiaca descompensada; requiere cardiología,pendiente,True
+524,524,borderline,Hospital Mario Correa Rengifo,Hospital Universitario del Valle,2026-05-25,Politraumatismo por accidente de tránsito; requiere UCI y cirugía,en_gestion,False
+525,525,borderline,Hospital Universitario del Valle,Clínica Farallones,2026-03-05,Dolor torácico en estudio; requiere valoración por cardiología,pendiente,True
+526,526,borderline,Hospital Carlos Holmes Trujillo,Hospital Universitario del Valle,2026-04-19,Infarto agudo de miocardio con elevación del ST; requiere hemodinamia,pendiente,True
+527,527,fallida,Hospital Universitario del Valle,Clínica Sebastián de Belalcázar,2026-08-23,Insuficiencia respiratoria aguda; requiere ventilación mecánica en UCI,rechazada,False
+528,528,borderline,Hospital Universitario del Valle,Clínica Imbanaco,2026-07-07,Politraumatismo por accidente de tránsito; requiere UCI y cirugía,en_gestion,False
+529,529,borderline,Hospital Universitario del Valle,Clínica de Occidente,2026-07-25,Pie diabético infectado; requiere cirugía vascular,en_gestion,True
+530,530,borderline,Hospital Local de Villa Rica,Hospital Universitario del Valle,2026-05-23,Pie diabético infectado; requiere cirugía vascular,en_gestion,False
+531,531,borderline,Hospital Departamental Tomás Uribe Uribe (Tuluá),Hospital Universitario del Valle,2026-07-15,Colecistitis aguda; requiere cirugía general,en_gestion,False
+532,532,efectiva,Hospital Carlos Holmes Trujillo,Hospital Universitario del Valle,2026-04-17,Pie diabético infectado; requiere cirugía vascular,completada,True
+533,533,fallida,Hospital Universitario del Valle,Hospital Universitario San José (Popayán),2026-04-20,Trauma craneoencefálico severo; requiere neurocirugía y UCI,rechazada,False
+534,534,borderline,Hospital Universitario del Valle,Fundación Valle del Lili,2026-03-09,Politraumatismo por accidente de tránsito; requiere UCI y cirugía,pendiente,True
+535,535,efectiva,Hospital Universitario del Valle,Clínica Imbanaco,2026-05-12,Infarto agudo de miocardio con elevación del ST; requiere hemodinamia,aceptada,True
+536,536,borderline,Hospital Carlos Holmes Trujillo,Hospital Universitario del Valle,2026-08-09,Trauma craneoencefálico severo; requiere neurocirugía y UCI,en_gestion,True
+537,537,borderline,Hospital Mario Correa Rengifo,Hospital Universitario del Valle,2026-03-04,Insuficiencia respiratoria aguda; requiere ventilación mecánica en UCI,en_gestion,True
+538,538,borderline,Hospital Universitario del Valle,Hospital San Juan de Dios Cali,2026-07-13,Infarto agudo de miocardio con elevación del ST; requiere hemodinamia,en_gestion,False
+539,539,borderline,Hospital Universitario del Valle,Hospital Universitario San José (Popayán),2026-07-04,Insuficiencia respiratoria aguda; requiere ventilación mecánica en UCI,en_gestion,True
+540,540,efectiva,Hospital Universitario del Valle,Clínica Colombia Cali,2026-08-17,Insuficiencia cardiaca descompensada; requiere cardiología,completada,True
+541,541,efectiva,Hospital Universitario del Valle,Fundación Valle del Lili,2026-03-01,Leucemia en estudio; requiere hematología oncológica,aceptada,True
+542,542,fallida,Hospital San Rafael (Buga),Hospital Universitario del Valle,2026-07-07,Infarto agudo de miocardio con elevación del ST; requiere hemodinamia,rechazada,False
+543,543,borderline,Hospital Universitario del Valle,Clínica Farallones,2026-07-27,Neumonía adquirida en la comunidad; requiere hospitalización en piso,pendiente,True
+544,544,borderline,Hospital Raúl Orejuela Bueno (Palmira),Hospital Universitario del Valle,2026-03-20,Insuficiencia respiratoria aguda; requiere ventilación mecánica en UCI,en_gestion,False
+545,545,borderline,Hospital Universitario del Valle,Clínica de Occidente,2026-03-07,Diabetes descompensada; requiere manejo por medicina interna,pendiente,True
+546,546,borderline,Hospital Local de Villa Rica,Hospital Universitario del Valle,2026-06-03,Fractura de cadera; requiere ortopedia y cirugía programada,pendiente,True
+547,547,borderline,Hospital Universitario del Valle,Fundación Valle del Lili,2026-06-11,Colecistitis aguda; requiere cirugía general,en_gestion,True
+548,548,fallida,Hospital Universitario del Valle,Clínica Sebastián de Belalcázar,2026-09-04,Leucemia en estudio; requiere hematología oncológica,rechazada,False
+549,549,borderline,Hospital Universitario del Valle,Hospital San Juan de Dios Cali,2026-08-14,Neumonía adquirida en la comunidad; requiere hospitalización en piso,en_gestion,True
+550,550,borderline,Hospital Universitario del Valle,Clínica Sebastián de Belalcázar,2026-07-02,Politraumatismo por accidente de tránsito; requiere UCI y cirugía,en_gestion,True
+551,551,borderline,Hospital Universitario del Valle,Clínica Imbanaco,2026-06-08,Choque séptico de origen abdominal; requiere UCI adultos,en_gestion,True
+552,552,borderline,Hospital Universitario del Valle,Hospital San Juan de Dios Cali,2026-08-03,Insuficiencia cardiaca descompensada; requiere cardiología,pendiente,False
+553,553,borderline,Hospital Universitario del Valle,Clínica de Occidente,2026-05-18,Insuficiencia cardiaca descompensada; requiere cardiología,en_gestion,True
+554,554,efectiva,Hospital Universitario del Valle,Hospital San Juan de Dios Cali,2026-09-11,Choque séptico de origen abdominal; requiere UCI adultos,completada,True
+555,555,borderline,Hospital Mario Correa Rengifo,Hospital Universitario del Valle,2026-08-17,Fractura de cadera; requiere ortopedia y cirugía programada,en_gestion,False
+556,556,borderline,Hospital Universitario del Valle,Clínica Colombia Cali,2026-08-17,Fractura de cadera; requiere ortopedia y cirugía programada,pendiente,False
+557,557,efectiva,Hospital Universitario del Valle,Fundación Valle del Lili,2026-05-03,Neumonía adquirida en la comunidad; requiere hospitalización en piso,completada,True
+558,558,borderline,Hospital Mario Correa Rengifo,Hospital Universitario del Valle,2026-03-23,Hemorragia subaracnoidea; requiere neurocirugía,en_gestion,False
+559,559,borderline,Hospital Universitario del Valle,Fundación Valle del Lili,2026-05-09,Hemorragia subaracnoidea; requiere neurocirugía,en_gestion,True
+560,560,fallida,Hospital Universitario del Valle,Clínica Nuestra Señora de los Remedios,2026-04-10,Politraumatismo por accidente de tránsito; requiere UCI y cirugía,rechazada,False
+561,561,fallida,Hospital Departamental Tomás Uribe Uribe (Tuluá),Hospital Universitario del Valle,2026-07-17,Neumonía adquirida en la comunidad; requiere hospitalización en piso,rechazada,False
+562,562,efectiva,Hospital Universitario del Valle,Clínica Nuestra Señora de los Remedios,2026-09-09,Dolor torácico en estudio; requiere valoración por cardiología,aceptada,False
+563,563,fallida,Hospital Carlos Holmes Trujillo,Hospital Universitario del Valle,2026-05-27,Hemorragia subaracnoidea; requiere neurocirugía,rechazada,False
+564,564,efectiva,Hospital Universitario del Valle,Clínica Farallones,2026-06-24,Pie diabético infectado; requiere cirugía vascular,aceptada,True
+565,565,borderline,Hospital Universitario del Valle,Clínica de Occidente,2026-03-11,Neumonía adquirida en la comunidad; requiere hospitalización en piso,pendiente,True
+566,566,borderline,Hospital Universitario del Valle,Clínica Sebastián de Belalcázar,2026-07-11,Insuficiencia cardiaca descompensada; requiere cardiología,en_gestion,False
+567,567,fallida,Hospital Universitario del Valle,Clínica de Occidente,2026-07-15,Insuficiencia respiratoria aguda; requiere ventilación mecánica en UCI,rechazada,False
+568,568,borderline,Hospital Departamental de Buenaventura,Hospital Universitario del Valle,2026-06-30,Infarto agudo de miocardio con elevación del ST; requiere hemodinamia,en_gestion,False
+569,569,efectiva,ESE Norte 2 (Caloto),Hospital Universitario del Valle,2026-05-04,Colecistitis aguda; requiere cirugía general,completada,True
+570,570,fallida,Hospital Universitario del Valle,Hospital San Juan de Dios Cali,2026-09-11,Infarto agudo de miocardio con elevación del ST; requiere hemodinamia,rechazada,False
+571,571,efectiva,Hospital Universitario del Valle,Clínica Sebastián de Belalcázar,2026-06-09,Insuficiencia cardiaca descompensada; requiere cardiología,aceptada,False
+572,572,borderline,Hospital Universitario del Valle,Clínica Nuestra Señora de los Remedios,2026-09-19,Infarto agudo de miocardio con elevación del ST; requiere hemodinamia,pendiente,True
+573,573,fallida,Hospital Isaías Duarte Cancino,Hospital Universitario del Valle,2026-03-31,Infarto agudo de miocardio con elevación del ST; requiere hemodinamia,rechazada,True
+574,574,fallida,Hospital Universitario del Valle,Hospital San Juan de Dios Cali,2026-06-06,Infarto agudo de miocardio con elevación del ST; requiere hemodinamia,rechazada,False
+575,575,fallida,Hospital Universitario del Valle,Clínica Versalles,2026-08-04,Choque séptico de origen abdominal; requiere UCI adultos,rechazada,False
+576,576,fallida,Hospital Universitario del Valle,Clínica Colombia Cali,2026-04-02,Trauma craneoencefálico severo; requiere neurocirugía y UCI,rechazada,False
+577,577,borderline,Hospital Universitario del Valle,Clínica Colombia Cali,2026-07-31,Neumonía adquirida en la comunidad; requiere hospitalización en piso,pendiente,True
+578,578,fallida,Hospital Universitario del Valle,Clínica Farallones,2026-05-24,Choque séptico de origen abdominal; requiere UCI adultos,rechazada,False
+579,579,fallida,Hospital San Rafael (Buga),Hospital Universitario del Valle,2026-07-03,Fractura de cadera; requiere ortopedia y cirugía programada,rechazada,False
+580,580,borderline,Hospital Universitario del Valle,Hospital San Juan de Dios Cali,2026-03-30,Trauma craneoencefálico severo; requiere neurocirugía y UCI,pendiente,False
+581,581,efectiva,Hospital Universitario del Valle,Clínica Imbanaco,2026-03-06,Pie diabético infectado; requiere cirugía vascular,completada,True
+582,582,borderline,Hospital Universitario del Valle,Clínica Nuestra Señora de los Remedios,2026-07-11,Hemorragia subaracnoidea; requiere neurocirugía,en_gestion,True
+583,583,efectiva,Hospital Universitario del Valle,Hospital San Juan de Dios Cali,2026-03-19,Neumonía adquirida en la comunidad; requiere hospitalización en piso,completada,True
+584,584,fallida,Hospital Francisco de Paula Santander (Santander de Quilichao),Hospital Universitario del Valle,2026-07-24,Politraumatismo por accidente de tránsito; requiere UCI y cirugía,rechazada,False
+585,585,efectiva,Hospital Universitario del Valle,Hospital San Juan de Dios Cali,2026-07-14,Pie diabético infectado; requiere cirugía vascular,completada,True
+586,586,efectiva,Hospital Local de Villa Rica,Hospital Universitario del Valle,2026-05-16,Dolor torácico en estudio; requiere valoración por cardiología,completada,True
+587,587,efectiva,Hospital Universitario del Valle,Clínica Sebastián de Belalcázar,2026-04-05,Diabetes descompensada; requiere manejo por medicina interna,completada,True
+588,588,fallida,Hospital Departamental de Buenaventura,Hospital Universitario del Valle,2026-09-03,Leucemia en estudio; requiere hematología oncológica,rechazada,False
+589,589,borderline,Hospital Universitario del Valle,Clínica Imbanaco,2026-03-26,Choque séptico de origen abdominal; requiere UCI adultos,en_gestion,True
+590,590,borderline,Hospital Universitario del Valle,Clínica de Occidente,2026-09-04,Neumonía adquirida en la comunidad; requiere hospitalización en piso,en_gestion,True
+591,591,borderline,Hospital Universitario del Valle,Fundación Valle del Lili,2026-08-23,Pie diabético infectado; requiere cirugía vascular,pendiente,False
+592,592,borderline,Hospital Mario Correa Rengifo,Hospital Universitario del Valle,2026-06-15,Hemorragia subaracnoidea; requiere neurocirugía,en_gestion,True
+593,593,borderline,Hospital Universitario del Valle,Clínica Nuestra Señora de los Remedios,2026-03-28,Politraumatismo por accidente de tránsito; requiere UCI y cirugía,pendiente,False
+594,594,borderline,Hospital Universitario del Valle,Clínica Nuestra Señora de los Remedios,2026-06-14,Diabetes descompensada; requiere manejo por medicina interna,pendiente,False
+595,595,fallida,Hospital Universitario del Valle,Clínica Versalles,2026-06-08,Politraumatismo por accidente de tránsito; requiere UCI y cirugía,rechazada,False
+596,596,efectiva,Hospital Isaías Duarte Cancino,Hospital Universitario del Valle,2026-06-28,Trauma craneoencefálico severo; requiere neurocirugía y UCI,aceptada,True
+597,597,borderline,Hospital Mario Correa Rengifo,Hospital Universitario del Valle,2026-05-14,Pie diabético infectado; requiere cirugía vascular,en_gestion,False
+598,598,borderline,Hospital Universitario del Valle,Clínica Sebastián de Belalcázar,2026-08-13,Diabetes descompensada; requiere manejo por medicina interna,pendiente,False
+599,599,fallida,Hospital San Rafael (Buga),Hospital Universitario del Valle,2026-09-13,Hemorragia subaracnoidea; requiere neurocirugía,rechazada,False
+600,600,efectiva,Hospital Departamental de Buenaventura,Hospital Universitario del Valle,2026-09-01,Fractura de cadera; requiere ortopedia y cirugía programada,completada,True

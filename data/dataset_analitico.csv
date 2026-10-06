@@ -1,0 +1,601 @@
+remision_ref,documento,genero,edad,eps,sentido,institucion_destino,fecha_solicitud,motivo_grave,convenio_vigente,estado,fc,pas,pad,fr,spo2,temp,glasgow,n_contactos,n_respuestas_negativas,horas_gestion,grupo
+1,1175373460,F,75,Coosalud,llega_al_HUV,Hospital Universitario del Valle,2026-04-20,1,0,rechazada,122,80,63,22,92,39.2,10,5,5,15.4,fallida
+2,1166395419,M,72,Sura,llega_al_HUV,Hospital Universitario del Valle,2026-05-30,1,0,rechazada,111,105,67,25,86,37.1,9,4,4,15.6,fallida
+3,1112830213,F,40,Emssanar,llega_al_HUV,Hospital Universitario del Valle,2026-04-13,1,1,aceptada,83,120,98,19,98,37.2,14,1,0,0.0,efectiva
+4,1133568149,M,68,Emssanar,sale_del_HUV,Fundación Valle del Lili,2026-05-04,0,1,aceptada,87,123,69,13,94,37.5,14,1,0,0.0,efectiva
+5,1145581583,M,54,Coosalud,sale_del_HUV,Clínica Sebastián de Belalcázar,2026-09-11,0,0,en_gestion,136,90,75,22,86,38.2,14,4,3,8.9,borderline
+6,1140177071,F,50,Salud Total,sale_del_HUV,Clínica Farallones,2026-04-02,0,0,rechazada,125,102,65,23,84,37.9,11,5,5,19.9,fallida
+7,1122906819,M,62,Coosalud,sale_del_HUV,Clínica Versalles,2026-07-16,1,1,pendiente,98,118,63,27,95,37.2,9,4,3,8.2,borderline
+8,1147537639,M,47,Nueva EPS,sale_del_HUV,Clínica de Occidente,2026-06-25,0,0,en_gestion,107,111,44,25,93,36.4,12,3,2,7.5,borderline
+9,1102948273,M,58,Emssanar,sale_del_HUV,Fundación Valle del Lili,2026-04-13,1,0,rechazada,118,91,56,25,96,37.7,11,6,6,25.1,fallida
+10,1169974347,F,42,Coosalud,llega_al_HUV,Hospital Universitario del Valle,2026-07-12,1,1,completada,78,132,80,17,96,38.2,15,1,0,0.0,efectiva
+11,1111348399,F,33,Coosalud,llega_al_HUV,Hospital Universitario del Valle,2026-08-09,1,0,pendiente,136,119,82,21,93,36.9,15,4,3,11.2,borderline
+12,1178344211,F,30,Asmet Salud,sale_del_HUV,Fundación Valle del Lili,2026-07-16,0,1,completada,76,110,74,17,95,37.2,15,1,0,0.0,efectiva
+13,1146215249,F,61,Emssanar,llega_al_HUV,Hospital Universitario del Valle,2026-06-30,0,1,aceptada,82,122,79,17,95,36.3,14,2,1,1.6,efectiva
+14,1191288373,M,63,Salud Total,sale_del_HUV,Clínica Sebastián de Belalcázar,2026-05-27,1,0,rechazada,106,120,68,26,86,39.9,9,5,5,12.9,fallida
+15,1159593594,F,53,SOS,llega_al_HUV,Hospital Universitario del Valle,2026-06-14,1,0,en_gestion,96,107,75,22,100,37.3,13,3,2,4.8,borderline
+16,1132556548,M,69,Emssanar,sale_del_HUV,Hospital Universitario San José (Popayán),2026-04-13,0,1,aceptada,106,119,77,18,96,36.6,14,1,0,0.0,efectiva
+17,1147073289,M,65,SOS,sale_del_HUV,Fundación Valle del Lili,2026-06-08,1,0,rechazada,106,89,59,18,90,38.4,9,6,6,17.3,fallida
+18,1145752567,F,87,Asmet Salud,sale_del_HUV,Hospital San Juan de Dios Cali,2026-06-28,1,0,rechazada,119,128,58,27,89,36.5,12,4,4,13.6,fallida
+19,1141276226,F,78,Coosalud,llega_al_HUV,Hospital Universitario del Valle,2026-09-09,1,1,rechazada,108,87,72,20,86,39.3,10,4,4,11.9,fallida
+20,1145316662,F,37,SOS,llega_al_HUV,Hospital Universitario del Valle,2026-08-13,0,1,completada,83,154,56,18,93,36.8,15,1,0,0.0,efectiva
+21,1155479637,M,36,Nueva EPS,sale_del_HUV,Clínica Farallones,2026-03-30,0,1,aceptada,89,129,77,19,93,37.7,14,1,0,0.0,efectiva
+22,1114078989,F,50,Sanitas,sale_del_HUV,Hospital Universitario San José (Popayán),2026-03-10,0,0,en_gestion,94,128,63,24,89,38.3,12,3,2,8.3,borderline
+23,1112687328,F,65,Sanitas,sale_del_HUV,Clínica Farallones,2026-07-13,0,0,rechazada,120,71,56,26,86,38.2,10,5,5,14.7,fallida
+24,1163202588,M,72,Coosalud,sale_del_HUV,Clínica de Occidente,2026-03-17,0,0,pendiente,107,125,67,27,90,36.0,14,4,3,8.5,borderline
+25,1172507710,F,61,Emssanar,llega_al_HUV,Hospital Universitario del Valle,2026-05-21,1,1,rechazada,106,107,60,23,84,39.0,10,7,7,28.4,fallida
+26,1130273896,M,63,Asmet Salud,sale_del_HUV,Clínica Nuestra Señora de los Remedios,2026-04-01,0,0,completada,60,152,64,19,96,36.7,14,1,0,0.0,efectiva
+27,1150453096,M,51,Sanitas,llega_al_HUV,Hospital Universitario del Valle,2026-05-07,0,0,pendiente,111,116,68,23,94,38.6,13,3,2,7.3,borderline
+28,1116061271,M,56,SOS,sale_del_HUV,Fundación Valle del Lili,2026-05-03,0,1,aceptada,98,116,72,15,92,36.6,15,2,1,1.8,efectiva
+29,1152455801,M,22,Salud Total,sale_del_HUV,Clínica Colombia Cali,2026-09-06,0,1,en_gestion,101,118,71,22,99,37.8,12,3,2,5.0,borderline
+30,1114109447,M,28,Coosalud,sale_del_HUV,Clínica Imbanaco,2026-03-08,1,1,completada,89,123,76,20,96,37.2,15,1,0,0.0,efectiva
+31,1110967457,F,49,Sura,sale_del_HUV,Clínica Versalles,2026-03-24,1,1,aceptada,99,126,63,18,93,36.6,15,2,1,1.3,efectiva
+32,1179776115,F,56,Asmet Salud,llega_al_HUV,Hospital Universitario del Valle,2026-06-29,0,1,aceptada,110,91,76,18,97,36.6,15,1,0,0.0,efectiva
+33,1197289883,M,58,Emssanar,sale_del_HUV,Clínica Versalles,2026-06-05,0,1,completada,93,108,78,19,94,36.4,15,2,1,1.8,efectiva
+34,1191630865,F,51,Sanitas,sale_del_HUV,Hospital San Juan de Dios Cali,2026-08-13,1,1,rechazada,118,105,64,27,87,38.6,12,7,7,29.9,fallida
+35,1192567182,F,57,Asmet Salud,sale_del_HUV,Hospital San Juan de Dios Cali,2026-04-02,1,1,completada,110,135,77,16,95,35.6,15,2,1,0.4,efectiva
+36,1145469660,F,42,Asmet Salud,sale_del_HUV,Clínica Sebastián de Belalcázar,2026-09-14,0,1,completada,91,131,89,20,96,37.2,15,1,0,0.0,efectiva
+37,1180687312,F,50,Asmet Salud,llega_al_HUV,Hospital Universitario del Valle,2026-03-30,0,0,aceptada,74,135,81,15,96,37.2,15,1,0,0.0,efectiva
+38,1195719069,M,60,Emssanar,sale_del_HUV,Clínica de Occidente,2026-07-12,1,0,rechazada,109,110,68,25,97,37.8,10,6,6,21.4,fallida
+39,1162493011,F,35,Sura,llega_al_HUV,Hospital Universitario del Valle,2026-07-02,1,1,completada,86,135,81,16,97,36.1,15,2,1,2.0,efectiva
+40,1179549189,M,56,Salud Total,sale_del_HUV,Clínica Colombia Cali,2026-03-15,1,0,rechazada,119,111,57,19,91,39.2,12,5,5,18.4,fallida
+41,1169974269,M,66,Coosalud,sale_del_HUV,Clínica Versalles,2026-08-27,0,0,en_gestion,104,116,59,23,87,38.2,13,3,2,9.0,borderline
+42,1158950486,M,80,Emssanar,sale_del_HUV,Clínica de Occidente,2026-07-26,1,1,rechazada,127,124,67,25,83,38.5,11,5,5,20.8,fallida
+43,1166554249,F,52,Asmet Salud,sale_del_HUV,Clínica Imbanaco,2026-04-25,1,0,rechazada,125,71,56,24,96,38.1,13,5,5,21.2,fallida
+44,1191618244,M,55,Emssanar,llega_al_HUV,Hospital Universitario del Valle,2026-08-03,0,0,rechazada,125,105,60,31,92,38.7,10,7,7,22.6,fallida
+45,1165185516,F,59,Asmet Salud,sale_del_HUV,Clínica Colombia Cali,2026-07-23,0,0,en_gestion,112,102,67,25,94,37.1,12,4,3,11.0,borderline
+46,1153545076,M,54,Emssanar,sale_del_HUV,Hospital San Juan de Dios Cali,2026-08-27,1,1,en_gestion,113,102,67,21,93,38.5,14,4,3,10.2,borderline
+47,1109064827,F,51,Sura,sale_del_HUV,Clínica Farallones,2026-06-18,1,0,rechazada,127,107,67,20,92,36.3,10,6,6,12.8,fallida
+48,1190823774,M,72,Nueva EPS,sale_del_HUV,Clínica Versalles,2026-07-05,1,0,en_gestion,66,93,62,25,90,36.9,13,4,3,15.2,borderline
+49,1109062807,M,64,Nueva EPS,sale_del_HUV,Clínica Nuestra Señora de los Remedios,2026-03-11,1,0,rechazada,103,90,67,21,89,38.8,10,5,5,27.1,fallida
+50,1116636742,M,62,Salud Total,sale_del_HUV,Hospital San Juan de Dios Cali,2026-05-23,0,0,rechazada,129,80,63,19,89,37.9,9,7,7,25.4,fallida
+51,1168388014,F,51,Emssanar,sale_del_HUV,Hospital Universitario San José (Popayán),2026-05-12,0,0,rechazada,125,60,45,28,87,37.8,14,6,6,19.6,fallida
+52,1146410290,M,76,Emssanar,llega_al_HUV,Hospital Universitario del Valle,2026-08-08,1,1,rechazada,135,71,56,30,87,38.3,12,4,4,7.5,fallida
+53,1100399982,M,21,SOS,sale_del_HUV,Hospital Universitario San José (Popayán),2026-06-21,1,1,completada,89,135,69,18,94,37.5,15,1,0,0.0,efectiva
+54,1199484591,F,63,Emssanar,sale_del_HUV,Clínica Nuestra Señora de los Remedios,2026-04-24,1,1,rechazada,110,123,77,23,88,37.3,11,5,5,17.8,fallida
+55,1130366343,M,54,Emssanar,sale_del_HUV,Clínica Farallones,2026-05-15,1,0,rechazada,120,84,66,28,86,37.2,9,7,7,31.4,fallida
+56,1180911112,F,28,Emssanar,llega_al_HUV,Hospital Universitario del Valle,2026-06-08,0,1,completada,93,120,84,15,96,36.4,15,1,0,0.0,efectiva
+57,1116827519,M,65,Emssanar,sale_del_HUV,Hospital Universitario San José (Popayán),2026-03-12,0,1,completada,87,139,99,23,93,37.0,15,1,0,0.0,efectiva
+58,1140963119,F,49,Coosalud,sale_del_HUV,Clínica Imbanaco,2026-04-30,1,1,completada,96,116,89,20,95,37.3,15,1,0,0.0,efectiva
+59,1138568733,M,44,Coosalud,llega_al_HUV,Hospital Universitario del Valle,2026-06-25,0,0,rechazada,128,62,47,24,84,38.9,10,7,7,25.9,fallida
+60,1137440110,F,65,Salud Total,sale_del_HUV,Hospital Universitario San José (Popayán),2026-09-15,1,0,rechazada,96,90,64,24,94,37.9,10,7,7,24.0,fallida
+61,1106230344,M,30,Coosalud,sale_del_HUV,Clínica Versalles,2026-09-02,0,1,en_gestion,86,99,60,20,93,37.5,12,4,3,8.6,borderline
+62,1134492402,F,42,Salud Total,llega_al_HUV,Hospital Universitario del Valle,2026-06-17,0,1,aceptada,93,127,72,24,98,37.2,15,1,0,0.0,efectiva
+63,1135116224,M,22,Nueva EPS,sale_del_HUV,Hospital San Juan de Dios Cali,2026-07-01,0,1,completada,96,144,64,18,96,36.5,15,1,0,0.0,efectiva
+64,1105930625,F,65,Emssanar,sale_del_HUV,Fundación Valle del Lili,2026-03-16,0,1,completada,82,129,75,21,94,36.1,15,2,1,0.3,efectiva
+65,1174261913,F,44,Emssanar,llega_al_HUV,Hospital Universitario del Valle,2026-06-22,0,0,completada,92,132,67,15,94,37.4,15,1,0,0.0,efectiva
+66,1144391749,F,52,Salud Total,sale_del_HUV,Fundación Valle del Lili,2026-06-02,1,0,rechazada,120,73,58,26,90,37.6,8,4,4,18.4,fallida
+67,1105007397,F,61,Salud Total,sale_del_HUV,Clínica Farallones,2026-05-12,0,0,completada,91,112,67,19,99,37.7,14,2,1,1.5,efectiva
+68,1145607329,M,30,Coosalud,llega_al_HUV,Hospital Universitario del Valle,2026-06-14,0,0,en_gestion,97,121,73,20,93,38.6,10,4,3,7.5,borderline
+69,1129481722,M,71,SOS,sale_del_HUV,Clínica Farallones,2026-05-18,1,0,rechazada,119,99,78,27,85,38.2,12,4,4,12.0,fallida
+70,1139528752,F,54,Nueva EPS,sale_del_HUV,Fundación Valle del Lili,2026-03-09,0,1,aceptada,71,101,69,20,96,36.6,15,1,0,0.0,efectiva
+71,1166929847,M,51,Salud Total,llega_al_HUV,Hospital Universitario del Valle,2026-05-28,0,1,aceptada,93,128,62,19,96,37.4,14,2,1,0.8,efectiva
+72,1177120155,F,55,Salud Total,sale_del_HUV,Clínica de Occidente,2026-05-08,1,1,rechazada,136,78,52,19,93,39.0,8,4,4,21.0,fallida
+73,1117126500,M,37,Emssanar,sale_del_HUV,Clínica Versalles,2026-08-27,0,1,aceptada,92,125,82,15,97,37.1,14,1,0,0.0,efectiva
+74,1126280991,F,50,Salud Total,sale_del_HUV,Fundación Valle del Lili,2026-09-05,0,1,completada,100,124,75,17,90,37.4,15,1,0,0.0,efectiva
+75,1157880286,F,68,Asmet Salud,sale_del_HUV,Fundación Valle del Lili,2026-04-30,1,0,rechazada,128,74,33,26,87,36.9,10,6,6,23.4,fallida
+76,1169769461,F,58,Coosalud,sale_del_HUV,Clínica Nuestra Señora de los Remedios,2026-07-06,0,1,completada,89,136,68,21,93,37.3,15,1,0,0.0,efectiva
+77,1164827161,M,46,Nueva EPS,sale_del_HUV,Clínica Imbanaco,2026-04-13,0,1,en_gestion,91,127,75,14,91,36.4,13,4,3,7.1,borderline
+78,1118943627,M,49,Emssanar,sale_del_HUV,Clínica de Occidente,2026-09-02,1,1,en_gestion,92,89,61,18,88,36.2,15,3,2,8.9,borderline
+79,1124611107,M,74,Coosalud,sale_del_HUV,Clínica Colombia Cali,2026-09-13,0,1,en_gestion,106,157,62,21,92,36.9,11,3,2,9.6,borderline
+80,1111200247,F,50,Emssanar,llega_al_HUV,Hospital Universitario del Valle,2026-03-23,1,1,pendiente,116,128,81,21,91,37.4,14,3,2,6.2,borderline
+81,1165187846,M,42,Salud Total,sale_del_HUV,Hospital Universitario San José (Popayán),2026-06-25,1,0,pendiente,113,100,67,16,94,38.0,14,3,2,6.0,borderline
+82,1191595739,F,48,Emssanar,sale_del_HUV,Clínica Versalles,2026-03-20,0,1,aceptada,85,141,75,14,96,36.7,14,1,0,0.0,efectiva
+83,1155852748,F,57,Salud Total,sale_del_HUV,Clínica Imbanaco,2026-06-04,1,0,rechazada,130,94,57,25,84,38.2,15,4,4,17.3,fallida
+84,1173909015,M,61,Emssanar,sale_del_HUV,Clínica Colombia Cali,2026-06-25,0,0,rechazada,124,122,65,29,81,38.7,6,7,7,24.6,fallida
+85,1122889696,M,71,Salud Total,llega_al_HUV,Hospital Universitario del Valle,2026-08-11,1,0,rechazada,120,130,59,32,93,38.3,10,7,7,24.1,fallida
+86,1128189155,M,61,Coosalud,sale_del_HUV,Clínica Nuestra Señora de los Remedios,2026-05-22,1,0,en_gestion,114,130,88,21,93,38.2,15,3,2,8.5,borderline
+87,1150298215,F,59,SOS,sale_del_HUV,Clínica Sebastián de Belalcázar,2026-06-08,1,0,rechazada,122,60,45,33,88,39.3,7,6,6,16.8,fallida
+88,1112333811,M,70,Sanitas,sale_del_HUV,Clínica Colombia Cali,2026-08-15,1,0,rechazada,129,97,54,35,85,37.4,11,5,5,9.5,fallida
+89,1191381163,F,41,Coosalud,sale_del_HUV,Clínica Sebastián de Belalcázar,2026-05-02,0,1,completada,90,118,60,21,97,36.9,14,2,1,1.1,efectiva
+90,1174222737,M,95,Coosalud,llega_al_HUV,Hospital Universitario del Valle,2026-06-06,0,1,rechazada,84,112,69,25,85,38.2,15,7,7,22.8,fallida
+91,1153275198,F,33,Asmet Salud,sale_del_HUV,Clínica de Occidente,2026-05-06,0,1,completada,87,126,81,17,100,36.4,15,2,1,0.6,efectiva
+92,1120456395,M,55,Sura,sale_del_HUV,Clínica Nuestra Señora de los Remedios,2026-07-21,0,0,rechazada,142,61,46,33,91,37.9,7,7,7,28.2,fallida
+93,1140753934,M,65,Coosalud,sale_del_HUV,Clínica Nuestra Señora de los Remedios,2026-07-27,1,0,rechazada,137,106,75,21,90,37.3,13,5,5,18.0,fallida
+94,1126566458,F,36,SOS,llega_al_HUV,Hospital Universitario del Valle,2026-06-20,0,1,completada,87,148,89,19,93,36.8,15,2,1,1.9,efectiva
+95,1168809690,F,49,Sura,llega_al_HUV,Hospital Universitario del Valle,2026-03-23,0,1,completada,81,141,77,24,94,36.9,15,1,0,0.0,efectiva
+96,1127043789,M,51,Emssanar,llega_al_HUV,Hospital Universitario del Valle,2026-08-26,1,0,rechazada,107,88,49,29,93,37.6,14,7,7,24.3,fallida
+97,1118263451,M,26,Sura,sale_del_HUV,Hospital Universitario San José (Popayán),2026-05-26,0,1,aceptada,88,141,83,20,95,36.6,15,1,0,0.0,efectiva
+98,1174961995,M,46,Emssanar,sale_del_HUV,Fundación Valle del Lili,2026-08-04,0,1,completada,77,111,69,20,96,36.8,15,1,0,0.0,efectiva
+99,1148779280,F,42,Asmet Salud,sale_del_HUV,Hospital Universitario San José (Popayán),2026-03-17,0,1,aceptada,98,134,82,12,94,38.0,15,2,1,0.9,efectiva
+100,1134728434,M,69,Emssanar,llega_al_HUV,Hospital Universitario del Valle,2026-04-29,1,1,completada,76,135,81,17,95,36.9,15,1,0,0.0,efectiva
+101,1152059617,F,22,Sanitas,sale_del_HUV,Clínica Sebastián de Belalcázar,2026-06-21,0,0,completada,55,132,83,15,95,37.0,14,2,1,1.9,efectiva
+102,1117636874,M,52,Coosalud,sale_del_HUV,Clínica Farallones,2026-06-22,1,0,rechazada,112,94,69,22,90,39.5,11,5,5,27.0,fallida
+103,1154832083,M,91,Coosalud,llega_al_HUV,Hospital Universitario del Valle,2026-03-24,0,0,en_gestion,121,137,70,17,91,38.3,15,3,2,5.8,borderline
+104,1171210317,F,54,Coosalud,llega_al_HUV,Hospital Universitario del Valle,2026-04-10,1,0,rechazada,115,98,65,25,90,36.8,15,7,7,27.3,fallida
+105,1140969696,F,25,Nueva EPS,llega_al_HUV,Hospital Universitario del Valle,2026-08-17,0,1,pendiente,105,121,79,27,89,38.8,14,4,3,11.3,borderline
+106,1186568213,F,50,Sura,llega_al_HUV,Hospital Universitario del Valle,2026-09-18,0,1,rechazada,113,109,75,29,96,38.8,13,5,5,13.9,fallida
+107,1131641903,F,77,Emssanar,sale_del_HUV,Fundación Valle del Lili,2026-03-28,1,1,en_gestion,116,115,74,27,92,38.2,11,4,3,11.7,borderline
+108,1175365437,F,50,Sanitas,llega_al_HUV,Hospital Universitario del Valle,2026-04-23,1,0,rechazada,142,95,61,26,89,38.7,10,5,5,17.9,fallida
+109,1180128040,F,64,Salud Total,llega_al_HUV,Hospital Universitario del Valle,2026-03-07,1,0,pendiente,98,116,64,28,94,37.3,13,4,3,12.2,borderline
+110,1126287510,F,85,Nueva EPS,sale_del_HUV,Clínica Versalles,2026-07-12,1,0,en_gestion,113,127,65,25,95,38.0,13,3,2,6.5,borderline
+111,1109680854,F,80,Asmet Salud,sale_del_HUV,Clínica de Occidente,2026-03-02,1,0,rechazada,137,102,48,25,86,38.4,13,6,6,22.5,fallida
+112,1111760001,M,39,Sanitas,sale_del_HUV,Clínica Colombia Cali,2026-03-29,0,1,aceptada,95,140,71,14,97,37.1,15,1,0,0.0,efectiva
+113,1198724767,F,41,Nueva EPS,sale_del_HUV,Clínica Sebastián de Belalcázar,2026-06-10,1,1,en_gestion,103,118,79,24,94,38.6,13,4,3,11.3,borderline
+114,1135289814,F,44,Sanitas,llega_al_HUV,Hospital Universitario del Valle,2026-07-29,0,0,completada,100,125,74,17,94,37.4,14,2,1,1.3,efectiva
+115,1158035846,M,68,Emssanar,llega_al_HUV,Hospital Universitario del Valle,2026-08-17,1,1,pendiente,121,117,77,21,88,37.9,14,4,3,8.4,borderline
+116,1113763521,F,73,Salud Total,sale_del_HUV,Clínica Farallones,2026-04-14,1,0,rechazada,129,97,62,35,89,38.1,15,4,4,22.1,fallida
+117,1187770449,M,36,Nueva EPS,llega_al_HUV,Hospital Universitario del Valle,2026-09-19,0,1,pendiente,116,116,89,19,92,37.7,15,3,2,6.5,borderline
+118,1134692116,F,68,Sura,llega_al_HUV,Hospital Universitario del Valle,2026-08-17,1,0,rechazada,110,112,57,26,85,38.0,11,6,6,21.6,fallida
+119,1105176049,M,31,Sanitas,llega_al_HUV,Hospital Universitario del Valle,2026-08-10,0,1,completada,72,101,74,19,98,36.7,15,1,0,0.0,efectiva
+120,1137498603,F,75,Emssanar,sale_del_HUV,Fundación Valle del Lili,2026-04-17,0,0,en_gestion,128,105,81,20,97,37.6,15,3,2,5.3,borderline
+121,1135887487,M,65,Coosalud,sale_del_HUV,Clínica Colombia Cali,2026-06-11,0,1,pendiente,85,107,71,27,88,37.6,11,4,3,9.2,borderline
+122,1182966996,F,49,Salud Total,sale_del_HUV,Fundación Valle del Lili,2026-05-26,1,0,en_gestion,120,100,80,28,92,37.8,12,4,3,9.4,borderline
+123,1106587067,M,60,Salud Total,llega_al_HUV,Hospital Universitario del Valle,2026-07-09,1,1,en_gestion,98,119,82,26,95,36.9,13,4,3,9.6,borderline
+124,1176792287,F,45,SOS,sale_del_HUV,Clínica Imbanaco,2026-03-10,1,1,aceptada,93,155,84,22,97,36.4,14,2,1,1.0,efectiva
+125,1187919543,F,59,Salud Total,sale_del_HUV,Fundación Valle del Lili,2026-05-06,0,1,completada,79,138,87,15,96,38.0,15,2,1,0.7,efectiva
+126,1120155043,F,35,Emssanar,sale_del_HUV,Clínica de Occidente,2026-08-16,0,0,aceptada,86,146,87,18,98,38.0,14,1,0,0.0,efectiva
+127,1115775679,F,30,Nueva EPS,sale_del_HUV,Clínica Sebastián de Belalcázar,2026-04-05,0,1,aceptada,95,132,75,17,96,37.8,15,1,0,0.0,efectiva
+128,1178413185,M,79,Salud Total,sale_del_HUV,Clínica Sebastián de Belalcázar,2026-03-18,0,1,en_gestion,118,118,56,19,89,37.6,10,3,2,9.7,borderline
+129,1104662278,M,59,Nueva EPS,sale_del_HUV,Fundación Valle del Lili,2026-08-20,1,0,pendiente,116,119,71,24,89,37.4,15,3,2,3.9,borderline
+130,1159520722,M,90,Coosalud,sale_del_HUV,Hospital San Juan de Dios Cali,2026-03-12,1,0,en_gestion,102,82,67,24,94,37.8,14,3,2,6.4,borderline
+131,1114222053,M,70,SOS,llega_al_HUV,Hospital Universitario del Valle,2026-04-20,0,1,completada,86,117,81,21,90,37.0,15,2,1,0.3,efectiva
+132,1181329109,F,18,Nueva EPS,sale_del_HUV,Clínica Sebastián de Belalcázar,2026-04-02,1,1,aceptada,94,114,84,17,97,37.6,15,2,1,0.6,efectiva
+133,1109361948,M,35,Sanitas,sale_del_HUV,Hospital San Juan de Dios Cali,2026-09-20,0,1,aceptada,70,131,81,21,96,36.6,14,1,0,0.0,efectiva
+134,1186465379,M,58,Emssanar,llega_al_HUV,Hospital Universitario del Valle,2026-08-22,0,0,pendiente,105,108,72,18,91,37.8,11,4,3,9.3,borderline
+135,1144626083,F,62,Coosalud,sale_del_HUV,Clínica Sebastián de Belalcázar,2026-03-05,1,0,rechazada,105,76,43,23,89,38.1,10,6,6,28.2,fallida
+136,1111506963,M,53,Emssanar,llega_al_HUV,Hospital Universitario del Valle,2026-07-31,0,1,pendiente,103,104,63,25,90,37.1,13,3,2,6.3,borderline
+137,1168639154,M,50,Sanitas,sale_del_HUV,Hospital San Juan de Dios Cali,2026-05-05,0,1,completada,111,131,82,18,91,36.9,15,1,0,0.0,efectiva
+138,1122926039,M,48,Sanitas,sale_del_HUV,Clínica de Occidente,2026-09-11,0,1,aceptada,95,138,89,12,93,37.0,15,1,0,0.0,efectiva
+139,1126796364,F,77,Sanitas,sale_del_HUV,Clínica Nuestra Señora de los Remedios,2026-08-26,0,0,pendiente,104,127,66,23,91,37.4,12,3,2,6.4,borderline
+140,1168897673,M,34,Nueva EPS,sale_del_HUV,Clínica Versalles,2026-03-15,0,1,aceptada,81,130,72,26,97,35.7,15,2,1,0.4,efectiva
+141,1119773501,F,50,Sura,llega_al_HUV,Hospital Universitario del Valle,2026-09-08,0,1,completada,81,125,75,18,94,36.5,14,1,0,0.0,efectiva
+142,1134919496,M,57,Nueva EPS,llega_al_HUV,Hospital Universitario del Valle,2026-06-14,0,1,aceptada,104,134,83,18,99,37.0,14,2,1,0.3,efectiva
+143,1106561914,M,21,Coosalud,sale_del_HUV,Clínica Imbanaco,2026-05-11,0,1,completada,89,113,74,18,97,37.2,15,1,0,0.0,efectiva
+144,1183462564,F,66,Emssanar,llega_al_HUV,Hospital Universitario del Valle,2026-04-10,1,0,rechazada,132,60,45,29,84,37.2,13,5,5,14.2,fallida
+145,1154250465,M,66,Salud Total,sale_del_HUV,Hospital Universitario San José (Popayán),2026-09-11,1,0,rechazada,89,92,66,31,87,36.6,9,5,5,19.0,fallida
+146,1155602948,M,37,Emssanar,llega_al_HUV,Hospital Universitario del Valle,2026-05-17,0,0,rechazada,131,108,47,22,95,40.0,13,4,4,10.6,fallida
+147,1119685334,M,52,Sanitas,sale_del_HUV,Clínica Imbanaco,2026-06-04,0,1,en_gestion,98,134,73,30,94,38.3,14,3,2,6.8,borderline
+148,1129048323,M,77,Sanitas,llega_al_HUV,Hospital Universitario del Valle,2026-07-07,1,0,rechazada,120,122,64,32,85,37.8,11,6,6,17.7,fallida
+149,1195809218,F,75,Nueva EPS,sale_del_HUV,Clínica Colombia Cali,2026-07-16,0,0,rechazada,130,89,70,28,87,37.2,14,6,6,29.4,fallida
+150,1173787952,F,41,Sura,sale_del_HUV,Clínica Versalles,2026-03-10,0,1,completada,65,130,85,18,99,36.6,15,1,0,0.0,efectiva
+151,1160357794,F,73,Emssanar,sale_del_HUV,Clínica Nuestra Señora de los Remedios,2026-03-26,1,0,pendiente,99,81,66,30,95,37.6,13,4,3,13.2,borderline
+152,1156537054,M,66,Coosalud,sale_del_HUV,Hospital San Juan de Dios Cali,2026-03-17,1,0,rechazada,137,123,56,26,85,36.7,12,6,6,24.1,fallida
+153,1139320672,M,50,Emssanar,sale_del_HUV,Clínica de Occidente,2026-03-21,0,0,rechazada,120,123,68,31,88,37.8,7,5,5,15.6,fallida
+154,1177952807,F,33,Emssanar,llega_al_HUV,Hospital Universitario del Valle,2026-07-27,1,1,completada,80,113,71,14,98,37.1,15,2,1,0.7,efectiva
+155,1168659568,F,47,Nueva EPS,sale_del_HUV,Clínica Imbanaco,2026-03-12,0,0,rechazada,106,96,67,22,87,39.7,10,7,7,28.4,fallida
+156,1143435758,F,72,Salud Total,llega_al_HUV,Hospital Universitario del Valle,2026-05-17,0,1,completada,76,115,89,21,94,36.6,14,2,1,1.1,efectiva
+157,1177060461,F,49,Coosalud,llega_al_HUV,Hospital Universitario del Valle,2026-06-28,0,1,en_gestion,127,85,70,23,90,36.8,13,4,3,13.2,borderline
+158,1159577232,F,25,Nueva EPS,sale_del_HUV,Clínica Imbanaco,2026-03-17,0,1,completada,90,147,80,22,96,37.3,15,2,1,0.4,efectiva
+159,1174195178,M,61,Sanitas,sale_del_HUV,Hospital Universitario San José (Popayán),2026-06-29,1,0,rechazada,109,99,62,28,90,39.2,11,5,5,23.5,fallida
+160,1155578901,M,59,Salud Total,llega_al_HUV,Hospital Universitario del Valle,2026-04-12,1,0,rechazada,127,91,60,24,85,39.0,13,5,5,22.7,fallida
+161,1172681046,F,44,Sanitas,sale_del_HUV,Hospital San Juan de Dios Cali,2026-09-11,0,1,pendiente,121,98,65,26,90,36.7,12,3,2,6.6,borderline
+162,1164312649,M,78,Asmet Salud,llega_al_HUV,Hospital Universitario del Valle,2026-03-30,1,1,rechazada,125,98,60,25,87,37.2,13,4,4,7.9,fallida
+163,1195529763,M,42,Emssanar,sale_del_HUV,Hospital San Juan de Dios Cali,2026-04-10,0,1,completada,91,86,71,17,94,37.3,14,1,0,0.0,efectiva
+164,1111495031,F,77,Emssanar,llega_al_HUV,Hospital Universitario del Valle,2026-05-02,1,0,rechazada,106,75,60,23,87,37.6,14,6,6,21.5,fallida
+165,1155286600,F,63,Coosalud,llega_al_HUV,Hospital Universitario del Valle,2026-07-15,1,1,en_gestion,123,162,63,21,90,37.3,14,4,3,11.4,borderline
+166,1164237031,M,30,Asmet Salud,sale_del_HUV,Hospital San Juan de Dios Cali,2026-05-15,0,1,aceptada,104,128,86,14,93,36.5,14,1,0,0.0,efectiva
+167,1185438654,F,84,SOS,llega_al_HUV,Hospital Universitario del Valle,2026-03-20,1,1,en_gestion,93,72,57,19,91,37.8,13,4,3,9.8,borderline
+168,1116124961,F,92,Nueva EPS,sale_del_HUV,Clínica de Occidente,2026-05-19,0,1,aceptada,76,133,69,18,93,36.6,14,2,1,0.8,efectiva
+169,1162779790,M,65,SOS,sale_del_HUV,Clínica Colombia Cali,2026-04-11,0,1,en_gestion,96,86,71,20,90,38.5,15,4,3,13.0,borderline
+170,1153411135,F,26,Asmet Salud,llega_al_HUV,Hospital Universitario del Valle,2026-06-01,0,1,aceptada,70,140,77,20,95,37.0,15,2,1,0.3,efectiva
+171,1122117579,F,82,Sura,sale_del_HUV,Clínica de Occidente,2026-08-29,0,0,en_gestion,85,106,64,20,92,37.3,14,4,3,7.1,borderline
+172,1145738546,M,56,Coosalud,llega_al_HUV,Hospital Universitario del Valle,2026-03-18,1,1,completada,107,118,83,17,95,36.7,15,1,0,0.0,efectiva
+173,1144032637,M,56,Salud Total,sale_del_HUV,Hospital Universitario San José (Popayán),2026-06-14,0,1,pendiente,97,96,74,25,91,37.2,15,4,3,12.8,borderline
+174,1173369249,M,74,Nueva EPS,llega_al_HUV,Hospital Universitario del Valle,2026-09-08,1,0,en_gestion,105,121,59,20,89,38.5,13,3,2,8.7,borderline
+175,1162000282,M,54,Nueva EPS,sale_del_HUV,Hospital Universitario San José (Popayán),2026-07-17,1,0,en_gestion,143,111,83,27,92,37.1,12,3,2,7.1,borderline
+176,1182098305,F,62,Coosalud,sale_del_HUV,Hospital San Juan de Dios Cali,2026-07-24,1,0,rechazada,104,109,57,20,83,38.5,10,7,7,27.0,fallida
+177,1186560507,F,38,Sanitas,sale_del_HUV,Clínica Versalles,2026-05-03,0,1,completada,78,142,74,22,95,36.8,15,1,0,0.0,efectiva
+178,1107451439,M,59,Asmet Salud,llega_al_HUV,Hospital Universitario del Valle,2026-08-23,1,1,rechazada,113,67,52,25,85,38.8,11,6,6,26.1,fallida
+179,1131534399,F,52,Asmet Salud,llega_al_HUV,Hospital Universitario del Valle,2026-03-19,0,1,pendiente,110,105,78,21,95,37.3,15,4,3,11.0,borderline
+180,1137920013,M,38,Sanitas,sale_del_HUV,Clínica Colombia Cali,2026-08-13,1,0,en_gestion,109,115,73,23,91,37.2,11,4,3,14.8,borderline
+181,1138102841,M,77,Coosalud,llega_al_HUV,Hospital Universitario del Valle,2026-07-10,0,1,aceptada,92,100,85,23,96,36.9,15,1,0,0.0,efectiva
+182,1185694646,F,32,Asmet Salud,sale_del_HUV,Clínica Farallones,2026-03-18,1,0,rechazada,135,112,73,26,86,38.9,13,5,5,16.5,fallida
+183,1170571763,M,31,Sanitas,sale_del_HUV,Clínica Nuestra Señora de los Remedios,2026-08-16,1,0,rechazada,121,91,52,25,88,37.8,9,5,5,19.4,fallida
+184,1196369461,F,52,Asmet Salud,llega_al_HUV,Hospital Universitario del Valle,2026-08-30,0,1,completada,101,130,66,18,96,37.2,15,2,1,1.2,efectiva
+185,1147498339,F,72,Sura,llega_al_HUV,Hospital Universitario del Valle,2026-04-07,0,0,rechazada,132,103,52,29,93,37.1,9,7,7,40.3,fallida
+186,1106190891,F,87,Sura,llega_al_HUV,Hospital Universitario del Valle,2026-06-04,1,0,en_gestion,87,96,78,23,89,36.9,13,3,2,10.0,borderline
+187,1167038224,F,84,Asmet Salud,sale_del_HUV,Clínica Nuestra Señora de los Remedios,2026-09-02,1,0,en_gestion,86,91,52,28,91,38.4,13,3,2,3.6,borderline
+188,1128117109,M,58,Emssanar,sale_del_HUV,Clínica Nuestra Señora de los Remedios,2026-03-30,0,0,en_gestion,113,131,68,15,87,38.0,12,4,3,12.3,borderline
+189,1168921787,F,69,Sanitas,llega_al_HUV,Hospital Universitario del Valle,2026-04-01,1,0,completada,87,112,84,17,95,37.2,14,2,1,0.3,efectiva
+190,1148017513,M,32,Nueva EPS,llega_al_HUV,Hospital Universitario del Valle,2026-08-19,0,1,pendiente,86,112,61,17,91,36.9,15,3,2,6.9,borderline
+191,1117203284,F,60,SOS,sale_del_HUV,Hospital San Juan de Dios Cali,2026-05-28,0,0,aceptada,79,126,60,21,96,37.1,15,2,1,1.5,efectiva
+192,1186914838,F,18,Asmet Salud,sale_del_HUV,Clínica Versalles,2026-08-27,1,0,rechazada,104,67,52,25,85,38.1,8,6,6,27.8,fallida
+193,1127648956,M,57,Emssanar,sale_del_HUV,Clínica Versalles,2026-08-26,1,0,aceptada,100,134,88,19,94,35.8,15,2,1,0.6,efectiva
+194,1139202339,F,40,Nueva EPS,llega_al_HUV,Hospital Universitario del Valle,2026-04-05,1,0,rechazada,106,85,57,26,89,36.7,13,4,4,17.7,fallida
+195,1143110319,F,26,Emssanar,llega_al_HUV,Hospital Universitario del Valle,2026-08-21,1,1,en_gestion,90,113,71,26,97,38.8,13,3,2,9.5,borderline
+196,1199601862,F,75,Salud Total,sale_del_HUV,Hospital Universitario San José (Popayán),2026-07-28,1,1,rechazada,118,115,48,21,90,38.6,9,6,6,17.9,fallida
+197,1125603837,F,35,SOS,sale_del_HUV,Hospital San Juan de Dios Cali,2026-05-03,1,0,rechazada,138,80,45,31,85,38.8,11,4,4,13.2,fallida
+198,1161304235,M,57,Coosalud,llega_al_HUV,Hospital Universitario del Valle,2026-09-01,1,0,rechazada,116,68,50,21,86,37.5,7,4,4,9.4,fallida
+199,1106815116,F,69,Salud Total,llega_al_HUV,Hospital Universitario del Valle,2026-04-01,0,0,rechazada,112,89,45,28,91,38.0,13,5,5,14.1,fallida
+200,1105930868,M,55,Nueva EPS,sale_del_HUV,Clínica Colombia Cali,2026-05-03,1,1,pendiente,95,137,59,23,87,38.0,10,3,2,8.2,borderline
+201,1138300065,M,69,Emssanar,llega_al_HUV,Hospital Universitario del Valle,2026-05-13,1,0,rechazada,123,116,62,30,86,37.3,9,5,5,16.0,fallida
+202,1191719418,F,37,Coosalud,sale_del_HUV,Clínica Imbanaco,2026-05-01,0,1,aceptada,80,142,74,14,93,36.7,15,1,0,0.0,efectiva
+203,1137158776,F,37,Salud Total,llega_al_HUV,Hospital Universitario del Valle,2026-05-28,0,1,aceptada,81,110,72,15,97,37.0,15,2,1,0.9,efectiva
+204,1192793283,M,80,Sura,sale_del_HUV,Clínica Imbanaco,2026-06-16,0,0,completada,114,125,81,16,98,37.2,15,1,0,0.0,efectiva
+205,1149674173,F,80,Sura,llega_al_HUV,Hospital Universitario del Valle,2026-03-31,1,1,rechazada,115,96,76,24,90,37.6,15,5,5,21.2,fallida
+206,1176383646,M,73,Emssanar,sale_del_HUV,Clínica Versalles,2026-04-26,0,0,en_gestion,108,121,49,17,94,36.7,14,4,3,12.5,borderline
+207,1190420915,F,42,Sanitas,sale_del_HUV,Clínica Farallones,2026-03-13,0,0,en_gestion,99,99,60,23,91,37.3,13,3,2,4.0,borderline
+208,1152208739,M,39,Nueva EPS,sale_del_HUV,Clínica Imbanaco,2026-06-02,1,1,en_gestion,90,109,52,24,89,37.8,11,3,2,9.9,borderline
+209,1162086684,F,63,Emssanar,llega_al_HUV,Hospital Universitario del Valle,2026-05-16,1,1,completada,78,138,90,22,97,36.9,15,1,0,0.0,efectiva
+210,1130920802,M,59,Coosalud,sale_del_HUV,Hospital Universitario San José (Popayán),2026-05-15,0,1,completada,105,106,81,20,96,37.3,14,1,0,0.0,efectiva
+211,1185000744,M,58,Coosalud,sale_del_HUV,Clínica Colombia Cali,2026-06-12,1,0,rechazada,100,100,62,22,89,36.8,14,6,6,26.1,fallida
+212,1183599953,M,42,Coosalud,sale_del_HUV,Clínica Farallones,2026-08-07,0,1,pendiente,84,86,71,25,92,38.0,15,4,3,13.2,borderline
+213,1116767212,F,57,Emssanar,sale_del_HUV,Clínica Versalles,2026-07-09,0,1,aceptada,81,125,80,16,99,37.0,15,1,0,0.0,efectiva
+214,1185787471,M,47,Sura,llega_al_HUV,Hospital Universitario del Valle,2026-08-16,0,0,en_gestion,103,77,62,26,93,38.3,15,4,3,12.8,borderline
+215,1127704097,F,48,SOS,sale_del_HUV,Clínica Imbanaco,2026-07-05,1,1,en_gestion,94,120,63,16,97,36.7,13,3,2,5.1,borderline
+216,1176046777,M,18,Emssanar,llega_al_HUV,Hospital Universitario del Valle,2026-08-11,0,1,completada,84,127,81,17,92,37.0,15,2,1,1.6,efectiva
+217,1180259534,F,63,SOS,sale_del_HUV,Hospital Universitario San José (Popayán),2026-07-08,1,0,pendiente,82,104,62,22,92,39.0,13,3,2,5.6,borderline
+218,1173862126,M,65,Nueva EPS,sale_del_HUV,Fundación Valle del Lili,2026-07-12,1,0,rechazada,118,85,52,33,88,37.2,12,6,6,30.0,fallida
+219,1158031226,F,72,Nueva EPS,sale_del_HUV,Clínica Nuestra Señora de los Remedios,2026-07-28,0,1,aceptada,89,133,83,23,99,37.2,14,1,0,0.0,efectiva
+220,1176491297,M,58,Coosalud,sale_del_HUV,Fundación Valle del Lili,2026-04-15,1,0,rechazada,111,66,51,23,89,38.3,12,6,6,27.4,fallida
+221,1150104245,F,24,Emssanar,sale_del_HUV,Fundación Valle del Lili,2026-07-19,0,1,completada,88,144,74,14,96,36.6,15,2,1,0.8,efectiva
+222,1111546540,M,47,Emssanar,sale_del_HUV,Hospital Universitario San José (Popayán),2026-04-03,0,1,pendiente,110,140,76,30,93,38.7,12,3,2,7.0,borderline
+223,1193407712,F,36,Emssanar,sale_del_HUV,Clínica Imbanaco,2026-05-05,0,1,completada,84,148,76,18,94,37.2,14,1,0,0.0,efectiva
+224,1155767176,F,44,Coosalud,sale_del_HUV,Clínica Imbanaco,2026-09-19,0,0,aceptada,87,119,64,16,96,36.9,14,2,1,1.9,efectiva
+225,1161928828,F,55,Coosalud,llega_al_HUV,Hospital Universitario del Valle,2026-04-07,1,0,rechazada,107,76,61,26,85,36.5,9,4,4,10.6,fallida
+226,1108824000,M,76,Nueva EPS,sale_del_HUV,Clínica de Occidente,2026-06-13,0,1,completada,85,110,83,21,93,36.7,15,2,1,0.9,efectiva
+227,1154234243,M,42,Salud Total,sale_del_HUV,Clínica Nuestra Señora de los Remedios,2026-06-14,0,1,completada,87,117,87,22,94,38.0,15,1,0,0.0,efectiva
+228,1190836115,F,60,Nueva EPS,sale_del_HUV,Clínica Imbanaco,2026-05-16,0,1,completada,94,126,71,16,95,37.2,15,2,1,1.4,efectiva
+229,1184420876,M,62,Nueva EPS,sale_del_HUV,Hospital Universitario San José (Popayán),2026-04-15,0,1,pendiente,114,97,68,25,87,37.3,13,3,2,3.0,borderline
+230,1196972414,F,78,Emssanar,sale_del_HUV,Hospital San Juan de Dios Cali,2026-04-16,0,0,rechazada,104,98,70,26,86,38.9,12,7,7,31.6,fallida
+231,1104818820,F,50,SOS,sale_del_HUV,Clínica de Occidente,2026-06-04,1,0,en_gestion,139,107,72,20,96,37.9,12,3,2,8.1,borderline
+232,1184836434,M,80,SOS,llega_al_HUV,Hospital Universitario del Valle,2026-03-19,0,0,en_gestion,92,147,69,21,89,38.3,10,3,2,6.8,borderline
+233,1107994753,M,34,SOS,llega_al_HUV,Hospital Universitario del Valle,2026-07-20,0,1,aceptada,86,128,77,18,97,38.3,14,2,1,1.0,efectiva
+234,1151045435,F,52,Emssanar,sale_del_HUV,Clínica Sebastián de Belalcázar,2026-06-02,0,1,completada,106,139,65,15,99,35.8,14,2,1,0.4,efectiva
+235,1107306326,M,68,Nueva EPS,sale_del_HUV,Clínica Imbanaco,2026-08-16,0,1,completada,87,119,91,16,97,37.1,15,2,1,1.0,efectiva
+236,1128666795,M,52,SOS,sale_del_HUV,Hospital Universitario San José (Popayán),2026-05-04,1,1,rechazada,131,109,40,35,89,36.3,9,7,7,26.6,fallida
+237,1177307772,M,69,Nueva EPS,llega_al_HUV,Hospital Universitario del Valle,2026-03-29,1,0,rechazada,149,120,52,21,85,38.7,9,6,6,20.2,fallida
+238,1149169999,F,40,Nueva EPS,sale_del_HUV,Clínica de Occidente,2026-05-17,0,1,aceptada,92,119,83,20,94,37.4,14,2,1,1.7,efectiva
+239,1161926741,M,51,Coosalud,llega_al_HUV,Hospital Universitario del Valle,2026-03-14,1,0,rechazada,103,102,67,27,82,38.6,11,5,5,19.9,fallida
+240,1161510458,M,18,SOS,sale_del_HUV,Clínica Farallones,2026-04-10,0,1,en_gestion,104,111,64,28,91,38.1,13,3,2,10.3,borderline
+241,1169572303,F,55,Nueva EPS,llega_al_HUV,Hospital Universitario del Valle,2026-06-04,0,1,aceptada,79,134,86,17,96,35.9,15,1,0,0.0,efectiva
+242,1153102279,F,80,Coosalud,llega_al_HUV,Hospital Universitario del Valle,2026-06-25,1,0,rechazada,117,73,54,20,88,38.5,11,6,6,14.4,fallida
+243,1114788248,F,89,Coosalud,llega_al_HUV,Hospital Universitario del Valle,2026-04-29,1,0,en_gestion,103,89,63,17,97,38.1,13,4,3,6.6,borderline
+244,1152845927,F,33,Emssanar,sale_del_HUV,Hospital San Juan de Dios Cali,2026-06-25,0,1,completada,87,99,72,21,91,36.1,15,2,1,1.7,efectiva
+245,1158743916,M,47,Coosalud,sale_del_HUV,Clínica Sebastián de Belalcázar,2026-09-13,1,1,aceptada,87,130,91,19,95,37.0,14,2,1,1.5,efectiva
+246,1108100668,M,48,Salud Total,sale_del_HUV,Hospital Universitario San José (Popayán),2026-04-14,0,0,rechazada,116,65,50,29,84,39.0,13,5,5,20.9,fallida
+247,1115409884,M,67,Asmet Salud,sale_del_HUV,Clínica Colombia Cali,2026-07-15,1,0,rechazada,128,88,66,31,89,37.6,15,7,7,31.7,fallida
+248,1123416430,F,38,Sanitas,sale_del_HUV,Clínica de Occidente,2026-06-23,0,0,completada,97,114,62,22,95,36.0,14,2,1,0.8,efectiva
+249,1144621161,M,69,Emssanar,llega_al_HUV,Hospital Universitario del Valle,2026-03-29,1,0,rechazada,103,102,63,33,85,38.8,10,5,5,22.3,fallida
+250,1160341437,M,75,Asmet Salud,sale_del_HUV,Hospital San Juan de Dios Cali,2026-09-06,0,1,en_gestion,113,104,67,23,95,37.7,12,4,3,7.4,borderline
+251,1139846945,F,62,SOS,llega_al_HUV,Hospital Universitario del Valle,2026-08-17,1,1,aceptada,93,103,71,14,93,37.1,14,1,0,0.0,efectiva
+252,1134451037,M,71,Sanitas,sale_del_HUV,Hospital Universitario San José (Popayán),2026-09-11,1,0,rechazada,115,84,51,23,89,38.0,9,4,4,6.3,fallida
+253,1168495436,M,55,Salud Total,sale_del_HUV,Clínica Imbanaco,2026-03-14,1,1,pendiente,102,115,67,24,90,36.9,13,3,2,3.6,borderline
+254,1108834901,M,64,Salud Total,llega_al_HUV,Hospital Universitario del Valle,2026-06-02,1,0,rechazada,129,66,51,27,90,37.9,13,7,7,27.8,fallida
+255,1123466403,M,79,SOS,sale_del_HUV,Clínica Farallones,2026-08-03,1,0,rechazada,112,125,48,23,84,37.6,13,4,4,12.1,fallida
+256,1163218675,F,64,Coosalud,llega_al_HUV,Hospital Universitario del Valle,2026-03-11,1,0,rechazada,131,88,61,23,87,37.9,12,5,5,19.9,fallida
+257,1103779089,M,36,Emssanar,sale_del_HUV,Clínica Versalles,2026-06-15,0,0,rechazada,116,109,46,27,91,38.1,13,4,4,10.1,fallida
+258,1127754259,M,68,Coosalud,sale_del_HUV,Fundación Valle del Lili,2026-06-24,1,1,completada,95,120,81,20,95,37.2,15,1,0,0.0,efectiva
+259,1187309350,M,56,Sura,llega_al_HUV,Hospital Universitario del Valle,2026-03-27,1,0,rechazada,146,93,59,20,79,38.9,9,7,7,34.2,fallida
+260,1160094288,F,63,Emssanar,sale_del_HUV,Clínica Colombia Cali,2026-08-05,1,0,rechazada,119,60,45,24,87,37.7,7,7,7,30.6,fallida
+261,1125948988,F,31,Asmet Salud,llega_al_HUV,Hospital Universitario del Valle,2026-08-13,0,0,aceptada,97,117,89,14,94,37.0,15,1,0,0.0,efectiva
+262,1147668796,M,62,Salud Total,sale_del_HUV,Clínica Farallones,2026-04-04,0,0,en_gestion,91,128,66,20,95,37.2,13,4,3,8.8,borderline
+263,1186169440,F,55,Nueva EPS,sale_del_HUV,Clínica Nuestra Señora de los Remedios,2026-09-10,0,1,completada,94,110,81,17,92,36.8,15,2,1,1.8,efectiva
+264,1183850261,F,51,SOS,llega_al_HUV,Hospital Universitario del Valle,2026-06-11,1,0,rechazada,130,122,52,25,95,37.0,12,7,7,25.1,fallida
+265,1170304068,F,33,Sura,sale_del_HUV,Clínica Versalles,2026-08-21,0,1,aceptada,78,117,79,22,96,37.2,15,1,0,0.0,efectiva
+266,1145591176,F,61,Asmet Salud,sale_del_HUV,Clínica Colombia Cali,2026-06-25,0,1,en_gestion,113,86,58,16,90,36.7,13,3,2,7.7,borderline
+267,1149738761,F,47,Sanitas,llega_al_HUV,Hospital Universitario del Valle,2026-09-01,1,0,en_gestion,93,101,72,17,95,38.0,12,4,3,15.0,borderline
+268,1168456833,F,95,Emssanar,sale_del_HUV,Clínica Imbanaco,2026-04-11,0,1,rechazada,104,62,47,25,95,38.7,9,6,6,24.0,fallida
+269,1174711132,M,59,Asmet Salud,sale_del_HUV,Hospital San Juan de Dios Cali,2026-06-29,0,1,en_gestion,112,117,62,20,91,37.4,11,3,2,5.9,borderline
+270,1179686468,F,64,Emssanar,sale_del_HUV,Clínica Versalles,2026-03-03,1,0,en_gestion,109,94,65,26,91,37.6,12,4,3,7.9,borderline
+271,1149843025,F,77,Coosalud,sale_del_HUV,Clínica Imbanaco,2026-05-09,1,0,rechazada,134,76,61,19,92,39.4,14,7,7,26.4,fallida
+272,1115633137,M,52,Nueva EPS,sale_del_HUV,Clínica Farallones,2026-08-30,1,1,aceptada,78,146,68,12,96,37.3,14,1,0,0.0,efectiva
+273,1182507226,M,18,SOS,llega_al_HUV,Hospital Universitario del Valle,2026-03-23,0,1,completada,80,121,81,19,96,36.5,15,2,1,0.8,efectiva
+274,1108199746,F,72,Sanitas,sale_del_HUV,Clínica Farallones,2026-07-21,0,0,rechazada,116,106,85,24,96,37.8,11,7,7,25.8,fallida
+275,1127174805,F,45,Coosalud,sale_del_HUV,Clínica Sebastián de Belalcázar,2026-07-13,0,1,completada,67,136,84,20,95,36.9,15,2,1,0.5,efectiva
+276,1105675638,M,47,Nueva EPS,llega_al_HUV,Hospital Universitario del Valle,2026-07-06,0,1,aceptada,99,162,76,19,96,36.4,14,1,0,0.0,efectiva
+277,1110697332,M,48,Emssanar,sale_del_HUV,Hospital Universitario San José (Popayán),2026-04-08,0,1,pendiente,117,81,66,24,96,38.7,15,4,3,8.7,borderline
+278,1110628056,F,22,Emssanar,sale_del_HUV,Clínica Imbanaco,2026-03-14,0,0,aceptada,95,133,74,17,100,36.8,15,2,1,1.3,efectiva
+279,1108660651,F,70,Asmet Salud,llega_al_HUV,Hospital Universitario del Valle,2026-03-25,0,1,en_gestion,92,94,79,24,92,37.9,11,3,2,6.3,borderline
+280,1176900209,F,44,Coosalud,sale_del_HUV,Clínica Colombia Cali,2026-07-24,0,0,en_gestion,109,118,67,18,90,36.9,15,4,3,13.1,borderline
+281,1173179533,F,42,Emssanar,llega_al_HUV,Hospital Universitario del Valle,2026-06-16,1,0,rechazada,103,104,73,29,86,37.5,12,7,7,30.4,fallida
+282,1105797872,F,75,Nueva EPS,sale_del_HUV,Hospital Universitario San José (Popayán),2026-09-02,0,1,completada,97,125,69,16,97,36.4,14,2,1,1.1,efectiva
+283,1185135932,F,95,Emssanar,llega_al_HUV,Hospital Universitario del Valle,2026-09-13,1,1,pendiente,97,134,76,24,93,38.0,13,4,3,11.4,borderline
+284,1164829072,M,73,Sura,sale_del_HUV,Hospital San Juan de Dios Cali,2026-04-06,0,1,aceptada,80,139,77,22,97,36.4,15,2,1,0.5,efectiva
+285,1169971102,F,35,Coosalud,sale_del_HUV,Clínica Nuestra Señora de los Remedios,2026-08-10,0,0,en_gestion,99,104,69,22,90,37.8,12,4,3,7.7,borderline
+286,1190549871,M,57,Sura,sale_del_HUV,Clínica de Occidente,2026-08-23,1,0,rechazada,117,95,54,34,82,38.5,12,6,6,14.4,fallida
+287,1173261760,M,67,Coosalud,sale_del_HUV,Fundación Valle del Lili,2026-09-18,1,1,rechazada,135,116,45,26,84,37.1,11,7,7,21.9,fallida
+288,1163705364,M,56,Salud Total,sale_del_HUV,Clínica Farallones,2026-04-15,1,0,en_gestion,108,115,82,19,88,38.4,10,3,2,7.6,borderline
+289,1148941541,F,33,Sanitas,sale_del_HUV,Clínica de Occidente,2026-08-25,0,0,completada,78,116,67,14,94,36.7,15,2,1,0.8,efectiva
+290,1124428627,M,48,Emssanar,sale_del_HUV,Clínica Farallones,2026-06-21,0,1,aceptada,115,139,73,16,93,36.6,15,2,1,1.7,efectiva
+291,1192657210,M,62,Nueva EPS,sale_del_HUV,Clínica Imbanaco,2026-09-20,1,0,en_gestion,92,87,50,25,91,37.7,15,4,3,11.5,borderline
+292,1189072358,M,53,Sura,llega_al_HUV,Hospital Universitario del Valle,2026-07-02,0,0,pendiente,114,113,72,20,94,37.6,13,4,3,10.1,borderline
+293,1178210777,M,77,Asmet Salud,sale_del_HUV,Clínica Nuestra Señora de los Remedios,2026-08-06,1,1,en_gestion,107,118,83,27,91,37.9,11,4,3,7.4,borderline
+294,1121069799,M,44,Nueva EPS,sale_del_HUV,Hospital Universitario San José (Popayán),2026-04-12,1,0,rechazada,146,99,44,28,88,35.8,12,5,5,21.3,fallida
+295,1175777217,F,50,Salud Total,sale_del_HUV,Hospital Universitario San José (Popayán),2026-06-29,0,0,aceptada,108,129,49,13,97,36.8,15,2,1,1.2,efectiva
+296,1103804443,F,74,Coosalud,sale_del_HUV,Clínica de Occidente,2026-06-29,0,0,rechazada,135,98,56,26,92,36.9,11,4,4,14.9,fallida
+297,1166167947,M,23,Nueva EPS,sale_del_HUV,Hospital San Juan de Dios Cali,2026-03-04,0,1,pendiente,98,115,69,27,92,39.0,15,3,2,5.9,borderline
+298,1149262315,M,60,Emssanar,sale_del_HUV,Clínica Nuestra Señora de los Remedios,2026-06-22,1,0,rechazada,118,85,47,35,86,39.2,10,5,5,14.2,fallida
+299,1176007830,F,55,Emssanar,llega_al_HUV,Hospital Universitario del Valle,2026-08-02,1,0,rechazada,107,124,62,33,87,36.8,8,6,6,21.6,fallida
+300,1113860237,M,42,Salud Total,sale_del_HUV,Clínica Versalles,2026-08-02,0,1,aceptada,65,147,83,19,100,36.9,14,2,1,0.4,efectiva
+301,1138658202,M,35,Nueva EPS,sale_del_HUV,Clínica de Occidente,2026-05-26,1,1,completada,86,135,86,17,94,37.7,15,1,0,0.0,efectiva
+302,1172864669,F,50,Sanitas,sale_del_HUV,Hospital Universitario San José (Popayán),2026-07-20,0,1,aceptada,74,134,58,17,96,36.3,15,1,0,0.0,efectiva
+303,1189789421,M,47,Coosalud,llega_al_HUV,Hospital Universitario del Valle,2026-06-25,1,1,pendiente,91,114,52,18,91,37.9,14,4,3,11.7,borderline
+304,1152437425,F,41,Coosalud,sale_del_HUV,Hospital Universitario San José (Popayán),2026-07-29,1,0,rechazada,120,95,53,21,77,36.7,13,6,6,19.0,fallida
+305,1154124179,F,56,Salud Total,sale_del_HUV,Clínica Versalles,2026-04-30,1,0,rechazada,102,103,35,22,85,39.1,15,5,5,17.7,fallida
+306,1105762873,M,66,Sanitas,sale_del_HUV,Hospital Universitario San José (Popayán),2026-08-14,1,0,rechazada,125,105,72,30,83,39.9,12,5,5,16.0,fallida
+307,1166576983,F,51,Coosalud,llega_al_HUV,Hospital Universitario del Valle,2026-07-16,1,1,aceptada,101,120,64,18,97,37.4,15,1,0,0.0,efectiva
+308,1171845096,F,71,Coosalud,llega_al_HUV,Hospital Universitario del Valle,2026-08-26,0,1,rechazada,133,129,74,27,87,39.4,11,7,7,28.8,fallida
+309,1125793035,F,44,Sanitas,llega_al_HUV,Hospital Universitario del Valle,2026-03-03,1,0,rechazada,110,95,49,32,83,37.4,7,7,7,24.1,fallida
+310,1152868331,F,52,Nueva EPS,sale_del_HUV,Clínica Colombia Cali,2026-03-20,0,0,pendiente,101,105,65,22,91,36.9,14,3,2,2.7,borderline
+311,1142236839,F,65,Coosalud,sale_del_HUV,Clínica Imbanaco,2026-05-01,1,0,en_gestion,110,109,66,21,91,36.7,13,3,2,6.0,borderline
+312,1138176356,F,54,Emssanar,llega_al_HUV,Hospital Universitario del Valle,2026-08-10,1,1,rechazada,113,88,61,33,91,37.7,11,6,6,24.1,fallida
+313,1177623857,F,49,Salud Total,sale_del_HUV,Clínica Imbanaco,2026-09-03,0,1,aceptada,87,130,83,24,95,37.1,15,1,0,0.0,efectiva
+314,1120610551,F,78,Sanitas,sale_del_HUV,Clínica Colombia Cali,2026-07-16,1,0,rechazada,130,96,64,22,88,38.1,13,4,4,15.2,fallida
+315,1115394018,F,79,Emssanar,sale_del_HUV,Clínica de Occidente,2026-04-07,0,0,pendiente,100,119,59,20,93,39.1,15,3,2,8.0,borderline
+316,1192376287,F,30,Coosalud,sale_del_HUV,Clínica Nuestra Señora de los Remedios,2026-07-26,0,0,pendiente,122,122,81,22,93,37.2,14,4,3,8.5,borderline
+317,1114655963,F,51,Emssanar,sale_del_HUV,Clínica Sebastián de Belalcázar,2026-07-23,0,1,aceptada,82,137,85,14,95,37.8,15,2,1,1.9,efectiva
+318,1141164068,M,25,Coosalud,sale_del_HUV,Clínica Farallones,2026-03-07,1,1,aceptada,104,153,87,22,94,37.8,13,1,0,0.0,efectiva
+319,1101004927,M,45,Sanitas,sale_del_HUV,Hospital Universitario San José (Popayán),2026-07-14,0,1,completada,103,108,78,16,95,38.3,15,2,1,0.3,efectiva
+320,1156179693,M,57,Coosalud,sale_del_HUV,Clínica Farallones,2026-07-18,0,1,aceptada,75,119,85,23,97,37.9,15,1,0,0.0,efectiva
+321,1151616809,F,79,Sura,sale_del_HUV,Hospital San Juan de Dios Cali,2026-09-20,1,1,rechazada,113,76,61,30,92,37.9,10,6,6,26.6,fallida
+322,1112033020,M,74,Asmet Salud,sale_del_HUV,Clínica Sebastián de Belalcázar,2026-08-13,1,1,rechazada,99,109,61,22,89,37.5,9,5,5,16.9,fallida
+323,1116271958,F,50,Coosalud,llega_al_HUV,Hospital Universitario del Valle,2026-07-31,1,1,pendiente,89,120,73,21,93,38.5,15,3,2,5.0,borderline
+324,1124521865,F,63,Sanitas,llega_al_HUV,Hospital Universitario del Valle,2026-03-27,0,0,rechazada,115,89,45,26,91,38.4,11,4,4,10.9,fallida
+325,1132050025,F,79,SOS,sale_del_HUV,Clínica Sebastián de Belalcázar,2026-06-27,0,0,rechazada,107,72,50,34,84,38.5,10,6,6,20.4,fallida
+326,1126716751,M,57,Emssanar,sale_del_HUV,Clínica Farallones,2026-04-17,0,1,rechazada,121,116,64,25,82,38.5,12,5,5,23.2,fallida
+327,1148623568,F,65,Emssanar,llega_al_HUV,Hospital Universitario del Valle,2026-05-02,1,0,rechazada,101,114,74,24,86,37.6,11,4,4,9.6,fallida
+328,1116333224,M,50,Coosalud,sale_del_HUV,Fundación Valle del Lili,2026-03-15,1,1,aceptada,88,144,81,20,95,37.5,14,1,0,0.0,efectiva
+329,1121160144,M,67,Emssanar,llega_al_HUV,Hospital Universitario del Valle,2026-03-22,1,0,rechazada,134,88,63,18,82,38.0,11,4,4,21.1,fallida
+330,1115477903,M,31,Emssanar,llega_al_HUV,Hospital Universitario del Valle,2026-06-13,1,1,completada,79,138,81,17,94,36.8,15,1,0,0.0,efectiva
+331,1123503393,M,58,Sura,sale_del_HUV,Hospital Universitario San José (Popayán),2026-05-10,0,0,en_gestion,91,102,87,20,90,38.6,12,3,2,6.4,borderline
+332,1187243983,M,52,Nueva EPS,sale_del_HUV,Clínica Imbanaco,2026-05-22,0,1,en_gestion,89,107,71,18,95,37.8,10,4,3,10.6,borderline
+333,1128381214,M,46,Coosalud,sale_del_HUV,Hospital San Juan de Dios Cali,2026-08-25,0,0,rechazada,123,80,59,24,86,37.1,12,6,6,26.4,fallida
+334,1180254914,F,60,Coosalud,llega_al_HUV,Hospital Universitario del Valle,2026-05-07,1,1,aceptada,96,126,73,16,93,37.2,14,1,0,0.0,efectiva
+335,1110704818,M,30,Asmet Salud,llega_al_HUV,Hospital Universitario del Valle,2026-07-29,1,0,aceptada,98,144,75,19,96,36.8,15,2,1,1.9,efectiva
+336,1146026119,F,43,Nueva EPS,sale_del_HUV,Clínica Colombia Cali,2026-08-20,0,1,aceptada,93,130,76,14,96,36.1,15,1,0,0.0,efectiva
+337,1184526880,F,43,Nueva EPS,sale_del_HUV,Clínica Versalles,2026-09-18,1,0,rechazada,137,70,55,24,85,38.1,9,4,4,15.5,fallida
+338,1189912587,F,63,Sura,sale_del_HUV,Clínica Imbanaco,2026-06-06,0,1,pendiente,110,77,62,28,92,36.9,13,3,2,4.8,borderline
+339,1181206996,F,48,Nueva EPS,sale_del_HUV,Hospital San Juan de Dios Cali,2026-08-25,1,1,completada,67,116,69,20,95,36.7,15,2,1,1.5,efectiva
+340,1128610363,F,35,Coosalud,llega_al_HUV,Hospital Universitario del Valle,2026-04-09,0,1,aceptada,62,96,65,19,97,37.2,13,2,1,0.9,efectiva
+341,1183964591,F,67,Salud Total,sale_del_HUV,Clínica Nuestra Señora de los Remedios,2026-08-17,1,0,rechazada,131,101,55,21,90,38.6,11,4,4,11.1,fallida
+342,1117923051,M,57,SOS,sale_del_HUV,Clínica Farallones,2026-07-02,0,1,rechazada,130,82,50,23,87,39.5,8,4,4,11.4,fallida
+343,1108740930,F,18,Emssanar,sale_del_HUV,Fundación Valle del Lili,2026-08-29,0,0,pendiente,92,114,64,23,88,36.8,14,3,2,6.8,borderline
+344,1100255435,F,59,Asmet Salud,sale_del_HUV,Clínica Farallones,2026-06-11,0,1,completada,88,140,92,20,93,37.2,14,2,1,0.9,efectiva
+345,1128423016,M,62,Emssanar,sale_del_HUV,Hospital San Juan de Dios Cali,2026-06-24,0,1,pendiente,86,109,67,25,90,39.2,13,4,3,8.8,borderline
+346,1154676558,M,59,Nueva EPS,sale_del_HUV,Clínica Sebastián de Belalcázar,2026-07-11,0,1,aceptada,78,149,72,15,95,37.2,15,2,1,0.7,efectiva
+347,1146180780,F,66,Emssanar,sale_del_HUV,Hospital Universitario San José (Popayán),2026-03-25,1,0,rechazada,105,86,65,16,88,38.1,5,7,7,29.5,fallida
+348,1147421524,F,36,Emssanar,llega_al_HUV,Hospital Universitario del Valle,2026-08-06,1,1,pendiente,90,101,67,23,93,37.4,13,4,3,9.3,borderline
+349,1115082259,F,27,SOS,sale_del_HUV,Hospital San Juan de Dios Cali,2026-09-16,0,1,completada,74,139,93,23,94,37.1,15,1,0,0.0,efectiva
+350,1196190226,M,64,Emssanar,sale_del_HUV,Clínica de Occidente,2026-06-23,1,1,en_gestion,129,96,56,25,91,36.7,10,3,2,9.1,borderline
+351,1127650523,F,18,Emssanar,sale_del_HUV,Clínica Versalles,2026-05-06,0,1,aceptada,104,112,82,19,95,36.6,15,1,0,0.0,efectiva
+352,1108878776,M,42,Coosalud,sale_del_HUV,Clínica Imbanaco,2026-04-04,0,0,rechazada,113,104,69,23,87,39.2,10,5,5,20.7,fallida
+353,1123897224,M,26,Coosalud,sale_del_HUV,Hospital Universitario San José (Popayán),2026-05-01,0,0,en_gestion,103,105,67,25,89,36.8,13,4,3,12.5,borderline
+354,1116678631,F,31,Coosalud,llega_al_HUV,Hospital Universitario del Valle,2026-06-22,0,1,aceptada,94,127,68,24,92,37.5,15,1,0,0.0,efectiva
+355,1112443964,M,36,Sura,sale_del_HUV,Hospital San Juan de Dios Cali,2026-05-15,0,0,aceptada,78,101,67,21,96,37.0,15,2,1,1.5,efectiva
+356,1110476726,M,47,Coosalud,sale_del_HUV,Clínica Versalles,2026-05-24,0,0,en_gestion,120,100,65,24,91,37.8,13,3,2,3.9,borderline
+357,1158486554,F,64,Sanitas,sale_del_HUV,Clínica Imbanaco,2026-07-31,0,0,rechazada,108,105,42,34,90,37.5,14,6,6,19.9,fallida
+358,1162851519,F,61,Nueva EPS,sale_del_HUV,Clínica Sebastián de Belalcázar,2026-04-04,0,1,completada,93,123,73,18,94,36.4,14,2,1,0.4,efectiva
+359,1127859639,M,51,Sura,llega_al_HUV,Hospital Universitario del Valle,2026-05-10,1,0,rechazada,103,101,72,28,86,38.3,12,4,4,15.8,fallida
+360,1132437425,F,67,Emssanar,sale_del_HUV,Clínica Imbanaco,2026-04-08,0,1,en_gestion,85,131,74,23,95,36.1,9,4,3,10.7,borderline
+361,1174716727,M,53,Asmet Salud,llega_al_HUV,Hospital Universitario del Valle,2026-08-28,1,1,aceptada,96,126,78,20,97,36.6,14,1,0,0.0,efectiva
+362,1159090316,F,59,Nueva EPS,sale_del_HUV,Hospital San Juan de Dios Cali,2026-07-02,1,0,rechazada,109,89,48,26,90,37.6,9,4,4,16.6,fallida
+363,1196774020,F,39,Emssanar,sale_del_HUV,Clínica Sebastián de Belalcázar,2026-05-19,0,1,en_gestion,128,122,79,25,88,36.7,13,3,2,5.3,borderline
+364,1153911334,M,44,Emssanar,sale_del_HUV,Clínica Imbanaco,2026-03-05,1,0,completada,89,133,77,16,94,37.8,14,1,0,0.0,efectiva
+365,1135521414,F,49,Emssanar,sale_del_HUV,Fundación Valle del Lili,2026-07-31,0,1,completada,85,129,83,22,95,37.3,15,2,1,0.9,efectiva
+366,1102404963,F,81,Sanitas,llega_al_HUV,Hospital Universitario del Valle,2026-04-30,0,0,rechazada,131,75,55,23,89,37.9,12,6,6,17.9,fallida
+367,1191573003,M,59,Coosalud,sale_del_HUV,Hospital San Juan de Dios Cali,2026-09-17,0,1,en_gestion,100,122,66,27,88,37.0,12,4,3,15.4,borderline
+368,1158239633,M,29,Sanitas,sale_del_HUV,Clínica Versalles,2026-03-17,1,1,en_gestion,112,71,56,21,92,37.2,13,3,2,7.2,borderline
+369,1185508967,F,52,Asmet Salud,llega_al_HUV,Hospital Universitario del Valle,2026-03-18,0,1,en_gestion,100,114,55,22,92,36.7,12,3,2,5.2,borderline
+370,1115944959,F,61,SOS,llega_al_HUV,Hospital Universitario del Valle,2026-05-13,1,0,rechazada,136,76,39,29,86,39.5,14,7,7,19.5,fallida
+371,1162160358,M,58,Nueva EPS,sale_del_HUV,Hospital San Juan de Dios Cali,2026-08-17,0,1,aceptada,89,145,64,20,93,37.1,14,2,1,0.6,efectiva
+372,1172049708,F,66,Asmet Salud,sale_del_HUV,Hospital San Juan de Dios Cali,2026-04-27,0,0,rechazada,91,73,58,25,87,38.7,12,5,5,16.8,fallida
+373,1178107266,M,43,Coosalud,sale_del_HUV,Clínica de Occidente,2026-04-17,1,0,rechazada,139,78,54,30,95,38.0,9,6,6,17.8,fallida
+374,1139181866,F,51,Emssanar,llega_al_HUV,Hospital Universitario del Valle,2026-03-28,1,0,pendiente,102,129,65,22,90,38.4,13,3,2,8.8,borderline
+375,1174594116,M,60,Coosalud,llega_al_HUV,Hospital Universitario del Valle,2026-09-19,0,1,en_gestion,107,114,71,23,91,37.2,14,3,2,3.3,borderline
+376,1198121035,F,64,Emssanar,sale_del_HUV,Clínica Versalles,2026-03-16,1,0,en_gestion,104,103,84,24,88,38.0,13,4,3,6.8,borderline
+377,1146933156,F,38,Emssanar,sale_del_HUV,Hospital Universitario San José (Popayán),2026-09-20,0,1,aceptada,109,143,78,19,92,37.0,15,2,1,0.5,efectiva
+378,1142234873,F,52,Nueva EPS,sale_del_HUV,Clínica de Occidente,2026-09-10,1,1,rechazada,119,81,66,26,86,38.0,9,7,7,33.8,fallida
+379,1198640476,F,68,Emssanar,sale_del_HUV,Hospital Universitario San José (Popayán),2026-07-30,1,0,en_gestion,135,122,63,24,87,38.1,13,4,3,11.9,borderline
+380,1126541302,M,39,Sura,llega_al_HUV,Hospital Universitario del Valle,2026-05-03,1,0,pendiente,82,106,60,20,91,37.2,12,4,3,11.6,borderline
+381,1145091954,M,56,Nueva EPS,sale_del_HUV,Hospital Universitario San José (Popayán),2026-04-25,0,0,en_gestion,93,141,69,24,95,38.5,13,4,3,9.5,borderline
+382,1171289266,F,58,Nueva EPS,sale_del_HUV,Clínica Sebastián de Belalcázar,2026-03-31,1,0,rechazada,128,93,62,20,87,38.4,12,4,4,11.7,fallida
+383,1170555793,M,36,Emssanar,sale_del_HUV,Hospital San Juan de Dios Cali,2026-08-01,0,0,en_gestion,103,101,66,29,89,36.6,13,4,3,9.7,borderline
+384,1103137192,F,39,Emssanar,sale_del_HUV,Clínica Imbanaco,2026-08-01,0,1,aceptada,97,122,94,18,95,37.1,15,1,0,0.0,efectiva
+385,1103577583,F,68,Asmet Salud,sale_del_HUV,Clínica Nuestra Señora de los Remedios,2026-06-20,0,1,en_gestion,100,109,48,24,93,37.6,13,4,3,12.0,borderline
+386,1125709271,M,33,Coosalud,sale_del_HUV,Clínica Nuestra Señora de los Remedios,2026-09-12,1,0,rechazada,115,66,51,25,79,38.0,11,4,4,11.0,fallida
+387,1104008923,M,42,Emssanar,llega_al_HUV,Hospital Universitario del Valle,2026-03-03,1,0,en_gestion,108,109,48,17,87,37.6,9,4,3,12.2,borderline
+388,1126469761,M,77,Asmet Salud,sale_del_HUV,Hospital San Juan de Dios Cali,2026-05-02,0,0,en_gestion,94,114,75,20,90,37.0,14,3,2,7.8,borderline
+389,1135567351,M,45,SOS,sale_del_HUV,Clínica Farallones,2026-04-23,0,1,completada,75,107,80,16,95,37.0,15,1,0,0.0,efectiva
+390,1102178746,F,66,Sura,llega_al_HUV,Hospital Universitario del Valle,2026-07-30,0,1,completada,87,114,74,19,94,37.9,15,1,0,0.0,efectiva
+391,1193175446,M,56,Asmet Salud,sale_del_HUV,Hospital Universitario San José (Popayán),2026-05-23,0,1,pendiente,113,119,53,20,88,37.9,14,4,3,11.0,borderline
+392,1132480476,M,67,Asmet Salud,sale_del_HUV,Clínica de Occidente,2026-05-15,0,1,aceptada,82,144,79,16,96,37.1,14,1,0,0.0,efectiva
+393,1194696864,F,62,Emssanar,sale_del_HUV,Clínica Nuestra Señora de los Remedios,2026-05-10,1,0,rechazada,105,91,62,24,88,39.8,14,4,4,11.9,fallida
+394,1134537809,M,61,Nueva EPS,sale_del_HUV,Clínica Nuestra Señora de los Remedios,2026-07-15,1,1,aceptada,86,139,87,17,97,35.8,15,1,0,0.0,efectiva
+395,1120463954,M,75,Emssanar,sale_del_HUV,Hospital San Juan de Dios Cali,2026-04-24,1,0,rechazada,108,98,68,26,89,38.7,9,5,5,18.2,fallida
+396,1151393866,M,75,Sura,llega_al_HUV,Hospital Universitario del Valle,2026-06-04,1,0,pendiente,106,113,73,23,95,36.3,12,3,2,6.2,borderline
+397,1138630467,M,80,SOS,sale_del_HUV,Clínica Sebastián de Belalcázar,2026-03-23,1,0,rechazada,140,90,56,35,91,37.7,8,5,5,18.1,fallida
+398,1153801003,M,51,Sura,llega_al_HUV,Hospital Universitario del Valle,2026-08-18,0,0,completada,72,114,75,19,95,37.0,14,2,1,0.8,efectiva
+399,1124021318,F,60,Coosalud,sale_del_HUV,Clínica Farallones,2026-08-09,1,0,rechazada,124,112,41,25,90,37.4,11,5,5,10.0,fallida
+400,1175460677,F,18,Emssanar,llega_al_HUV,Hospital Universitario del Valle,2026-05-27,0,1,completada,77,106,87,18,94,37.5,15,1,0,0.0,efectiva
+401,1168477443,F,27,Coosalud,sale_del_HUV,Hospital San Juan de Dios Cali,2026-07-06,1,0,rechazada,81,78,63,35,95,37.9,10,4,4,10.8,fallida
+402,1194947263,F,54,Nueva EPS,llega_al_HUV,Hospital Universitario del Valle,2026-08-08,0,1,completada,94,109,71,14,95,37.8,15,1,0,0.0,efectiva
+403,1123804408,M,63,Emssanar,sale_del_HUV,Hospital San Juan de Dios Cali,2026-03-23,0,1,aceptada,99,111,70,19,97,36.3,15,1,0,0.0,efectiva
+404,1199334726,F,33,Sura,llega_al_HUV,Hospital Universitario del Valle,2026-05-01,0,1,aceptada,72,135,64,17,99,36.2,15,2,1,1.6,efectiva
+405,1191788200,M,47,Nueva EPS,sale_del_HUV,Clínica Nuestra Señora de los Remedios,2026-04-11,1,1,en_gestion,80,101,60,25,94,37.7,14,3,2,7.5,borderline
+406,1131568401,M,75,Coosalud,sale_del_HUV,Clínica Farallones,2026-03-31,1,0,completada,76,104,72,17,95,36.7,14,2,1,1.0,efectiva
+407,1135334174,F,73,Coosalud,sale_del_HUV,Clínica Imbanaco,2026-06-22,0,0,pendiente,76,89,57,18,91,37.8,12,4,3,12.7,borderline
+408,1125095093,F,44,Salud Total,llega_al_HUV,Hospital Universitario del Valle,2026-09-20,1,1,completada,91,116,82,24,94,37.2,15,2,1,1.1,efectiva
+409,1130142900,M,44,Nueva EPS,llega_al_HUV,Hospital Universitario del Valle,2026-04-29,1,1,en_gestion,105,106,76,22,89,38.1,14,3,2,6.2,borderline
+410,1180004533,F,54,Sanitas,sale_del_HUV,Hospital Universitario San José (Popayán),2026-07-04,0,1,en_gestion,98,106,65,25,90,37.9,15,4,3,7.5,borderline
+411,1176791417,M,18,Emssanar,sale_del_HUV,Clínica Colombia Cali,2026-05-09,0,1,aceptada,92,129,92,17,98,37.1,14,1,0,0.0,efectiva
+412,1134178766,M,45,Emssanar,sale_del_HUV,Clínica Imbanaco,2026-04-17,0,0,completada,97,128,86,16,96,37.3,15,2,1,0.7,efectiva
+413,1190262098,F,44,Emssanar,sale_del_HUV,Clínica Colombia Cali,2026-04-22,0,1,en_gestion,106,135,68,23,91,37.0,13,3,2,4.5,borderline
+414,1148385641,F,57,Coosalud,sale_del_HUV,Clínica de Occidente,2026-07-30,0,1,rechazada,120,86,69,17,84,39.5,9,4,4,10.2,fallida
+415,1141409985,F,61,Coosalud,sale_del_HUV,Hospital Universitario San José (Popayán),2026-07-07,0,1,completada,64,123,77,15,95,37.7,15,1,0,0.0,efectiva
+416,1120591339,F,70,Nueva EPS,llega_al_HUV,Hospital Universitario del Valle,2026-05-09,1,0,rechazada,86,95,57,24,97,38.0,8,5,5,11.2,fallida
+417,1144891498,M,63,Nueva EPS,sale_del_HUV,Clínica Nuestra Señora de los Remedios,2026-06-21,0,0,en_gestion,115,123,56,21,88,37.3,14,4,3,9.6,borderline
+418,1117730857,F,67,Salud Total,llega_al_HUV,Hospital Universitario del Valle,2026-09-07,1,0,en_gestion,99,115,68,24,92,37.1,14,3,2,3.6,borderline
+419,1101198215,M,52,SOS,sale_del_HUV,Clínica Farallones,2026-05-13,1,0,en_gestion,90,105,62,23,91,37.7,11,3,2,6.0,borderline
+420,1101104328,F,53,SOS,sale_del_HUV,Clínica Nuestra Señora de los Remedios,2026-07-13,1,1,completada,81,106,79,21,93,36.4,15,1,0,0.0,efectiva
+421,1173986500,F,63,Coosalud,llega_al_HUV,Hospital Universitario del Valle,2026-08-06,1,0,en_gestion,111,84,66,26,92,36.9,11,4,3,7.5,borderline
+422,1165777043,F,63,Asmet Salud,sale_del_HUV,Clínica Sebastián de Belalcázar,2026-08-28,0,1,rechazada,121,74,59,24,92,37.5,10,7,7,27.8,fallida
+423,1137050976,F,77,Sanitas,llega_al_HUV,Hospital Universitario del Valle,2026-08-15,0,1,completada,85,118,79,20,94,37.8,14,1,0,0.0,efectiva
+424,1116903838,M,63,Salud Total,sale_del_HUV,Clínica de Occidente,2026-08-29,0,1,en_gestion,113,108,70,20,92,37.2,13,3,2,7.9,borderline
+425,1116020700,F,53,Sanitas,llega_al_HUV,Hospital Universitario del Valle,2026-04-16,1,1,rechazada,113,127,55,23,90,39.2,11,4,4,14.8,fallida
+426,1185532681,F,27,Nueva EPS,llega_al_HUV,Hospital Universitario del Valle,2026-05-15,0,0,en_gestion,121,96,66,24,93,38.3,15,4,3,11.3,borderline
+427,1178246493,F,52,Salud Total,llega_al_HUV,Hospital Universitario del Valle,2026-08-18,1,0,rechazada,116,89,55,29,94,38.3,15,5,5,23.6,fallida
+428,1113490377,F,30,Emssanar,sale_del_HUV,Clínica Colombia Cali,2026-05-12,0,1,aceptada,71,112,76,21,95,37.2,14,1,0,0.0,efectiva
+429,1161556239,M,66,Nueva EPS,llega_al_HUV,Hospital Universitario del Valle,2026-04-15,1,1,pendiente,87,102,69,21,93,36.8,13,4,3,9.1,borderline
+430,1114822680,F,52,Asmet Salud,llega_al_HUV,Hospital Universitario del Valle,2026-07-08,0,0,rechazada,114,71,56,25,85,38.0,9,4,4,18.7,fallida
+431,1133090081,M,26,Emssanar,llega_al_HUV,Hospital Universitario del Valle,2026-05-13,1,1,aceptada,85,130,91,17,95,37.3,14,2,1,0.6,efectiva
+432,1156748527,M,50,Coosalud,sale_del_HUV,Hospital San Juan de Dios Cali,2026-06-27,0,1,en_gestion,103,112,84,24,97,37.5,11,3,2,6.4,borderline
+433,1198335016,F,47,Nueva EPS,sale_del_HUV,Clínica Versalles,2026-07-12,0,1,completada,94,130,71,18,97,36.3,14,2,1,0.5,efectiva
+434,1139484231,M,63,Asmet Salud,llega_al_HUV,Hospital Universitario del Valle,2026-07-27,0,0,en_gestion,120,121,65,25,91,37.2,11,3,2,9.4,borderline
+435,1136730954,M,35,Salud Total,llega_al_HUV,Hospital Universitario del Valle,2026-04-06,1,0,rechazada,97,121,65,23,82,38.6,15,5,5,12.1,fallida
+436,1190111196,M,63,Coosalud,sale_del_HUV,Clínica de Occidente,2026-06-14,1,1,rechazada,92,89,62,25,93,37.8,11,7,7,17.2,fallida
+437,1186999526,F,74,Nueva EPS,sale_del_HUV,Clínica Versalles,2026-03-13,1,1,rechazada,138,103,76,25,81,37.7,14,7,7,28.7,fallida
+438,1112288211,F,55,Nueva EPS,sale_del_HUV,Hospital Universitario San José (Popayán),2026-06-16,0,0,en_gestion,114,104,73,22,89,39.1,11,3,2,9.2,borderline
+439,1135742258,F,82,Asmet Salud,sale_del_HUV,Fundación Valle del Lili,2026-05-12,1,0,rechazada,120,113,67,19,86,38.4,14,4,4,12.4,fallida
+440,1105967731,F,79,Nueva EPS,sale_del_HUV,Clínica de Occidente,2026-08-28,0,0,rechazada,95,134,46,26,84,38.9,13,7,7,25.1,fallida
+441,1184094536,M,18,Emssanar,llega_al_HUV,Hospital Universitario del Valle,2026-05-20,1,1,completada,68,110,67,17,94,37.5,14,2,1,0.6,efectiva
+442,1147761217,F,33,Emssanar,llega_al_HUV,Hospital Universitario del Valle,2026-08-05,0,0,en_gestion,111,110,66,26,91,37.2,15,3,2,9.0,borderline
+443,1140448628,F,18,Salud Total,llega_al_HUV,Hospital Universitario del Valle,2026-09-12,0,1,aceptada,117,113,63,20,95,36.6,14,1,0,0.0,efectiva
+444,1177572008,M,59,Emssanar,sale_del_HUV,Hospital Universitario San José (Popayán),2026-03-21,0,0,aceptada,113,110,65,17,95,36.8,14,1,0,0.0,efectiva
+445,1110044991,F,74,Emssanar,sale_del_HUV,Clínica Imbanaco,2026-07-19,0,0,rechazada,133,118,69,29,86,37.7,15,7,7,31.4,fallida
+446,1185286055,F,94,Sura,sale_del_HUV,Clínica Sebastián de Belalcázar,2026-08-08,1,0,rechazada,124,127,49,27,86,38.5,9,4,4,12.7,fallida
+447,1108904848,M,70,Asmet Salud,llega_al_HUV,Hospital Universitario del Valle,2026-03-15,1,0,rechazada,107,68,53,30,89,37.3,11,6,6,13.9,fallida
+448,1147989849,M,50,SOS,llega_al_HUV,Hospital Universitario del Valle,2026-08-02,0,1,completada,78,134,92,21,97,36.8,15,1,0,0.0,efectiva
+449,1189067525,F,40,Emssanar,sale_del_HUV,Fundación Valle del Lili,2026-05-25,0,1,en_gestion,107,99,69,19,92,37.0,14,4,3,5.4,borderline
+450,1132525708,F,60,Sanitas,sale_del_HUV,Clínica Imbanaco,2026-05-21,1,1,rechazada,148,122,72,28,94,38.4,15,4,4,12.6,fallida
+451,1190475750,M,57,Sura,sale_del_HUV,Clínica Imbanaco,2026-06-23,0,0,aceptada,83,126,62,13,94,36.9,15,2,1,0.3,efectiva
+452,1188145888,F,67,Asmet Salud,sale_del_HUV,Clínica Colombia Cali,2026-06-02,1,0,rechazada,117,81,66,31,86,38.8,13,6,6,20.1,fallida
+453,1113240153,M,44,Sura,sale_del_HUV,Clínica Imbanaco,2026-05-12,0,1,completada,104,120,84,16,93,36.9,15,1,0,0.0,efectiva
+454,1114294524,F,59,Sanitas,llega_al_HUV,Hospital Universitario del Valle,2026-04-14,0,1,completada,101,141,53,18,93,37.1,15,2,1,1.3,efectiva
+455,1165577333,M,49,Salud Total,sale_del_HUV,Hospital San Juan de Dios Cali,2026-06-28,0,1,completada,109,140,81,20,95,37.5,14,1,0,0.0,efectiva
+456,1129465142,F,61,Asmet Salud,sale_del_HUV,Clínica Imbanaco,2026-08-14,0,0,pendiente,113,127,66,24,89,36.9,12,4,3,9.9,borderline
+457,1183427263,M,65,Coosalud,sale_del_HUV,Clínica Imbanaco,2026-04-20,0,0,rechazada,122,126,63,29,90,40.1,11,7,7,25.4,fallida
+458,1145408745,M,25,Salud Total,sale_del_HUV,Clínica Farallones,2026-03-28,0,1,completada,111,146,75,21,95,37.6,14,1,0,0.0,efectiva
+459,1122971963,M,39,Asmet Salud,sale_del_HUV,Hospital San Juan de Dios Cali,2026-03-13,0,0,en_gestion,108,118,69,19,95,37.6,15,3,2,9.5,borderline
+460,1105238914,M,59,Asmet Salud,sale_del_HUV,Clínica Nuestra Señora de los Remedios,2026-03-19,1,0,rechazada,112,102,71,24,97,37.5,15,6,6,19.3,fallida
+461,1121924131,M,75,Coosalud,llega_al_HUV,Hospital Universitario del Valle,2026-07-21,1,0,rechazada,120,92,59,24,80,38.7,4,7,7,31.5,fallida
+462,1121143588,F,38,Nueva EPS,sale_del_HUV,Clínica Nuestra Señora de los Remedios,2026-04-25,1,0,pendiente,96,127,60,17,93,37.2,15,3,2,8.0,borderline
+463,1109575470,F,56,Asmet Salud,llega_al_HUV,Hospital Universitario del Valle,2026-09-18,0,1,completada,77,112,78,19,96,37.6,15,2,1,1.2,efectiva
+464,1170692294,F,25,Emssanar,sale_del_HUV,Fundación Valle del Lili,2026-05-14,0,1,completada,90,136,76,16,99,37.8,15,1,0,0.0,efectiva
+465,1177678266,M,63,Asmet Salud,llega_al_HUV,Hospital Universitario del Valle,2026-09-03,1,1,completada,99,130,95,15,96,37.8,15,1,0,0.0,efectiva
+466,1167250942,F,53,Emssanar,sale_del_HUV,Clínica Colombia Cali,2026-08-04,1,0,rechazada,122,108,55,23,90,38.5,8,6,6,16.5,fallida
+467,1128969475,F,53,Emssanar,sale_del_HUV,Clínica Imbanaco,2026-05-30,0,0,aceptada,100,147,64,19,98,36.6,15,1,0,0.0,efectiva
+468,1104947660,F,53,Sanitas,sale_del_HUV,Clínica Imbanaco,2026-04-13,0,0,rechazada,127,85,70,24,87,37.6,9,7,7,20.7,fallida
+469,1185431799,M,58,Nueva EPS,sale_del_HUV,Clínica Imbanaco,2026-08-11,0,0,en_gestion,88,103,56,18,93,36.8,13,3,2,3.2,borderline
+470,1106603895,M,66,Asmet Salud,llega_al_HUV,Hospital Universitario del Valle,2026-05-04,1,0,rechazada,109,112,58,24,88,37.2,15,7,7,22.1,fallida
+471,1110162090,M,53,Coosalud,sale_del_HUV,Hospital Universitario San José (Popayán),2026-03-27,0,1,completada,90,120,62,17,96,36.4,15,1,0,0.0,efectiva
+472,1122021847,F,56,SOS,llega_al_HUV,Hospital Universitario del Valle,2026-07-14,1,1,aceptada,90,135,79,19,98,36.6,15,1,0,0.0,efectiva
+473,1102849967,M,19,Emssanar,sale_del_HUV,Clínica Sebastián de Belalcázar,2026-08-28,0,1,aceptada,95,123,78,16,96,37.0,15,2,1,1.7,efectiva
+474,1127084143,F,72,Coosalud,sale_del_HUV,Clínica de Occidente,2026-08-27,1,0,rechazada,132,112,65,22,92,37.8,11,6,6,18.4,fallida
+475,1178641142,F,41,Asmet Salud,sale_del_HUV,Fundación Valle del Lili,2026-05-04,0,0,pendiente,84,104,59,28,87,37.2,14,3,2,7.8,borderline
+476,1167553824,M,49,Emssanar,sale_del_HUV,Clínica Colombia Cali,2026-08-08,0,1,completada,98,113,84,21,94,36.9,15,1,0,0.0,efectiva
+477,1179843463,M,77,Coosalud,sale_del_HUV,Clínica Nuestra Señora de los Remedios,2026-07-26,1,0,rechazada,109,93,56,27,94,37.8,10,6,6,29.9,fallida
+478,1169505573,F,69,Emssanar,sale_del_HUV,Clínica Colombia Cali,2026-03-30,0,0,completada,80,124,75,19,96,36.4,15,1,0,0.0,efectiva
+479,1143594277,M,74,Emssanar,sale_del_HUV,Clínica Versalles,2026-09-05,1,0,pendiente,85,100,77,22,92,39.0,12,4,3,10.4,borderline
+480,1169051020,M,48,Emssanar,sale_del_HUV,Hospital San Juan de Dios Cali,2026-04-17,1,1,en_gestion,113,130,75,24,90,38.0,9,4,3,10.7,borderline
+481,1194229992,M,47,Sura,llega_al_HUV,Hospital Universitario del Valle,2026-05-05,1,0,en_gestion,87,99,66,22,90,38.5,14,3,2,8.8,borderline
+482,1130003642,F,86,SOS,sale_del_HUV,Clínica Versalles,2026-08-30,1,0,rechazada,115,87,64,21,91,38.8,10,7,7,27.6,fallida
+483,1119365949,M,40,Sanitas,llega_al_HUV,Hospital Universitario del Valle,2026-05-27,0,1,aceptada,77,168,89,16,95,37.0,15,2,1,1.9,efectiva
+484,1121782004,M,46,Emssanar,sale_del_HUV,Hospital Universitario San José (Popayán),2026-08-30,1,0,pendiente,117,103,52,18,89,37.9,13,4,3,12.4,borderline
+485,1163584933,F,59,SOS,sale_del_HUV,Clínica de Occidente,2026-09-05,1,0,rechazada,112,107,55,28,97,37.8,6,6,6,20.8,fallida
+486,1120049054,M,56,Nueva EPS,sale_del_HUV,Hospital San Juan de Dios Cali,2026-05-05,0,1,en_gestion,131,91,65,29,91,36.9,10,3,2,8.8,borderline
+487,1100910589,F,76,Sura,sale_del_HUV,Clínica Sebastián de Belalcázar,2026-06-21,1,0,rechazada,105,60,45,26,83,37.8,9,7,7,31.7,fallida
+488,1171228189,M,69,Nueva EPS,sale_del_HUV,Hospital San Juan de Dios Cali,2026-03-13,1,0,en_gestion,125,126,72,25,84,38.2,11,3,2,7.5,borderline
+489,1104399266,F,61,Asmet Salud,sale_del_HUV,Clínica Imbanaco,2026-05-24,1,0,rechazada,111,93,62,20,91,38.5,11,7,7,25.9,fallida
+490,1198905777,F,57,Sanitas,sale_del_HUV,Clínica Imbanaco,2026-04-17,1,0,rechazada,121,114,58,23,94,39.3,12,5,5,24.3,fallida
+491,1169825515,F,52,Emssanar,sale_del_HUV,Clínica Colombia Cali,2026-04-08,1,0,rechazada,108,66,51,22,78,40.0,10,6,6,24.0,fallida
+492,1131163025,M,38,Asmet Salud,sale_del_HUV,Clínica Imbanaco,2026-05-31,0,0,en_gestion,83,96,67,20,96,38.4,13,4,3,8.5,borderline
+493,1150252469,M,62,Coosalud,llega_al_HUV,Hospital Universitario del Valle,2026-04-02,1,0,en_gestion,116,142,57,25,89,37.3,11,4,3,6.0,borderline
+494,1101692911,M,48,Emssanar,llega_al_HUV,Hospital Universitario del Valle,2026-03-05,0,1,pendiente,78,92,76,21,91,38.1,13,3,2,6.3,borderline
+495,1160570536,F,79,Coosalud,sale_del_HUV,Clínica Farallones,2026-04-05,0,1,en_gestion,89,107,63,26,88,37.5,12,3,2,6.9,borderline
+496,1164860911,F,23,SOS,sale_del_HUV,Hospital Universitario San José (Popayán),2026-04-16,0,1,aceptada,78,124,89,19,96,37.9,14,1,0,0.0,efectiva
+497,1128752200,M,55,Nueva EPS,sale_del_HUV,Clínica Sebastián de Belalcázar,2026-09-01,1,1,aceptada,81,130,88,18,93,37.3,15,1,0,0.0,efectiva
+498,1105647218,M,42,SOS,llega_al_HUV,Hospital Universitario del Valle,2026-07-13,1,0,pendiente,104,97,48,27,94,37.4,14,4,3,10.0,borderline
+499,1177335622,M,38,Nueva EPS,llega_al_HUV,Hospital Universitario del Valle,2026-07-11,0,1,aceptada,89,142,88,18,92,36.7,15,1,0,0.0,efectiva
+500,1198953892,M,54,Coosalud,llega_al_HUV,Hospital Universitario del Valle,2026-05-05,1,1,pendiente,115,83,55,25,95,37.5,15,3,2,4.0,borderline
+501,1188636609,M,59,Emssanar,sale_del_HUV,Clínica Sebastián de Belalcázar,2026-03-06,1,0,rechazada,141,103,66,31,89,36.8,9,7,7,21.0,fallida
+502,1136225312,F,77,Emssanar,sale_del_HUV,Clínica Versalles,2026-03-08,0,0,rechazada,104,81,66,22,92,38.5,12,7,7,24.8,fallida
+503,1143415364,M,37,SOS,sale_del_HUV,Fundación Valle del Lili,2026-05-17,0,0,rechazada,128,89,67,27,93,39.0,11,5,5,14.5,fallida
+504,1160667659,F,39,SOS,sale_del_HUV,Hospital Universitario San José (Popayán),2026-06-15,1,1,en_gestion,97,126,64,23,91,37.3,13,3,2,7.5,borderline
+505,1157803018,M,67,Sanitas,sale_del_HUV,Hospital Universitario San José (Popayán),2026-06-09,1,0,rechazada,108,114,73,28,87,39.3,8,4,4,16.4,fallida
+506,1179688649,F,65,Emssanar,sale_del_HUV,Clínica Imbanaco,2026-05-23,1,1,en_gestion,115,103,66,19,93,37.4,11,4,3,15.9,borderline
+507,1138281071,F,83,SOS,sale_del_HUV,Clínica Sebastián de Belalcázar,2026-08-27,1,1,rechazada,131,106,60,31,89,39.1,8,6,6,15.1,fallida
+508,1196808089,M,54,Salud Total,llega_al_HUV,Hospital Universitario del Valle,2026-08-20,1,0,rechazada,100,102,44,27,87,38.0,11,6,6,19.3,fallida
+509,1105850420,F,62,Coosalud,llega_al_HUV,Hospital Universitario del Valle,2026-07-15,1,1,rechazada,115,99,77,29,86,37.6,6,4,4,10.7,fallida
+510,1174548318,F,95,Nueva EPS,sale_del_HUV,Clínica de Occidente,2026-07-25,1,0,rechazada,108,67,52,28,98,39.2,15,4,4,15.9,fallida
+511,1143465830,M,71,Sura,llega_al_HUV,Hospital Universitario del Valle,2026-05-13,0,0,rechazada,92,111,53,31,90,39.0,10,4,4,18.2,fallida
+512,1121133473,F,43,Nueva EPS,sale_del_HUV,Hospital San Juan de Dios Cali,2026-05-12,1,0,rechazada,76,74,59,29,92,38.2,12,4,4,12.0,fallida
+513,1146685062,F,66,Sura,sale_del_HUV,Clínica Colombia Cali,2026-06-14,1,0,rechazada,123,68,53,31,87,38.4,12,4,4,10.5,fallida
+514,1113233195,M,67,Sanitas,sale_del_HUV,Clínica Colombia Cali,2026-04-22,1,1,rechazada,110,80,65,26,87,38.3,10,4,4,18.4,fallida
+515,1158898996,M,53,Coosalud,sale_del_HUV,Clínica Versalles,2026-08-10,0,1,pendiente,109,148,74,18,87,37.5,14,4,3,8.4,borderline
+516,1187194520,F,63,Sura,sale_del_HUV,Hospital San Juan de Dios Cali,2026-04-08,0,1,en_gestion,91,120,65,26,89,36.3,12,3,2,6.8,borderline
+517,1111412002,F,18,Emssanar,llega_al_HUV,Hospital Universitario del Valle,2026-08-19,0,1,completada,95,155,84,23,95,36.4,14,1,0,0.0,efectiva
+518,1127313259,M,65,SOS,sale_del_HUV,Clínica Colombia Cali,2026-03-31,0,1,aceptada,88,127,79,17,97,36.4,15,2,1,0.8,efectiva
+519,1145036577,M,57,Emssanar,llega_al_HUV,Hospital Universitario del Valle,2026-03-06,0,1,completada,86,125,68,16,98,37.6,14,1,0,0.0,efectiva
+520,1158330113,M,59,Emssanar,sale_del_HUV,Clínica Colombia Cali,2026-05-24,1,0,rechazada,119,85,54,28,87,39.4,14,7,7,28.5,fallida
+521,1149397840,F,78,Sura,sale_del_HUV,Clínica de Occidente,2026-05-17,1,1,rechazada,138,80,62,25,85,37.6,13,6,6,20.9,fallida
+522,1175023401,M,32,Coosalud,llega_al_HUV,Hospital Universitario del Valle,2026-05-13,0,0,rechazada,131,85,64,18,92,38.6,10,7,7,28.8,fallida
+523,1107084295,F,38,Sura,sale_del_HUV,Clínica Sebastián de Belalcázar,2026-03-19,0,1,pendiente,112,135,45,21,89,38.4,12,4,3,12.0,borderline
+524,1107723983,F,44,Asmet Salud,llega_al_HUV,Hospital Universitario del Valle,2026-05-25,1,0,en_gestion,107,111,68,22,90,37.5,14,4,3,9.8,borderline
+525,1122240327,M,53,Emssanar,sale_del_HUV,Clínica Farallones,2026-03-05,0,1,pendiente,124,120,71,26,90,37.0,15,3,2,4.5,borderline
+526,1189278392,M,91,Emssanar,llega_al_HUV,Hospital Universitario del Valle,2026-04-19,1,1,pendiente,87,101,79,20,92,37.1,15,4,3,11.4,borderline
+527,1116433631,F,65,Sura,sale_del_HUV,Clínica Sebastián de Belalcázar,2026-08-23,1,0,rechazada,105,97,38,29,91,38.4,10,4,4,11.2,fallida
+528,1133555920,M,78,Emssanar,sale_del_HUV,Clínica Imbanaco,2026-07-07,1,0,en_gestion,105,135,82,26,87,37.4,15,3,2,7.2,borderline
+529,1110431876,F,95,Sura,sale_del_HUV,Clínica de Occidente,2026-07-25,0,1,en_gestion,97,114,68,21,90,37.2,14,3,2,5.0,borderline
+530,1149090324,M,72,SOS,llega_al_HUV,Hospital Universitario del Valle,2026-05-23,0,0,en_gestion,111,121,70,23,91,37.3,8,3,2,9.9,borderline
+531,1183764882,M,55,SOS,llega_al_HUV,Hospital Universitario del Valle,2026-07-15,0,0,en_gestion,113,114,84,23,89,37.5,15,4,3,10.7,borderline
+532,1171664030,F,64,Emssanar,llega_al_HUV,Hospital Universitario del Valle,2026-04-17,0,1,completada,91,121,76,18,97,37.1,15,2,1,1.8,efectiva
+533,1155275218,M,61,SOS,sale_del_HUV,Hospital Universitario San José (Popayán),2026-04-20,1,0,rechazada,129,87,72,27,93,38.1,11,7,7,25.9,fallida
+534,1184728547,F,28,Emssanar,sale_del_HUV,Fundación Valle del Lili,2026-03-09,1,1,pendiente,61,98,68,22,93,38.0,14,3,2,10.2,borderline
+535,1167687325,M,41,Sanitas,sale_del_HUV,Clínica Imbanaco,2026-05-12,1,1,aceptada,117,114,77,19,96,37.3,14,1,0,0.0,efectiva
+536,1178081021,M,64,Nueva EPS,llega_al_HUV,Hospital Universitario del Valle,2026-08-09,1,1,en_gestion,110,113,80,21,92,36.7,14,4,3,6.8,borderline
+537,1161451904,F,36,Emssanar,llega_al_HUV,Hospital Universitario del Valle,2026-03-04,1,1,en_gestion,99,121,60,30,92,37.6,10,4,3,7.2,borderline
+538,1184944379,M,60,Asmet Salud,sale_del_HUV,Hospital San Juan de Dios Cali,2026-07-13,1,0,en_gestion,109,100,71,21,85,37.7,15,4,3,8.9,borderline
+539,1104290660,F,56,Emssanar,sale_del_HUV,Hospital Universitario San José (Popayán),2026-07-04,1,1,en_gestion,109,89,74,24,94,37.5,14,4,3,10.4,borderline
+540,1190961900,F,54,Salud Total,sale_del_HUV,Clínica Colombia Cali,2026-08-17,0,1,completada,83,107,77,19,95,37.3,14,2,1,0.4,efectiva
+541,1106211532,M,42,Salud Total,sale_del_HUV,Fundación Valle del Lili,2026-03-01,0,1,aceptada,75,132,88,15,98,37.0,14,2,1,0.9,efectiva
+542,1115864138,M,36,Sanitas,llega_al_HUV,Hospital Universitario del Valle,2026-07-07,1,0,rechazada,87,117,75,28,91,37.4,11,7,7,29.9,fallida
+543,1185295741,M,53,Emssanar,sale_del_HUV,Clínica Farallones,2026-07-27,0,1,pendiente,92,104,65,19,90,37.0,13,3,2,8.6,borderline
+544,1126863509,F,40,Coosalud,llega_al_HUV,Hospital Universitario del Valle,2026-03-20,1,0,en_gestion,124,128,61,18,88,37.1,15,4,3,8.1,borderline
+545,1188163691,F,34,Salud Total,sale_del_HUV,Clínica de Occidente,2026-03-07,0,1,pendiente,104,94,78,21,90,38.0,11,4,3,7.9,borderline
+546,1167456768,F,60,SOS,llega_al_HUV,Hospital Universitario del Valle,2026-06-03,0,1,pendiente,131,107,80,23,88,38.3,13,3,2,9.2,borderline
+547,1101998198,F,45,Sanitas,sale_del_HUV,Fundación Valle del Lili,2026-06-11,0,1,en_gestion,111,121,81,25,91,37.6,13,3,2,6.5,borderline
+548,1143878896,F,56,Emssanar,sale_del_HUV,Clínica Sebastián de Belalcázar,2026-09-04,0,0,rechazada,125,97,78,22,88,37.6,14,4,4,14.1,fallida
+549,1194798585,M,64,Nueva EPS,sale_del_HUV,Hospital San Juan de Dios Cali,2026-08-14,0,1,en_gestion,113,136,81,24,95,37.8,14,4,3,9.8,borderline
+550,1181888339,M,84,Coosalud,sale_del_HUV,Clínica Sebastián de Belalcázar,2026-07-02,1,1,en_gestion,123,107,63,17,92,38.6,11,4,3,13.5,borderline
+551,1133008239,M,83,Salud Total,sale_del_HUV,Clínica Imbanaco,2026-06-08,1,1,en_gestion,117,131,77,28,91,36.3,14,3,2,7.3,borderline
+552,1184508639,F,82,Salud Total,sale_del_HUV,Hospital San Juan de Dios Cali,2026-08-03,0,0,pendiente,108,94,79,20,92,38.3,14,4,3,7.0,borderline
+553,1129076343,F,84,Coosalud,sale_del_HUV,Clínica de Occidente,2026-05-18,0,1,en_gestion,112,105,74,20,87,37.4,15,4,3,5.5,borderline
+554,1157304428,M,18,Emssanar,sale_del_HUV,Hospital San Juan de Dios Cali,2026-09-11,1,1,completada,63,122,75,15,97,36.3,15,1,0,0.0,efectiva
+555,1193476163,M,43,Emssanar,llega_al_HUV,Hospital Universitario del Valle,2026-08-17,0,0,en_gestion,93,115,83,22,91,39.3,14,3,2,7.8,borderline
+556,1146045839,F,49,Emssanar,sale_del_HUV,Clínica Colombia Cali,2026-08-17,0,0,pendiente,101,60,45,26,88,36.6,11,3,2,4.8,borderline
+557,1192222481,F,27,Coosalud,sale_del_HUV,Fundación Valle del Lili,2026-05-03,0,1,completada,73,91,76,12,99,36.7,15,2,1,1.5,efectiva
+558,1171098609,F,50,SOS,llega_al_HUV,Hospital Universitario del Valle,2026-03-23,1,0,en_gestion,102,110,74,25,89,37.1,13,3,2,2.9,borderline
+559,1174501636,M,50,Coosalud,sale_del_HUV,Fundación Valle del Lili,2026-05-09,1,1,en_gestion,93,98,77,30,86,38.3,15,3,2,10.7,borderline
+560,1150335499,M,70,Emssanar,sale_del_HUV,Clínica Nuestra Señora de los Remedios,2026-04-10,1,0,rechazada,103,97,75,23,86,37.8,12,5,5,7.3,fallida
+561,1119117172,F,49,Sanitas,llega_al_HUV,Hospital Universitario del Valle,2026-07-17,0,0,rechazada,104,111,66,22,86,38.1,15,4,4,11.6,fallida
+562,1127245232,M,55,Coosalud,sale_del_HUV,Clínica Nuestra Señora de los Remedios,2026-09-09,0,0,aceptada,106,139,72,18,97,36.7,15,1,0,0.0,efectiva
+563,1189165779,F,49,Coosalud,llega_al_HUV,Hospital Universitario del Valle,2026-05-27,1,0,rechazada,112,114,73,21,86,38.0,10,6,6,25.8,fallida
+564,1115543525,F,37,Emssanar,sale_del_HUV,Clínica Farallones,2026-06-24,0,1,aceptada,92,133,67,21,93,37.0,14,1,0,0.0,efectiva
+565,1140171439,F,67,Coosalud,sale_del_HUV,Clínica de Occidente,2026-03-11,0,1,pendiente,92,132,74,22,93,38.5,15,4,3,11.3,borderline
+566,1186542657,F,35,Asmet Salud,sale_del_HUV,Clínica Sebastián de Belalcázar,2026-07-11,0,0,en_gestion,112,109,62,20,90,37.8,14,3,2,9.4,borderline
+567,1137442967,F,59,Sura,sale_del_HUV,Clínica de Occidente,2026-07-15,1,0,rechazada,154,110,43,26,86,39.1,8,5,5,20.1,fallida
+568,1194802990,F,82,Emssanar,llega_al_HUV,Hospital Universitario del Valle,2026-06-30,1,0,en_gestion,98,104,72,28,91,37.9,15,4,3,8.2,borderline
+569,1167963961,M,30,Coosalud,llega_al_HUV,Hospital Universitario del Valle,2026-05-04,0,1,completada,80,123,70,16,96,37.2,15,1,0,0.0,efectiva
+570,1130068186,F,65,Sanitas,sale_del_HUV,Hospital San Juan de Dios Cali,2026-09-11,1,0,rechazada,117,119,49,23,96,38.3,13,4,4,10.0,fallida
+571,1172928718,M,43,Salud Total,sale_del_HUV,Clínica Sebastián de Belalcázar,2026-06-09,0,0,aceptada,103,119,69,22,100,36.8,15,1,0,0.0,efectiva
+572,1121282348,F,35,Emssanar,sale_del_HUV,Clínica Nuestra Señora de los Remedios,2026-09-19,1,1,pendiente,66,128,74,23,88,37.8,12,4,3,12.1,borderline
+573,1135172452,F,52,Emssanar,llega_al_HUV,Hospital Universitario del Valle,2026-03-31,1,1,rechazada,112,106,47,19,92,36.7,13,6,6,19.4,fallida
+574,1181908241,F,68,Coosalud,sale_del_HUV,Hospital San Juan de Dios Cali,2026-06-06,1,0,rechazada,143,89,52,23,86,37.2,10,5,5,18.1,fallida
+575,1191808638,M,62,Coosalud,sale_del_HUV,Clínica Versalles,2026-08-04,1,0,rechazada,97,89,48,29,84,39.6,10,5,5,14.6,fallida
+576,1138274001,M,60,Nueva EPS,sale_del_HUV,Clínica Colombia Cali,2026-04-02,1,0,rechazada,120,83,68,30,91,38.1,13,7,7,28.3,fallida
+577,1178655875,F,41,Emssanar,sale_del_HUV,Clínica Colombia Cali,2026-07-31,0,1,pendiente,106,102,74,23,90,36.9,13,4,3,13.1,borderline
+578,1128992411,M,78,Coosalud,sale_del_HUV,Clínica Farallones,2026-05-24,1,0,rechazada,123,96,62,25,82,37.8,5,4,4,13.4,fallida
+579,1121905839,F,95,Emssanar,llega_al_HUV,Hospital Universitario del Valle,2026-07-03,0,0,rechazada,96,91,64,26,90,37.8,14,4,4,9.9,fallida
+580,1148402283,F,55,Nueva EPS,sale_del_HUV,Hospital San Juan de Dios Cali,2026-03-30,1,0,pendiente,94,84,69,25,94,37.8,11,3,2,3.8,borderline
+581,1124649887,M,46,Emssanar,sale_del_HUV,Clínica Imbanaco,2026-03-06,0,1,completada,99,141,80,14,91,38.0,15,1,0,0.0,efectiva
+582,1129106424,M,86,Emssanar,sale_del_HUV,Clínica Nuestra Señora de los Remedios,2026-07-11,1,1,en_gestion,89,111,63,22,96,38.1,14,3,2,6.1,borderline
+583,1108893734,M,46,Nueva EPS,sale_del_HUV,Hospital San Juan de Dios Cali,2026-03-19,0,1,completada,103,127,84,14,94,37.6,15,1,0,0.0,efectiva
+584,1101540837,F,78,Sanitas,llega_al_HUV,Hospital Universitario del Valle,2026-07-24,1,0,rechazada,113,94,62,27,96,38.1,9,6,6,26.0,fallida
+585,1177254344,M,50,Emssanar,sale_del_HUV,Hospital San Juan de Dios Cali,2026-07-14,0,1,completada,126,119,86,19,97,36.7,15,1,0,0.0,efectiva
+586,1120807272,M,30,Coosalud,llega_al_HUV,Hospital Universitario del Valle,2026-05-16,0,1,completada,91,120,82,18,92,36.5,14,1,0,0.0,efectiva
+587,1114497139,M,26,Emssanar,sale_del_HUV,Clínica Sebastián de Belalcázar,2026-04-05,0,1,completada,87,126,69,18,98,37.1,14,2,1,1.7,efectiva
+588,1196619672,F,78,Coosalud,llega_al_HUV,Hospital Universitario del Valle,2026-09-03,0,0,rechazada,123,98,78,23,90,37.2,11,4,4,8.4,fallida
+589,1176517176,M,64,Asmet Salud,sale_del_HUV,Clínica Imbanaco,2026-03-26,1,1,en_gestion,86,104,52,26,91,37.8,15,4,3,7.3,borderline
+590,1150973597,F,47,SOS,sale_del_HUV,Clínica de Occidente,2026-09-04,0,1,en_gestion,92,100,52,22,91,37.5,12,3,2,7.1,borderline
+591,1146552559,F,54,Coosalud,sale_del_HUV,Fundación Valle del Lili,2026-08-23,0,0,pendiente,115,125,63,27,91,38.6,11,3,2,6.0,borderline
+592,1150701412,F,56,Asmet Salud,llega_al_HUV,Hospital Universitario del Valle,2026-06-15,1,1,en_gestion,127,140,77,25,94,37.3,13,3,2,7.0,borderline
+593,1126279026,M,61,Coosalud,sale_del_HUV,Clínica Nuestra Señora de los Remedios,2026-03-28,1,0,pendiente,116,128,70,22,91,37.5,13,4,3,11.2,borderline
+594,1189658018,M,61,Nueva EPS,sale_del_HUV,Clínica Nuestra Señora de los Remedios,2026-06-14,0,0,pendiente,112,111,71,22,88,37.3,11,4,3,10.1,borderline
+595,1147253762,F,63,Sanitas,sale_del_HUV,Clínica Versalles,2026-06-08,1,0,rechazada,106,95,67,24,82,38.5,14,6,6,20.0,fallida
+596,1120755355,F,41,SOS,llega_al_HUV,Hospital Universitario del Valle,2026-06-28,1,1,aceptada,85,140,69,20,96,36.4,15,1,0,0.0,efectiva
+597,1149285184,M,77,Coosalud,llega_al_HUV,Hospital Universitario del Valle,2026-05-14,0,0,en_gestion,107,95,68,22,90,36.7,13,4,3,9.3,borderline
+598,1145571818,F,57,SOS,sale_del_HUV,Clínica Sebastián de Belalcázar,2026-08-13,0,0,pendiente,98,109,65,19,92,38.1,15,3,2,6.9,borderline
+599,1174068399,M,80,Asmet Salud,llega_al_HUV,Hospital Universitario del Valle,2026-09-13,1,0,rechazada,117,83,67,26,96,37.2,15,4,4,12.9,fallida
+600,1136999831,M,49,SOS,llega_al_HUV,Hospital Universitario del Valle,2026-09-01,0,1,completada,85,146,76,16,96,37.4,14,2,1,1.5,efectiva

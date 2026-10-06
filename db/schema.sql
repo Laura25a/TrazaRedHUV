@@ -75,3 +75,35 @@ CREATE TABLE IF NOT EXISTS auditoria (
     registro_id INTEGER NOT NULL,
     fecha TIMESTAMP NOT NULL DEFAULT now()
 );
+
+-- ============================================================================
+-- SEMANA 8 — Bloqueo de usuario por intentos fallidos (solo AGREGA, no borra)
+-- ============================================================================
+-- Todo lo de abajo es idempotente: se puede correr contra la base de Neon que
+-- ya tiene datos; ADD COLUMN IF NOT EXISTS no toca lo existente.
+
+-- usuarios: contador de intentos fallidos seguidos y bandera de bloqueo.
+-- Al 3er intento fallido la API pone bloqueado = TRUE; solo un admin lo
+-- desbloquea (POST /usuarios/{id}/desbloquear), lo que reinicia el contador.
+ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS intentos_fallidos INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS bloqueado BOOLEAN NOT NULL DEFAULT FALSE;
+
+-- auditoria: los eventos de login (fallido, bloqueo, exitoso) no apuntan a un
+-- registro de negocio, así que registro_id pasa a permitir NULL, y "detalle"
+-- guarda el contexto (p. ej. el correo con el que se intentó entrar y cuántos
+-- intentos le quedaban). Las filas viejas no cambian.
+ALTER TABLE auditoria ALTER COLUMN registro_id DROP NOT NULL;
+ALTER TABLE auditoria ADD COLUMN IF NOT EXISTS detalle TEXT;
+
+-- ============================================================================
+-- SEMANA 8 — Ficha del paciente más completa (solo AGREGA, todo opcional)
+-- ============================================================================
+-- Datos que muestra la ficha de la interfaz. Son opcionales (NULL) para no
+-- romper los pacientes que ya existen; el dataset del proyecto final los llena.
+ALTER TABLE pacientes ADD COLUMN IF NOT EXISTS fecha_nacimiento DATE;
+ALTER TABLE pacientes ADD COLUMN IF NOT EXISTS telefono TEXT;
+ALTER TABLE pacientes ADD COLUMN IF NOT EXISTS tipo_sangre TEXT;
+ALTER TABLE pacientes ADD COLUMN IF NOT EXISTS alergias TEXT;
+
+-- Las imágenes médicas NO se guardan en PostgreSQL: viven en el PACS (Orthanc)
+-- como DICOM, y se enlazan con el paciente por el tag PatientID = documento.

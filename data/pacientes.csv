@@ -1,0 +1,601 @@
+ref,nombre,documento,genero,eps,fecha_nacimiento,telefono,tipo_sangre,alergias
+1,Ana Torres Mina,1175373460,F,Coosalud,1951-05-03,3175410343,A+,Sin alergias conocidas
+2,Jorge Ramírez Possú,1166395419,M,Sura,1954-03-16,3133020985,O+,Sin alergias conocidas
+3,Angélica Possú Carabalí,1112830213,F,Emssanar,1985-05-31,3175731594,O+,Sin alergias conocidas
+4,Wilson Ortiz Gómez,1133568149,M,Emssanar,1957-06-21,3214279278,O+,Sin alergias conocidas
+5,Víctor Gómez Ramírez,1145581583,M,Coosalud,1972-03-31,3056677615,O+,Sin alergias conocidas
+6,Luz Rodríguez Obregón,1140177071,F,Salud Total,1975-08-19,3125287836,A+,Sin alergias conocidas
+7,Jhon Quintero Quintero,1122906819,M,Coosalud,1964-06-30,3127983164,O+,Sin alergias conocidas
+8,Julián Valencia Rodríguez,1147537639,M,Nueva EPS,1978-12-07,3139529633,O+,Sin alergias conocidas
+9,Nelson Ortiz Zapata,1102948273,M,Emssanar,1967-06-01,3169407389,A+,Sin alergias conocidas
+10,Daniela González Loboa,1169974347,F,Coosalud,1984-06-18,3143856056,O+,Sin alergias conocidas
+11,Nubia Rodríguez Rivas,1111348399,F,Coosalud,1992-09-12,3019025067,O+,Sin alergias conocidas
+12,Angélica Torres Castillo,1178344211,F,Asmet Salud,1995-09-15,3045653323,O+,Sin alergias conocidas
+13,Marleny Balanta Carabalí,1146215249,F,Emssanar,1965-01-06,3154791731,O+,Penicilina
+14,Nelson Ramírez Díaz,1191288373,M,Salud Total,1962-10-19,3056382126,O+,Medios de contraste yodados
+15,Leidy Rodríguez Valencia,1159593594,F,SOS,1972-10-24,3184359605,O-,Sin alergias conocidas
+16,Brayan Loboa Valencia,1132556548,M,Emssanar,1956-07-19,3043589115,O+,Sin alergias conocidas
+17,Nelson Castillo Rivas,1147073289,M,SOS,1961-01-16,3147190446,O+,Sin alergias conocidas
+18,Angélica Loboa Ortiz,1145752567,F,Asmet Salud,1939-05-12,3107185263,O+,Sin alergias conocidas
+19,Karen Hurtado Obregón,1141276226,F,Coosalud,1947-10-30,3150455768,A+,Sin alergias conocidas
+20,Diana Hurtado Hurtado,1145316662,F,SOS,1988-09-22,3214877135,A+,Sin alergias conocidas
+21,Víctor Carabalí Rivas,1155479637,M,Nueva EPS,1989-10-07,3219784772,O+,Sin alergias conocidas
+22,Carmen Cortés Balanta,1114078989,F,Sanitas,1975-04-07,3104536246,O+,Sin alergias conocidas
+23,Daniela Possú Possú,1112687328,F,Sanitas,1961-07-22,3140674561,A+,Sin alergias conocidas
+24,Wilson Díaz Torres,1163202588,M,Coosalud,1953-09-10,3179781572,O+,Sin alergias conocidas
+25,Diana Torres Viveros,1172507710,F,Emssanar,1964-07-05,3019173362,AB+,Sin alergias conocidas
+26,Jorge González Angulo,1130273896,M,Asmet Salud,1963-03-14,3213327906,B+,Sin alergias conocidas
+27,Jhon Balanta Caicedo,1150453096,M,Sanitas,1975-04-07,3162856673,A+,Mariscos
+28,Jhonatan Angulo Balanta,1116061271,M,SOS,1969-10-16,3132251166,A+,Sin alergias conocidas
+29,Óscar Carabalí Ararat,1152455801,M,Salud Total,2003-12-29,3123343650,O+,Sin alergias conocidas
+30,Óscar Loboa Balanta,1114109447,M,Coosalud,1997-11-28,3143211247,A+,Sin alergias conocidas
+31,Natalia González Mina,1110967457,F,Sura,1976-06-19,3048728028,O+,Sin alergias conocidas
+32,Yolanda Quintero Díaz,1179776115,F,Asmet Salud,1970-03-11,3218432112,A+,Sulfonamidas
+33,Jhon Rodríguez Zapata,1197289883,M,Emssanar,1968-04-08,3047672978,O+,Sin alergias conocidas
+34,Marleny Cortés Carabalí,1191630865,F,Sanitas,1975-07-10,3059473126,A+,Medios de contraste yodados
+35,Diana Zapata Caicedo,1192567182,F,Asmet Salud,1968-12-31,3167736250,A+,AINES
+36,Laura Balanta Angulo,1145469660,F,Asmet Salud,1984-03-11,3189747242,O+,Sin alergias conocidas
+37,Paola Zapata Lucumí,1180687312,F,Asmet Salud,1976-01-03,3132700309,O+,Sin alergias conocidas
+38,Óscar Mina Muñoz,1195719069,M,Emssanar,1966-06-15,3100687919,O+,AINES
+39,Sandra Viveros Castillo,1162493011,F,Sura,1990-08-12,3144943128,O+,Sin alergias conocidas
+40,Jhonatan Caicedo Castillo,1179549189,M,Salud Total,1969-04-26,3170322112,O+,Medios de contraste yodados
+41,Nelson Lucumí Hurtado,1169974269,M,Coosalud,1959-12-24,3211598570,O+,Penicilina
+42,Nelson Ramírez Caicedo,1158950486,M,Emssanar,1946-04-08,3143039946,A+,Sin alergias conocidas
+43,Valentina Caicedo Gómez,1166554249,F,Asmet Salud,1974-02-04,3214983849,A+,Sin alergias conocidas
+44,Hernán Mina Rodríguez,1191618244,M,Emssanar,1971-02-10,3001159343,O+,Sin alergias conocidas
+45,Daniela Ararat González,1165185516,F,Asmet Salud,1967-05-15,3138408045,O+,Sin alergias conocidas
+46,José Torres Rivas,1153545076,M,Emssanar,1971-10-21,3135953027,O+,Sin alergias conocidas
+47,Nubia Angulo Quintero,1109064827,F,Sura,1974-07-20,3010637895,O+,Sin alergias conocidas
+48,Álvaro Possú Hurtado,1190823774,M,Nueva EPS,1953-12-07,3018738366,O+,Penicilina
+49,Diego Castillo Valencia,1109062807,M,Nueva EPS,1962-02-17,3153119158,O+,Sin alergias conocidas
+50,Wilson Gómez Possú,1116636742,M,Salud Total,1964-01-20,3135129429,O+,Sin alergias conocidas
+51,Nubia Possú Viveros,1168388014,F,Emssanar,1974-10-16,3126636967,B+,Mariscos
+52,Hernán Carabalí Gómez,1146410290,M,Emssanar,1950-02-08,3184307820,O+,Sin alergias conocidas
+53,Edwin Cortés Obregón,1100399982,M,SOS,2005-05-11,3129699450,O+,Medios de contraste yodados
+54,Marleny Mina Possú,1199484591,F,Emssanar,1962-08-27,3177324054,O+,Sin alergias conocidas
+55,Juan Valencia Valencia,1130366343,M,Emssanar,1972-03-20,3048738495,O+,Sin alergias conocidas
+56,Marleny Ortiz Mina,1180911112,F,Emssanar,1998-04-16,3149922073,A+,Sin alergias conocidas
+57,Luis Viveros Muñoz,1116827519,M,Emssanar,1960-03-31,3008147083,O+,Sin alergias conocidas
+58,María Quintero Obregón,1140963119,F,Coosalud,1976-05-23,3207340446,O+,Sin alergias conocidas
+59,Julián Cortés Possú,1138568733,M,Coosalud,1982-03-28,3142900502,B+,Sin alergias conocidas
+60,Natalia Castillo Ramírez,1137440110,F,Salud Total,1961-02-22,3171894984,A-,Sin alergias conocidas
+61,Jorge Cortés Hurtado,1106230344,M,Coosalud,1995-09-25,3178846892,A+,Medios de contraste yodados
+62,Valentina Carabalí Torres,1134492402,F,Salud Total,1983-07-26,3059615170,A+,Sin alergias conocidas
+63,Juan Balanta Carabalí,1135116224,M,Nueva EPS,2003-12-26,3125618069,AB+,Sin alergias conocidas
+64,María Castillo Mosquera,1105930625,F,Emssanar,1961-01-11,3048800592,O+,Penicilina
+65,Leidy Mosquera Castillo,1174261913,F,Emssanar,1982-06-06,3139946495,O+,Sin alergias conocidas
+66,Yolanda Zapata Lucumí,1144391749,F,Salud Total,1973-12-01,3018579950,A+,Sin alergias conocidas
+67,Angélica Gómez Mosquera,1105007397,F,Salud Total,1964-07-27,3059186476,O+,Sin alergias conocidas
+68,Jhon Mina Hurtado,1145607329,M,Coosalud,1995-12-07,3219718262,O+,AINES
+69,José Hurtado Zapata,1129481722,M,SOS,1955-04-02,3122539470,A+,AINES
+70,Luz González Torres,1139528752,F,Nueva EPS,1972-01-05,3057557698,O+,Sin alergias conocidas
+71,Jhonatan González Mina,1166929847,M,Salud Total,1974-12-26,3100280429,B+,Sin alergias conocidas
+72,Diana Balanta Viveros,1177120155,F,Salud Total,1970-11-12,3138685090,O+,Látex
+73,Hernán Muñoz González,1117126500,M,Emssanar,1989-01-30,3175687438,O+,Sin alergias conocidas
+74,Gloria Valencia Valencia,1126280991,F,Salud Total,1976-09-08,3147505234,O+,Sin alergias conocidas
+75,Nubia Sinisterra Gómez,1157880286,F,Asmet Salud,1958-03-09,3165858665,O+,Sin alergias conocidas
+76,Diana Ortiz Angulo,1169769461,F,Coosalud,1967-09-18,3051701737,O+,Sin alergias conocidas
+77,Carlos González Mosquera,1164827161,M,Nueva EPS,1980-02-23,3007655619,O+,Sulfonamidas
+78,Víctor Loboa Rivas,1118943627,M,Emssanar,1976-12-01,3047138206,O+,Sin alergias conocidas
+79,Jorge Angulo Ramírez,1124611107,M,Coosalud,1952-03-31,3218204923,O+,Medios de contraste yodados
+80,Nubia Zapata Sinisterra,1111200247,F,Emssanar,1976-02-22,3127986625,O+,Medios de contraste yodados
+81,Julián Caicedo Carabalí,1165187846,M,Salud Total,1984-02-26,3209559280,AB+,Sin alergias conocidas
+82,María Muñoz Ararat,1191595739,F,Emssanar,1977-06-15,3041601546,O+,Sin alergias conocidas
+83,Angélica Possú Cortés,1155852748,F,Salud Total,1969-03-22,3159932657,A+,Sin alergias conocidas
+84,Julián Gómez Viveros,1173909015,M,Emssanar,1964-12-21,3050502368,O+,Sin alergias conocidas
+85,Fredy Loboa Ramírez,1122889696,M,Salud Total,1955-05-26,3139710979,O+,Sin alergias conocidas
+86,José Hurtado Quintero,1128189155,M,Coosalud,1965-05-20,3139049920,O-,Penicilina
+87,Rosa Hurtado Ararat,1150298215,F,SOS,1967-04-30,3208858970,O+,Sin alergias conocidas
+88,Jhon Ararat Cortés,1112333811,M,Sanitas,1955-12-22,3124166923,A+,Sin alergias conocidas
+89,Angélica Gómez Gómez,1191381163,F,Coosalud,1984-09-25,3174292553,O+,Sin alergias conocidas
+90,Carlos Ortiz Quintero,1174222737,M,Coosalud,1930-08-19,3004166857,A+,Sin alergias conocidas
+91,María Obregón Zapata,1153275198,F,Asmet Salud,1993-01-19,3155627415,O+,Sin alergias conocidas
+92,Julián González Torres,1120456395,M,Sura,1971-04-27,3217801956,O+,Sin alergias conocidas
+93,Fredy Obregón Rivas,1140753934,M,Coosalud,1961-02-20,3153970150,O+,Sin alergias conocidas
+94,Valentina Rivas Obregón,1126566458,F,SOS,1989-08-06,3100965843,A+,Sin alergias conocidas
+95,Yolanda Possú Hurtado,1168809690,F,Sura,1976-05-24,3126389646,O+,AINES
+96,Andrés Gómez Castillo,1127043789,M,Emssanar,1974-09-23,3106818629,O+,Sin alergias conocidas
+97,Jhonatan Quintero Hurtado,1118263451,M,Sura,1999-08-26,3054440697,O+,Sin alergias conocidas
+98,Fredy Loboa González,1174961995,M,Emssanar,1979-12-01,3171093490,O+,Sin alergias conocidas
+99,Marleny Valencia Castillo,1148779280,F,Asmet Salud,1983-09-07,3185436994,O+,Sin alergias conocidas
+100,Andrés Rivas Lucumí,1134728434,M,Emssanar,1957-01-27,3215388262,A+,Sin alergias conocidas
+101,Yolanda Ortiz Hurtado,1152059617,F,Sanitas,2004-05-20,3184468151,O+,Sin alergias conocidas
+102,Julián Viveros Muñoz,1117636874,M,Coosalud,1973-11-03,3185123776,A+,Látex
+103,Jorge Sinisterra Valencia,1154832083,M,Coosalud,1934-07-20,3219808245,O+,Sin alergias conocidas
+104,Karen Díaz Rivas,1171210317,F,Coosalud,1972-02-08,3106009334,O+,Sin alergias conocidas
+105,Laura Carabalí Castillo,1140969696,F,Nueva EPS,2001-04-08,3051941089,O+,Sin alergias conocidas
+106,Nubia Valencia Castillo,1186568213,F,Sura,1976-07-04,3146554340,A+,Sin alergias conocidas
+107,Ana Torres Gómez,1131641903,F,Emssanar,1948-09-30,3156333097,O+,Sin alergias conocidas
+108,Nubia Lucumí Loboa,1175365437,F,Sanitas,1976-02-28,3016622416,O+,Sulfonamidas
+109,Laura Angulo Torres,1180128040,F,Salud Total,1961-06-15,3206080857,O+,Sin alergias conocidas
+110,Paola Torres Caicedo,1126287510,F,Nueva EPS,1940-10-31,3161600673,A+,Sin alergias conocidas
+111,María Zapata Carabalí,1109680854,F,Asmet Salud,1946-03-08,3135534587,A+,Sin alergias conocidas
+112,Wilson Sinisterra Balanta,1111760001,M,Sanitas,1986-08-30,3105198073,A+,Sin alergias conocidas
+113,Gloria Valencia Ortiz,1198724767,F,Nueva EPS,1985-03-31,3182567185,O+,Sin alergias conocidas
+114,Gloria Torres Rodríguez,1135289814,F,Sanitas,1981-10-02,3156363252,O+,Mariscos
+115,Fredy Muñoz Mina,1158035846,M,Emssanar,1957-12-09,3000900389,O+,Sin alergias conocidas
+116,Gloria Mosquera Quintero,1113763521,F,Salud Total,1952-07-26,3109261980,O+,Sin alergias conocidas
+117,Andrés Possú Rivas,1187770449,M,Nueva EPS,1990-06-20,3150053228,A+,Sin alergias conocidas
+118,Marleny Torres Mina,1134692116,F,Sura,1958-05-16,3006011956,O+,Sin alergias conocidas
+119,Andrés Mosquera Ortiz,1105176049,M,Sanitas,1994-08-30,3050202317,O+,Penicilina
+120,Paola Cortés Ortiz,1137498603,F,Emssanar,1950-06-24,3051979724,A+,Sin alergias conocidas
+121,Edwin Muñoz Ortiz,1135887487,M,Coosalud,1961-06-09,3152685027,AB+,Sin alergias conocidas
+122,Sandra Obregón Zapata,1182966996,F,Salud Total,1977-02-28,3207904774,A+,Sin alergias conocidas
+123,Óscar Muñoz Torres,1106587067,M,Salud Total,1965-10-13,3212230539,O+,Sin alergias conocidas
+124,Diana Zapata Angulo,1176792287,F,SOS,1980-08-04,3100200777,A+,Látex
+125,Valentina Caicedo Quintero,1187919543,F,Salud Total,1967-02-12,3179306143,O+,Sin alergias conocidas
+126,Luz Rodríguez Ramírez,1120155043,F,Emssanar,1990-09-09,3044678134,O+,Sin alergias conocidas
+127,Yolanda Sinisterra Torres,1115775679,F,Nueva EPS,1995-10-22,3134759523,A+,Sin alergias conocidas
+128,Julián Díaz Torres,1178413185,M,Salud Total,1946-10-10,3104835609,O+,Sin alergias conocidas
+129,Jorge Quintero Torres,1104662278,M,Nueva EPS,1967-07-17,3048674657,A-,Sin alergias conocidas
+130,Nelson Torres Obregón,1159520722,M,Coosalud,1935-07-15,3012414778,O+,Sin alergias conocidas
+131,Fredy Muñoz Caicedo,1114222053,M,SOS,1956-02-22,3009199300,O+,Sin alergias conocidas
+132,Daniela Hurtado Ramírez,1181329109,F,Nueva EPS,2008-04-04,3166261159,A+,Sin alergias conocidas
+133,Andrés Possú Gómez,1109361948,M,Sanitas,1991-02-18,3145047030,A+,Sin alergias conocidas
+134,Wilson Ramírez Possú,1186465379,M,Emssanar,1968-08-16,3100476294,O+,Sin alergias conocidas
+135,Angélica Possú Quintero,1144626083,F,Coosalud,1963-06-09,3103242894,O+,Sin alergias conocidas
+136,Álvaro Lucumí Quintero,1111506963,M,Emssanar,1973-01-17,3047093283,O+,Sin alergias conocidas
+137,Óscar Mosquera Ortiz,1168639154,M,Sanitas,1976-02-15,3128778767,A+,Sin alergias conocidas
+138,Camilo Lucumí Mosquera,1122926039,M,Sanitas,1978-02-28,3162474197,O+,AINES
+139,Angélica Obregón Valencia,1126796364,F,Sanitas,1949-03-09,3048485044,A+,Sin alergias conocidas
+140,Brayan Hurtado Quintero,1168897673,M,Nueva EPS,1991-09-06,3059783101,O+,Sin alergias conocidas
+141,Nubia Rivas Lucumí,1119773501,F,Sura,1976-04-17,3013274446,O+,Sin alergias conocidas
+142,Wilson Loboa Carabalí,1134919496,M,Nueva EPS,1968-07-25,3127933485,A+,Sin alergias conocidas
+143,Jhonatan González Ararat,1106561914,M,Coosalud,2004-08-19,3200504646,B+,Sin alergias conocidas
+144,Karen Obregón Loboa,1183462564,F,Emssanar,1959-11-17,3122894331,O+,Sin alergias conocidas
+145,Diego Caicedo Valencia,1154250465,M,Salud Total,1960-03-18,3128652225,A+,Penicilina
+146,Luis Quintero Lucumí,1155602948,M,Emssanar,1989-02-26,3206478920,O-,Sin alergias conocidas
+147,Julián Viveros Ramírez,1119685334,M,Sanitas,1973-09-04,3104393334,B+,Penicilina
+148,Julián Caicedo Quintero,1129048323,M,Sanitas,1948-08-19,3168363443,B+,Sin alergias conocidas
+149,Yuliana Rodríguez Viveros,1195809218,F,Nueva EPS,1951-07-11,3213273570,A+,Penicilina
+150,Valentina Rivas Cortés,1173787952,F,Sura,1984-12-28,3177772942,O+,Medios de contraste yodados
+151,Nubia Zapata Obregón,1160357794,F,Emssanar,1952-11-30,3179316509,O+,Sin alergias conocidas
+152,Brayan Zapata Sinisterra,1156537054,M,Coosalud,1959-07-01,3055904734,O+,Penicilina
+153,Óscar Valencia Ramírez,1139320672,M,Emssanar,1976-01-31,3108898134,A-,Sin alergias conocidas
+154,Sandra Mosquera Rivas,1177952807,F,Emssanar,1993-02-01,3124126881,B+,Sin alergias conocidas
+155,Karen Balanta Hurtado,1168659568,F,Nueva EPS,1978-11-26,3139750627,A+,Sin alergias conocidas
+156,Marleny Sinisterra González,1143435758,F,Salud Total,1953-07-09,3184104284,O+,Sin alergias conocidas
+157,Paola Muñoz González,1177060461,F,Coosalud,1976-08-20,3175867972,B+,Sin alergias conocidas
+158,Rosa Sinisterra Angulo,1159577232,F,Nueva EPS,2000-08-31,3046878147,O+,Sin alergias conocidas
+159,Julián Muñoz Loboa,1174195178,M,Sanitas,1965-04-18,3139644528,A+,Penicilina
+160,Jorge Mosquera Mosquera,1155578901,M,Salud Total,1967-01-05,3172327130,A+,Sin alergias conocidas
+161,Ana Lucumí Díaz,1172681046,F,Sanitas,1982-04-09,3159313153,B+,Sin alergias conocidas
+162,Nelson Valencia Castillo,1164312649,M,Asmet Salud,1947-11-01,3204384251,O+,Medios de contraste yodados
+163,Diego Gómez Ortiz,1195529763,M,Emssanar,1984-04-17,3188171195,O+,Sin alergias conocidas
+164,Natalia Angulo Possú,1111495031,F,Emssanar,1949-04-29,3104991155,O+,Sin alergias conocidas
+165,Yuliana Ortiz Rivas,1155286600,F,Coosalud,1962-08-31,3000052782,O+,Sin alergias conocidas
+166,Óscar Hurtado Possú,1164237031,M,Asmet Salud,1996-01-26,3108867134,O+,Sin alergias conocidas
+167,Carmen Loboa Possú,1185438654,F,SOS,1942-01-16,3005679382,O+,AINES
+168,Luz Caicedo Quintero,1116124961,F,Nueva EPS,1933-09-18,3014843019,O+,Sin alergias conocidas
+169,Jhonatan Carabalí Zapata,1162779790,M,SOS,1960-09-24,3042530343,O-,Sin alergias conocidas
+170,Ana Angulo Zapata,1153411135,F,Asmet Salud,1999-07-31,3001301461,AB+,Penicilina
+171,Luz Angulo Carabalí,1122117579,F,Sura,1944-07-29,3206455674,A+,Sin alergias conocidas
+172,Nelson Gómez Balanta,1145738546,M,Coosalud,1969-10-18,3109449307,O+,Sin alergias conocidas
+173,Carlos Angulo Díaz,1144032637,M,Salud Total,1970-01-31,3048873218,O+,Medios de contraste yodados
+174,Nelson Loboa Rodríguez,1173369249,M,Nueva EPS,1952-07-20,3168249522,A+,Sin alergias conocidas
+175,Juan Quintero Gómez,1162000282,M,Nueva EPS,1971-08-28,3219104308,A+,Sin alergias conocidas
+176,Valentina Valencia Balanta,1182098305,F,Coosalud,1963-09-23,3129397755,B+,Sin alergias conocidas
+177,Valentina Caicedo Díaz,1186560507,F,Sanitas,1987-08-28,3189418335,O+,Sin alergias conocidas
+178,Luis Gómez Loboa,1107451439,M,Asmet Salud,1966-12-07,3167677304,A+,Sin alergias conocidas
+179,Luz Viveros Sinisterra,1131534399,F,Asmet Salud,1974-02-02,3155943778,O+,AINES
+180,Luis Obregón Angulo,1137920013,M,Sanitas,1988-01-27,3108742285,B+,Sin alergias conocidas
+181,Nelson Lucumí Díaz,1138102841,M,Coosalud,1949-03-12,3182551119,AB+,Sin alergias conocidas
+182,Leidy Balanta Torres,1185694646,F,Asmet Salud,1993-05-25,3131925857,B+,AINES
+183,Camilo Muñoz González,1170571763,M,Sanitas,1995-01-24,3204172448,B+,Medios de contraste yodados
+184,María Ortiz Rodríguez,1196369461,F,Asmet Salud,1974-02-20,3052295014,O+,Sin alergias conocidas
+185,Rosa Rodríguez Carabalí,1147498339,F,Sura,1953-04-27,3213697550,A+,Sin alergias conocidas
+186,Paola Balanta Quintero,1106190891,F,Sura,1939-03-31,3008684338,O+,Sin alergias conocidas
+187,María Obregón Rivas,1167038224,F,Asmet Salud,1942-02-28,3186401397,O+,Penicilina
+188,Óscar Angulo Torres,1128117109,M,Emssanar,1968-02-02,3011155072,O+,Sin alergias conocidas
+189,Daniela Loboa Rivas,1168921787,F,Sanitas,1956-06-10,3156691332,O+,Sin alergias conocidas
+190,Edwin Obregón Rodríguez,1148017513,M,Nueva EPS,1994-08-20,3128668235,O-,Sin alergias conocidas
+191,Gloria Ramírez Balanta,1117203284,F,SOS,1965-06-30,3136445902,O+,Látex
+192,Luz Caicedo Hurtado,1186914838,F,Asmet Salud,2008-08-21,3137171320,A+,Sin alergias conocidas
+193,Hernán González Díaz,1127648956,M,Emssanar,1969-01-16,3048275241,O+,Sin alergias conocidas
+194,Rosa Zapata Caicedo,1139202339,F,Nueva EPS,1985-09-11,3056434972,O+,AINES
+195,Angélica Valencia Sinisterra,1143110319,F,Emssanar,2000-05-16,3007954793,O+,Sin alergias conocidas
+196,Natalia Mosquera Angulo,1199601862,F,Salud Total,1950-11-21,3057240057,B+,Sin alergias conocidas
+197,Laura Ortiz Mosquera,1125603837,F,SOS,1990-12-31,3184312428,O+,Sin alergias conocidas
+198,Álvaro Ortiz Hurtado,1161304235,M,Coosalud,1968-11-30,3007849702,A+,Sin alergias conocidas
+199,Yuliana Carabalí Rodríguez,1106815116,F,Salud Total,1956-05-10,3172295138,A+,Sin alergias conocidas
+200,Jhonatan Cortés Balanta,1105930868,M,Nueva EPS,1970-10-30,3162936192,O+,Sin alergias conocidas
+201,Andrés Torres Mina,1138300065,M,Emssanar,1957-01-02,3189981089,O+,AINES
+202,Yolanda Torres Hurtado,1191719418,F,Coosalud,1988-10-10,3169920918,AB+,Sin alergias conocidas
+203,Diana Mina Valencia,1137158776,F,Salud Total,1989-04-19,3140381312,O+,Sin alergias conocidas
+204,Víctor Obregón Gómez,1192793283,M,Sura,1945-11-29,3136988852,O+,Sin alergias conocidas
+205,Marleny Cortés Rodríguez,1149674173,F,Sura,1946-03-14,3219904398,O+,Penicilina
+206,Diego Valencia Muñoz,1176383646,M,Emssanar,1952-11-23,3150659676,O+,Penicilina
+207,Ana Sinisterra Balanta,1190420915,F,Sanitas,1983-05-19,3005769722,O+,Sin alergias conocidas
+208,Jhonatan Torres Zapata,1152208739,M,Nueva EPS,1986-11-30,3214661561,B+,Sin alergias conocidas
+209,Natalia Zapata Lucumí,1162086684,F,Emssanar,1962-07-21,3014094774,A+,AINES
+210,Juan Lucumí Ararat,1130920802,M,Coosalud,1966-08-18,3158723061,A+,Sin alergias conocidas
+211,Víctor Cortés Hurtado,1185000744,M,Coosalud,1967-10-05,3164674979,A+,Sin alergias conocidas
+212,Nelson Loboa Ramírez,1183599953,M,Coosalud,1984-06-15,3162799805,A+,Sin alergias conocidas
+213,Angélica Díaz Ararat,1116767212,F,Emssanar,1968-11-18,3219105481,O+,AINES
+214,Juan Angulo Zapata,1185787471,M,Sura,1979-07-11,3206663032,O+,Sin alergias conocidas
+215,Gloria Gómez Zapata,1127704097,F,SOS,1977-09-01,3100214586,O+,Sin alergias conocidas
+216,Juan Balanta Balanta,1176046777,M,Emssanar,2008-06-10,3183667365,O+,Sin alergias conocidas
+217,Marleny Quintero Valencia,1180259534,F,SOS,1963-03-09,3138446136,O+,Sin alergias conocidas
+218,Camilo Valencia Lucumí,1173862126,M,Nueva EPS,1961-03-21,3011362152,A+,Sin alergias conocidas
+219,Gloria Mina González,1158031226,F,Nueva EPS,1954-05-31,3054890963,O+,Sin alergias conocidas
+220,Wilson Mosquera Díaz,1176491297,M,Coosalud,1967-06-17,3132022669,O+,Sulfonamidas
+221,Diana Castillo Lucumí,1150104245,F,Emssanar,2002-01-19,3016651054,O+,AINES
+222,Julián Caicedo Muñoz,1111546540,M,Emssanar,1978-09-01,3147071345,A+,Sin alergias conocidas
+223,Paola Quintero Sinisterra,1193407712,F,Emssanar,1989-09-25,3205370923,A+,Sin alergias conocidas
+224,Angélica Ortiz Muñoz,1155767176,F,Coosalud,1982-04-04,3175342358,A+,Látex
+225,Gloria Mosquera Lucumí,1161928828,F,Coosalud,1971-04-11,3207632962,O+,Sin alergias conocidas
+226,Nelson Mina Ararat,1108824000,M,Nueva EPS,1949-09-07,3131172316,B+,Sin alergias conocidas
+227,Jhonatan Balanta Balanta,1154234243,M,Salud Total,1983-12-18,3157896815,O+,Sin alergias conocidas
+228,Leidy González González,1190836115,F,Nueva EPS,1965-09-27,3161907697,O+,Sin alergias conocidas
+229,Diego Mina Lucumí,1184420876,M,Nueva EPS,1964-03-13,3183940963,O+,AINES
+230,Laura Hurtado Cortés,1196972414,F,Emssanar,1947-07-07,3162937271,O+,Sulfonamidas
+231,Leidy Caicedo Possú,1104818820,F,SOS,1976-04-17,3011368392,O+,AINES
+232,Edwin Valencia Viveros,1184836434,M,SOS,1945-06-20,3132964911,O+,AINES
+233,Hernán Balanta Ararat,1107994753,M,SOS,1991-10-11,3206444543,A+,Sin alergias conocidas
+234,Karen Loboa Possú,1151045435,F,Emssanar,1973-07-09,3204875552,AB+,Medios de contraste yodados
+235,Brayan González Valencia,1107306326,M,Nueva EPS,1958-04-07,3184457039,A+,Sin alergias conocidas
+236,Jhon Muñoz González,1128666795,M,SOS,1973-08-29,3210628756,A+,Medios de contraste yodados
+237,Víctor Gómez Angulo,1177307772,M,Nueva EPS,1956-12-22,3128397858,O+,Sin alergias conocidas
+238,Sandra Torres Valencia,1149169999,F,Nueva EPS,1985-08-01,3058372729,O+,Sin alergias conocidas
+239,Andrés Mina Muñoz,1161926741,M,Coosalud,1974-04-02,3019494459,A+,Sulfonamidas
+240,Wilson Possú Castillo,1161510458,M,SOS,2008-01-23,3200358127,O+,Sin alergias conocidas
+241,Valentina Hurtado Muñoz,1169572303,F,Nueva EPS,1970-06-29,3179230300,O+,Sin alergias conocidas
+242,Karen Lucumí Cortés,1153102279,F,Coosalud,1945-10-22,3162565049,A+,Sin alergias conocidas
+243,Paola Sinisterra Rivas,1114788248,F,Coosalud,1937-02-08,3207697645,O+,Sin alergias conocidas
+244,Luz Angulo González,1152845927,F,Emssanar,1993-05-18,3155255704,A+,AINES
+245,Andrés Mina Ararat,1158743916,M,Coosalud,1979-08-30,3009277233,B+,Sin alergias conocidas
+246,Julián Loboa Possú,1108100668,M,Salud Total,1978-02-13,3174992431,O+,Sin alergias conocidas
+247,Jorge Castillo Ortiz,1115409884,M,Asmet Salud,1959-04-23,3163277432,O+,Sin alergias conocidas
+248,Nubia Mosquera Angulo,1123416430,F,Sanitas,1987-11-08,3186587000,O+,Sin alergias conocidas
+249,Julián González Ramírez,1144621161,M,Emssanar,1957-02-19,3169664853,O+,Sin alergias conocidas
+250,Jhonatan Rivas Rivas,1160341437,M,Asmet Salud,1951-08-05,3001933928,O+,Sin alergias conocidas
+251,Marleny González Mina,1139846945,F,SOS,1964-02-24,3059065960,A+,AINES
+252,Edwin Quintero Castillo,1134451037,M,Sanitas,1954-10-22,3044827749,O+,Sin alergias conocidas
+253,Hernán Possú Ortiz,1168495436,M,Salud Total,1970-08-23,3156102347,O+,Sin alergias conocidas
+254,Jhon Hurtado Ararat,1108834901,M,Salud Total,1962-04-30,3053223133,O+,Sin alergias conocidas
+255,Luis Cortés Zapata,1123466403,M,SOS,1947-04-29,3047289113,A+,AINES
+256,Carmen Loboa Díaz,1163218675,F,Coosalud,1961-06-25,3057316436,O+,Látex
+257,José Torres Lucumí,1103779089,M,Emssanar,1990-05-29,3167907916,O+,Sin alergias conocidas
+258,Jorge Ortiz Viveros,1127754259,M,Coosalud,1957-08-11,3048702725,O+,Sin alergias conocidas
+259,Fredy Gómez Quintero,1187309350,M,Sura,1969-08-09,3143225960,B+,Mariscos
+260,Natalia Viveros Sinisterra,1160094288,F,Emssanar,1962-09-07,3107235945,O+,Sin alergias conocidas
+261,Yuliana Mosquera Castillo,1125948988,F,Asmet Salud,1995-06-17,3125585355,O+,Sin alergias conocidas
+262,Camilo Cortés González,1147668796,M,Salud Total,1963-10-15,3142554468,A+,Sin alergias conocidas
+263,Yuliana Cortés Lucumí,1186169440,F,Nueva EPS,1970-12-25,3121242866,O+,Sin alergias conocidas
+264,Ana Balanta Hurtado,1183850261,F,SOS,1974-10-16,3177568064,O+,Sin alergias conocidas
+265,Nubia Castillo Ramírez,1170304068,F,Sura,1993-03-11,3101355273,O+,Sin alergias conocidas
+266,Carmen Zapata Carabalí,1145591176,F,Asmet Salud,1965-02-22,3211366131,B+,Sin alergias conocidas
+267,Ana Rodríguez Rodríguez,1149738761,F,Sanitas,1979-06-13,3054450649,O+,Sin alergias conocidas
+268,Rosa Lucumí Gómez,1168456833,F,Emssanar,1930-12-02,3150858394,O+,Sin alergias conocidas
+269,Edwin Valencia Carabalí,1174711132,M,Asmet Salud,1966-10-12,3209915196,O+,Sin alergias conocidas
+270,Paola Ararat Caicedo,1179686468,F,Emssanar,1961-10-16,3009940006,O+,Sin alergias conocidas
+271,Paola Díaz Castillo,1149843025,F,Coosalud,1949-05-25,3003212686,A+,Sin alergias conocidas
+272,Julián Loboa Loboa,1115633137,M,Nueva EPS,1973-09-16,3125098727,AB+,Sin alergias conocidas
+273,Álvaro Viveros Sinisterra,1182507226,M,SOS,2008-01-13,3003660353,A+,Sin alergias conocidas
+274,María Zapata Possú,1108199746,F,Sanitas,1953-09-17,3188131032,B+,Sin alergias conocidas
+275,Luz Viveros Lucumí,1127174805,F,Coosalud,1981-01-01,3175775315,O+,Sin alergias conocidas
+276,Hernán Mina Loboa,1105675638,M,Nueva EPS,1978-10-17,3164952773,O+,Sin alergias conocidas
+277,Carlos Ortiz Balanta,1110697332,M,Emssanar,1977-10-21,3154072662,O+,AINES
+278,María Rodríguez Carabalí,1110628056,F,Emssanar,2003-11-06,3054205586,O-,Sin alergias conocidas
+279,Karen Zapata Gómez,1108660651,F,Asmet Salud,1955-12-08,3109805610,A+,Sin alergias conocidas
+280,Ana Lucumí Obregón,1176900209,F,Coosalud,1982-01-21,3002022018,O+,AINES
+281,Marleny Ramírez Ortiz,1173179533,F,Emssanar,1983-12-20,3176796014,A+,Sin alergias conocidas
+282,Leidy Sinisterra Angulo,1105797872,F,Nueva EPS,1951-06-17,3204297085,A+,Sin alergias conocidas
+283,Nubia Ararat Hurtado,1185135932,F,Emssanar,1930-12-06,3205987545,O+,Sin alergias conocidas
+284,Víctor Ramírez Castillo,1164829072,M,Sura,1952-12-18,3202470599,A+,Sin alergias conocidas
+285,María Muñoz Mina,1169971102,F,Coosalud,1991-05-27,3150212981,O+,Mariscos
+286,Diego Ortiz Rivas,1190549871,M,Sura,1969-09-01,3005560151,O+,Sin alergias conocidas
+287,Edwin Valencia Rivas,1173261760,M,Coosalud,1959-04-04,3167854748,O+,Sin alergias conocidas
+288,Jorge Gómez Gómez,1163705364,M,Salud Total,1969-05-19,3057124058,O+,Sin alergias conocidas
+289,Daniela Ramírez Rodríguez,1148941541,F,Sanitas,1992-11-16,3048900835,O+,Sin alergias conocidas
+290,Nelson Rivas Zapata,1124428627,M,Emssanar,1978-05-09,3053162474,O-,Sin alergias conocidas
+291,Carlos Sinisterra Mina,1192657210,M,Nueva EPS,1964-05-12,3142813794,A+,Sin alergias conocidas
+292,Hernán Muñoz Mosquera,1189072358,M,Sura,1973-05-18,3144498180,A+,Sin alergias conocidas
+293,Wilson Mina Gómez,1178210777,M,Asmet Salud,1949-05-31,3019360304,O+,Sin alergias conocidas
+294,Hernán Ramírez Carabalí,1121069799,M,Nueva EPS,1981-11-24,3188542029,O+,Sin alergias conocidas
+295,Natalia Valencia Viveros,1175777217,F,Salud Total,1975-08-25,3054635329,O+,Medios de contraste yodados
+296,Valentina Rivas Ararat,1103804443,F,Coosalud,1952-06-15,3100967574,A+,Sin alergias conocidas
+297,Camilo Rivas Mosquera,1166167947,M,Nueva EPS,2002-09-22,3178397125,O+,Sin alergias conocidas
+298,Jhonatan Carabalí Angulo,1149262315,M,Emssanar,1966-05-17,3178604697,O+,Sin alergias conocidas
+299,Sandra Ararat Rivas,1176007830,F,Emssanar,1970-10-27,3016978134,O+,Penicilina
+300,Álvaro Ramírez Muñoz,1113860237,M,Salud Total,1983-09-19,3219392307,O+,Sin alergias conocidas
+301,Fredy Hurtado Balanta,1138658202,M,Nueva EPS,1990-08-21,3102195503,O+,Sin alergias conocidas
+302,María Zapata Lucumí,1172864669,F,Sanitas,1975-09-11,3143249993,O+,Sin alergias conocidas
+303,Andrés Caicedo Obregón,1189789421,M,Coosalud,1978-09-04,3103810290,O+,Penicilina
+304,Laura Zapata Viveros,1152437425,F,Coosalud,1984-10-13,3186904368,O+,Sin alergias conocidas
+305,Rosa Cortés Viveros,1154124179,F,Salud Total,1969-05-19,3019272077,O-,Sin alergias conocidas
+306,Wilson Gómez Castillo,1105762873,M,Sanitas,1960-04-24,3183710216,O+,Sin alergias conocidas
+307,Paola Quintero Cortés,1166576983,F,Coosalud,1974-09-30,3120603179,A+,Sin alergias conocidas
+308,Gloria Zapata Ararat,1171845096,F,Coosalud,1955-08-28,3214341971,O+,Sin alergias conocidas
+309,Rosa Ararat Díaz,1125793035,F,Sanitas,1982-03-10,3040726977,B+,Sin alergias conocidas
+310,Paola Hurtado Caicedo,1152868331,F,Nueva EPS,1973-06-16,3059168415,A+,Sin alergias conocidas
+311,Leidy Rivas Angulo,1142236839,F,Coosalud,1960-07-16,3040609079,B+,Sin alergias conocidas
+312,Diana Obregón Lucumí,1138176356,F,Emssanar,1971-12-11,3168411248,A+,Sin alergias conocidas
+313,Gloria Valencia Carabalí,1177623857,F,Salud Total,1977-04-09,3174781310,O+,Sin alergias conocidas
+314,Rosa Angulo Rivas,1120610551,F,Sanitas,1947-08-13,3123391364,AB+,AINES
+315,Valentina Angulo Mina,1115394018,F,Emssanar,1946-09-06,3010662495,A+,Sin alergias conocidas
+316,Gloria Díaz Obregón,1192376287,F,Coosalud,1995-11-13,3046240512,O+,Sin alergias conocidas
+317,Rosa Quintero Possú,1114655963,F,Emssanar,1975-06-07,3127763213,O+,Sin alergias conocidas
+318,Diego Muñoz Angulo,1141164068,M,Coosalud,2000-05-05,3015709585,O-,Sulfonamidas
+319,Óscar Lucumí Lucumí,1101004927,M,Sanitas,1981-06-12,3206406458,O+,Sin alergias conocidas
+320,Carlos González Possú,1156179693,M,Coosalud,1968-12-24,3177313860,O+,Sin alergias conocidas
+321,Carmen Torres Mina,1151616809,F,Sura,1947-06-16,3167893922,O+,Sin alergias conocidas
+322,Carlos Hurtado Gómez,1112033020,M,Asmet Salud,1952-06-23,3136885369,A+,Sin alergias conocidas
+323,Gloria Lucumí Ramírez,1116271958,F,Coosalud,1976-05-09,3172986586,O+,Sin alergias conocidas
+324,Marleny Rivas Ararat,1124521865,F,Sanitas,1962-04-15,3178693284,AB+,Penicilina
+325,Yuliana Díaz Torres,1132050025,F,SOS,1947-04-27,3148408274,O+,Sin alergias conocidas
+326,Nelson Ortiz Sinisterra,1126716751,M,Emssanar,1968-05-21,3157081752,A+,Sin alergias conocidas
+327,Angélica Sinisterra Mosquera,1148623568,F,Emssanar,1961-03-06,3055979434,O+,Sin alergias conocidas
+328,Jhonatan Zapata Mosquera,1116333224,M,Coosalud,1975-08-16,3203369495,O+,Sin alergias conocidas
+329,Edwin Hurtado Rivas,1121160144,M,Emssanar,1959-02-01,3159598203,O+,Sin alergias conocidas
+330,Luis Obregón Angulo,1115477903,M,Emssanar,1994-08-05,3167966813,O+,Sin alergias conocidas
+331,Fredy Sinisterra Ramírez,1123503393,M,Sura,1967-08-05,3213624821,A+,Sin alergias conocidas
+332,Juan Caicedo Castillo,1187243983,M,Nueva EPS,1973-06-06,3180831105,A+,Sin alergias conocidas
+333,Julián Ararat Possú,1128381214,M,Coosalud,1979-12-29,3130062456,O+,Sin alergias conocidas
+334,Gloria Mosquera Torres,1180254914,F,Coosalud,1966-01-11,3105689169,A-,Sin alergias conocidas
+335,Brayan Zapata Gómez,1110704818,M,Asmet Salud,1996-05-12,3219593039,A+,Sin alergias conocidas
+336,Yolanda Possú Sinisterra,1146026119,F,Nueva EPS,1983-07-09,3181843499,O+,Sin alergias conocidas
+337,Leidy Caicedo Mina,1184526880,F,Nueva EPS,1982-11-25,3008731357,B+,Sin alergias conocidas
+338,Yolanda Mosquera Díaz,1189912587,F,Sura,1963-02-06,3207601941,B+,Penicilina
+339,Ana Muñoz Torres,1181206996,F,Nueva EPS,1978-05-19,3185867043,O+,Sin alergias conocidas
+340,Nubia Balanta González,1128610363,F,Coosalud,1990-06-14,3121389099,O+,Medios de contraste yodados
+341,Rosa Valencia Ortiz,1183964591,F,Salud Total,1959-06-14,3160559718,O+,AINES
+342,Jorge Hurtado Cortés,1117923051,M,SOS,1969-05-18,3002815314,O+,Penicilina
+343,Angélica Gómez Ararat,1108740930,F,Emssanar,2008-05-01,3015535455,O+,Sin alergias conocidas
+344,Natalia Mosquera Ararat,1100255435,F,Asmet Salud,1966-08-05,3152366883,A+,Sin alergias conocidas
+345,Jhonatan Valencia Sinisterra,1128423016,M,Emssanar,1963-08-05,3179368268,A+,Sin alergias conocidas
+346,Edwin Rodríguez Hurtado,1154676558,M,Nueva EPS,1967-06-04,3057834522,O+,Sin alergias conocidas
+347,Yuliana Ortiz Obregón,1146180780,F,Emssanar,1959-10-18,3188421524,O+,Sin alergias conocidas
+348,Luz Ramírez Díaz,1147421524,F,Emssanar,1990-02-15,3050505439,O+,Sin alergias conocidas
+349,Diana Hurtado Ramírez,1115082259,F,SOS,1999-05-18,3015899084,O+,Sin alergias conocidas
+350,Fredy Angulo Mina,1196190226,M,Emssanar,1962-01-15,3181033305,A+,Sin alergias conocidas
+351,Diana González Sinisterra,1127650523,F,Emssanar,2007-07-11,3051956662,O+,Sin alergias conocidas
+352,Fredy Cortés Sinisterra,1108878776,M,Coosalud,1984-03-31,3107131898,O+,AINES
+353,Wilson Gómez Zapata,1123897224,M,Coosalud,2000-01-02,3050703307,A+,Sin alergias conocidas
+354,Yuliana Caicedo Rodríguez,1116678631,F,Coosalud,1994-08-25,3151636268,O+,Medios de contraste yodados
+355,Álvaro Rivas Loboa,1112443964,M,Sura,1989-09-12,3174768024,A+,Mariscos
+356,Edwin Angulo Quintero,1110476726,M,Coosalud,1979-04-20,3058965580,O+,Sin alergias conocidas
+357,Karen Obregón Angulo,1158486554,F,Sanitas,1962-05-01,3050667732,O+,Sin alergias conocidas
+358,Marleny Mina González,1162851519,F,Nueva EPS,1965-01-12,3154921898,O+,Sin alergias conocidas
+359,Andrés Lucumí González,1127859639,M,Sura,1975-04-11,3206785671,O+,Sin alergias conocidas
+360,Gloria Ramírez Valencia,1132437425,F,Emssanar,1959-04-17,3051266372,A+,Sin alergias conocidas
+361,Hernán Rivas Rodríguez,1174716727,M,Asmet Salud,1973-06-26,3000287767,O+,Sin alergias conocidas
+362,Paola Angulo Mina,1159090316,F,Nueva EPS,1966-09-30,3019983973,O+,Látex
+363,María Quintero Hurtado,1196774020,F,Emssanar,1986-08-23,3128557653,A+,Sin alergias conocidas
+364,Jorge Quintero Possú,1153911334,M,Emssanar,1981-07-25,3052760128,A+,Sin alergias conocidas
+365,Marleny Rivas Caicedo,1135521414,F,Emssanar,1976-10-24,3204012723,O+,AINES
+366,Gloria Obregón Díaz,1102404963,F,Sanitas,1945-03-27,3161935206,A+,Sin alergias conocidas
+367,Luis Loboa Torres,1191573003,M,Coosalud,1967-03-02,3042430810,O+,Sin alergias conocidas
+368,Fredy Rodríguez Gómez,1158239633,M,Sanitas,1996-11-24,3101558839,O+,Penicilina
+369,Diana González Sinisterra,1185508967,F,Asmet Salud,1973-04-11,3136399289,O+,Sin alergias conocidas
+370,Leidy Castillo Carabalí,1115944959,F,SOS,1965-03-31,3181617933,O+,Sin alergias conocidas
+371,Hernán Rivas Torres,1162160358,M,Nueva EPS,1967-10-28,3176033190,B+,Penicilina
+372,Natalia Mosquera Hurtado,1172049708,F,Asmet Salud,1959-11-15,3018867186,O+,Látex
+373,Edwin Obregón Caicedo,1178107266,M,Coosalud,1982-05-18,3214297353,O+,Sin alergias conocidas
+374,Nubia Gómez Sinisterra,1139181866,F,Emssanar,1974-10-18,3148893939,A+,Sin alergias conocidas
+375,Nelson Ortiz Loboa,1174594116,M,Coosalud,1966-03-10,3008883892,O+,Sin alergias conocidas
+376,Luz Castillo Ararat,1198121035,F,Emssanar,1962-01-28,3047029489,O+,Sin alergias conocidas
+377,Paola Ortiz Balanta,1146933156,F,Emssanar,1987-11-18,3042758126,O+,Sin alergias conocidas
+378,Leidy Rodríguez Carabalí,1142234873,F,Nueva EPS,1974-05-08,3108436437,O+,Sin alergias conocidas
+379,Yolanda González Possú,1198640476,F,Emssanar,1958-03-01,3148691747,A+,Sin alergias conocidas
+380,José Mosquera Lucumí,1126541302,M,Sura,1986-12-23,3124834395,O+,Sin alergias conocidas
+381,Jhonatan Angulo Zapata,1145091954,M,Nueva EPS,1969-06-09,3121948466,O+,Sin alergias conocidas
+382,Angélica Loboa Castillo,1171289266,F,Nueva EPS,1968-02-02,3139084499,A+,Sin alergias conocidas
+383,Edwin Valencia Sinisterra,1170555793,M,Emssanar,1989-12-18,3169284055,A+,AINES
+384,Gloria Hurtado Torres,1103137192,F,Emssanar,1987-02-26,3040469008,O+,Penicilina
+385,Natalia Viveros Quintero,1103577583,F,Asmet Salud,1957-08-04,3107266933,A+,Sin alergias conocidas
+386,Juan Mosquera Rodríguez,1125709271,M,Coosalud,1992-12-15,3136885851,O+,Sin alergias conocidas
+387,Luis Valencia Possú,1104008923,M,Emssanar,1983-10-30,3014333198,O+,Sin alergias conocidas
+388,Juan Lucumí Sinisterra,1126469761,M,Asmet Salud,1949-02-25,3156174536,A+,Sin alergias conocidas
+389,Luis Ramírez Caicedo,1135567351,M,SOS,1981-02-28,3140942105,O+,Medios de contraste yodados
+390,Angélica Castillo Rodríguez,1102178746,F,Sura,1959-12-28,3106779777,O+,Penicilina
+391,Luis Zapata González,1193175446,M,Asmet Salud,1970-01-04,3001280661,B+,Sin alergias conocidas
+392,Diego Ramírez Torres,1132480476,M,Asmet Salud,1958-07-02,3188908819,O+,Sin alergias conocidas
+393,Marleny Quintero Sinisterra,1194696864,F,Emssanar,1963-10-21,3170260377,O+,Sin alergias conocidas
+394,Nelson Rivas Rivas,1134537809,M,Nueva EPS,1964-10-30,3169291706,O+,Sin alergias conocidas
+395,Wilson Carabalí Mina,1120463954,M,Emssanar,1951-01-24,3042052558,O+,Penicilina
+396,Álvaro Gómez Possú,1151393866,M,Sura,1951-04-05,3017436228,O+,Sin alergias conocidas
+397,Camilo Ramírez Mina,1138630467,M,SOS,1945-07-31,3181008656,A+,Sin alergias conocidas
+398,Luis Viveros Rodríguez,1153801003,M,Sura,1975-03-17,3189137526,O+,Sin alergias conocidas
+399,Daniela Ramírez Angulo,1124021318,F,Coosalud,1965-10-20,3155270962,O+,Sin alergias conocidas
+400,Diana Gómez Carabalí,1175460677,F,Emssanar,2008-04-29,3177441786,O+,Mariscos
+401,Laura Torres González,1168477443,F,Coosalud,1998-10-26,3008722545,O+,Sin alergias conocidas
+402,Karen Sinisterra Viveros,1194947263,F,Nueva EPS,1972-06-07,3106304610,O+,Sin alergias conocidas
+403,Juan Loboa Torres,1123804408,M,Emssanar,1962-05-15,3200860911,A+,AINES
+404,Rosa Torres Díaz,1199334726,F,Sura,1992-06-08,3001906457,A+,AINES
+405,Hernán Loboa Loboa,1191788200,M,Nueva EPS,1978-06-16,3040146186,B+,AINES
+406,Luis Carabalí Viveros,1131568401,M,Coosalud,1950-09-18,3146225429,A+,Sulfonamidas
+407,Daniela Caicedo Caicedo,1135334174,F,Coosalud,1952-07-21,3012658225,O+,Látex
+408,Diana Caicedo Obregón,1125095093,F,Salud Total,1982-06-06,3174640273,A+,Sin alergias conocidas
+409,Nelson González Angulo,1130142900,M,Nueva EPS,1981-09-05,3004134340,O+,Sin alergias conocidas
+410,María Mina Mina,1180004533,F,Sanitas,1972-07-15,3011924503,O+,Sin alergias conocidas
+411,Julián Castillo Angulo,1176791417,M,Emssanar,2007-12-08,3106447082,O+,Sulfonamidas
+412,Carlos Zapata Zapata,1134178766,M,Emssanar,1981-03-17,3015065096,O+,Sin alergias conocidas
+413,Rosa Mina Hurtado,1190262098,F,Emssanar,1981-07-02,3050445333,B+,Sin alergias conocidas
+414,Carmen Ararat Torres,1148385641,F,Coosalud,1969-01-15,3014819590,O+,Sin alergias conocidas
+415,Valentina Angulo Valencia,1141409985,F,Coosalud,1964-08-12,3188585493,A+,Sin alergias conocidas
+416,Rosa Loboa Castillo,1120591339,F,Nueva EPS,1955-09-07,3149071462,O+,Sin alergias conocidas
+417,José Ararat Possú,1144891498,M,Nueva EPS,1962-10-04,3122267844,O+,Sin alergias conocidas
+418,Paola Cortés Muñoz,1117730857,F,Salud Total,1958-12-29,3148885068,A+,Sin alergias conocidas
+419,Álvaro Ararat Valencia,1101198215,M,SOS,1973-12-18,3013691360,O+,AINES
+420,Daniela Quintero Viveros,1101104328,F,SOS,1972-10-12,3005062964,A+,Sin alergias conocidas
+421,María Cortés Valencia,1173986500,F,Coosalud,1963-08-14,3146260840,O+,Sin alergias conocidas
+422,María Gómez Torres,1165777043,F,Asmet Salud,1962-09-23,3206762830,O+,Sin alergias conocidas
+423,Diana Torres Caicedo,1137050976,F,Sanitas,1949-04-14,3215455902,O+,Sin alergias conocidas
+424,José Mina Valencia,1116903838,M,Salud Total,1962-09-22,3017079016,O+,Sin alergias conocidas
+425,Leidy Rivas Ramírez,1116020700,F,Sanitas,1972-12-07,3047433878,O+,Sin alergias conocidas
+426,Rosa González Viveros,1185532681,F,Nueva EPS,1999-02-01,3208290920,A+,Sin alergias conocidas
+427,Nubia Ortiz Gómez,1178246493,F,Salud Total,1974-06-17,3016514455,O+,Sin alergias conocidas
+428,Carmen Balanta Muñoz,1113490377,F,Emssanar,1996-04-04,3204826640,O+,Látex
+429,Juan Caicedo Viveros,1161556239,M,Nueva EPS,1960-02-22,3129679895,O+,Sin alergias conocidas
+430,Natalia Ramírez Gómez,1114822680,F,Asmet Salud,1973-10-24,3000207706,O+,Sin alergias conocidas
+431,Fredy Zapata Torres,1133090081,M,Emssanar,2000-04-07,3133850108,O+,Sin alergias conocidas
+432,Edwin Hurtado Rivas,1156748527,M,Coosalud,1975-09-15,3100671721,B+,Sin alergias conocidas
+433,Yolanda Sinisterra Possú,1198335016,F,Nueva EPS,1978-10-24,3147214767,O+,Sin alergias conocidas
+434,Brayan Ramírez Hurtado,1139484231,M,Asmet Salud,1963-01-16,3052038235,A+,Sin alergias conocidas
+435,Juan Castillo Viveros,1136730954,M,Salud Total,1990-10-04,3138865504,A+,Sin alergias conocidas
+436,Hernán Sinisterra Lucumí,1190111196,M,Coosalud,1962-08-09,3151044060,A+,Sin alergias conocidas
+437,Luz Possú Valencia,1186999526,F,Nueva EPS,1952-01-17,3203257176,A+,Medios de contraste yodados
+438,Paola Gómez Ortiz,1112288211,F,Nueva EPS,1970-08-24,3102498664,A-,Sin alergias conocidas
+439,Nubia Rodríguez Possú,1135742258,F,Asmet Salud,1943-12-16,3136525591,O+,Penicilina
+440,Yuliana Angulo Ararat,1105967731,F,Nueva EPS,1947-01-19,3168791403,O+,Sin alergias conocidas
+441,Carlos Balanta Viveros,1184094536,M,Emssanar,2008-02-13,3103969923,O+,Medios de contraste yodados
+442,Karen Carabalí Zapata,1147761217,F,Emssanar,1992-10-29,3170791177,O+,Sin alergias conocidas
+443,Sandra Carabalí Quintero,1140448628,F,Salud Total,2008-09-06,3164035137,A+,Penicilina
+444,Nelson Carabalí Torres,1177572008,M,Emssanar,1966-07-09,3009894484,A+,AINES
+445,Diana Obregón Possú,1110044991,F,Emssanar,1952-04-04,3106495556,O+,Sin alergias conocidas
+446,Paola Carabalí Possú,1185286055,F,Sura,1932-06-16,3206973828,O+,Sin alergias conocidas
+447,Luis Torres González,1108904848,M,Asmet Salud,1955-06-14,3010218704,A+,Látex
+448,Edwin Cortés Obregón,1147989849,M,SOS,1975-10-31,3212259251,O+,Sin alergias conocidas
+449,Marleny Cortés Ortiz,1189067525,F,Emssanar,1986-03-03,3107698500,O+,Medios de contraste yodados
+450,Yolanda Cortés Zapata,1132525708,F,Sanitas,1965-09-17,3217658757,O+,Sin alergias conocidas
+451,Fredy Quintero Angulo,1190475750,M,Sura,1968-10-17,3154954248,B+,Sin alergias conocidas
+452,Paola Obregón Díaz,1188145888,F,Asmet Salud,1959-04-13,3162345702,O+,Sin alergias conocidas
+453,Nelson Sinisterra Ararat,1113240153,M,Sura,1981-10-28,3156961649,O+,Sin alergias conocidas
+454,Yuliana Loboa Hurtado,1114294524,F,Sanitas,1967-03-29,3208004073,B+,Penicilina
+455,Diego Ararat Viveros,1165577333,M,Salud Total,1977-04-14,3047737514,O+,Sin alergias conocidas
+456,Sandra Balanta González,1129465142,F,Asmet Salud,1965-08-01,3055854567,O+,Sin alergias conocidas
+457,Hernán Ramírez Gómez,1183427263,M,Coosalud,1960-05-31,3043752393,A+,Sin alergias conocidas
+458,Juan Balanta González,1145408745,M,Salud Total,2000-04-18,3177621486,AB+,Sin alergias conocidas
+459,Jhonatan Ararat González,1122971963,M,Asmet Salud,1986-07-24,3188596549,O+,Sin alergias conocidas
+460,Luis Muñoz Zapata,1105238914,M,Asmet Salud,1967-03-28,3042353689,O+,Sin alergias conocidas
+461,Hernán Zapata Lucumí,1121924131,M,Coosalud,1951-04-03,3105038680,O+,Mariscos
+462,Rosa Carabalí Quintero,1121143588,F,Nueva EPS,1988-04-09,3158702260,A+,Sulfonamidas
+463,Yuliana Angulo Loboa,1109575470,F,Asmet Salud,1970-04-02,3054409602,O+,Sin alergias conocidas
+464,Laura Ararat Balanta,1170692294,F,Emssanar,2000-12-13,3009878321,B+,Sin alergias conocidas
+465,Julián González Cortés,1177678266,M,Asmet Salud,1963-08-08,3204090733,O+,Sulfonamidas
+466,Karen Angulo Rodríguez,1167250942,F,Emssanar,1972-10-11,3145822554,A+,Penicilina
+467,Rosa Mosquera Carabalí,1128969475,F,Emssanar,1972-07-20,3040876279,O+,Sin alergias conocidas
+468,Laura Loboa Mosquera,1104947660,F,Sanitas,1972-06-26,3161293619,O+,Sin alergias conocidas
+469,Jhonatan Carabalí Mosquera,1185431799,M,Nueva EPS,1968-03-12,3005949314,B+,Sin alergias conocidas
+470,Nelson Ortiz Cortés,1106603895,M,Asmet Salud,1960-03-19,3217727904,A+,Sin alergias conocidas
+471,Fredy Angulo Ortiz,1110162090,M,Coosalud,1973-03-30,3150305131,B+,Sin alergias conocidas
+472,Sandra Lucumí Díaz,1122021847,F,SOS,1970-02-04,3158989299,O+,Sin alergias conocidas
+473,Jhon Loboa Ortiz,1102849967,M,Emssanar,2007-01-30,3004610953,O+,Sin alergias conocidas
+474,Yolanda Ortiz Loboa,1127084143,F,Coosalud,1953-11-16,3058880591,O+,Sin alergias conocidas
+475,Daniela Obregón Muñoz,1178641142,F,Asmet Salud,1984-09-06,3170204884,O+,Sin alergias conocidas
+476,Luis Cortés Castillo,1167553824,M,Emssanar,1977-03-01,3138162929,A+,Penicilina
+477,Carlos Torres Ortiz,1179843463,M,Coosalud,1949-05-06,3183146135,O+,Sin alergias conocidas
+478,Yolanda González Mina,1169505573,F,Emssanar,1957-01-18,3153617115,O+,Sin alergias conocidas
+479,Nelson Carabalí Balanta,1143594277,M,Emssanar,1952-01-26,3008717869,O+,Sin alergias conocidas
+480,Víctor Muñoz Balanta,1169051020,M,Emssanar,1977-12-11,3016580174,O+,Sin alergias conocidas
+481,Víctor Castillo Obregón,1194229992,M,Sura,1979-01-17,3205230012,A+,Sin alergias conocidas
+482,María Ortiz Ararat,1130003642,F,SOS,1940-01-12,3100480008,A+,Sin alergias conocidas
+483,Brayan Obregón Balanta,1119365949,M,Sanitas,1985-09-05,3152349964,O+,Sin alergias conocidas
+484,Camilo Rodríguez Mosquera,1121782004,M,Emssanar,1980-04-06,3120654986,A+,Sin alergias conocidas
+485,Ana Hurtado Castillo,1163584933,F,SOS,1967-03-30,3204572598,O+,Sin alergias conocidas
+486,Julián Cortés Ortiz,1120049054,M,Nueva EPS,1970-04-03,3059984601,A+,AINES
+487,Carmen Díaz Carabalí,1100910589,F,Sura,1949-07-12,3217707312,O+,Penicilina
+488,Andrés Obregón Gómez,1171228189,M,Nueva EPS,1956-09-26,3006463026,A+,Mariscos
+489,Gloria Carabalí Carabalí,1104399266,F,Asmet Salud,1964-07-23,3204563678,O+,Sin alergias conocidas
+490,Valentina Obregón Possú,1198905777,F,Sanitas,1968-09-23,3054633919,A+,Sulfonamidas
+491,Yolanda Díaz Cortés,1169825515,F,Emssanar,1974-01-16,3012187467,A+,Sin alergias conocidas
+492,Wilson Ramírez Castillo,1131163025,M,Asmet Salud,1987-12-28,3003274053,A+,Sin alergias conocidas
+493,José Loboa Angulo,1150252469,M,Coosalud,1963-07-08,3167320022,O+,Sin alergias conocidas
+494,Hernán Mina Balanta,1101692911,M,Emssanar,1977-12-25,3206559975,O+,Sulfonamidas
+495,Sandra Lucumí Cortés,1160570536,F,Coosalud,1947-03-16,3144656851,O+,Sin alergias conocidas
+496,Diana González Viveros,1164860911,F,SOS,2002-08-24,3135087935,O+,Sin alergias conocidas
+497,Nelson Torres Valencia,1128752200,M,Nueva EPS,1970-11-07,3149062996,A+,Sin alergias conocidas
+498,Andrés Valencia Zapata,1105647218,M,SOS,1983-12-22,3007784720,B+,Sin alergias conocidas
+499,Jhonatan Ortiz Mosquera,1177335622,M,Nueva EPS,1987-11-22,3180837997,O+,Sin alergias conocidas
+500,Andrés Ortiz Zapata,1198953892,M,Coosalud,1972-01-21,3122163668,O+,Penicilina
+501,Álvaro Hurtado Balanta,1188636609,M,Emssanar,1966-10-07,3178205418,A+,Medios de contraste yodados
+502,Paola Quintero González,1136225312,F,Emssanar,1948-07-21,3174567342,O+,Sin alergias conocidas
+503,Andrés Rivas Ararat,1143415364,M,SOS,1989-01-31,3046150284,O+,Sin alergias conocidas
+504,Gloria Caicedo Muñoz,1160667659,F,SOS,1986-11-15,3008592746,O+,Sin alergias conocidas
+505,Álvaro Loboa Muñoz,1157803018,M,Sanitas,1958-08-29,3053937996,A-,Sin alergias conocidas
+506,Luz Mina Rivas,1179688649,F,Emssanar,1960-12-02,3132403655,A+,Sin alergias conocidas
+507,Angélica Hurtado Balanta,1138281071,F,SOS,1943-05-24,3172755148,O+,Sin alergias conocidas
+508,Brayan Lucumí Possú,1196808089,M,Salud Total,1972-01-16,3177061643,O+,Sin alergias conocidas
+509,Leidy González Balanta,1105850420,F,Coosalud,1964-07-16,3047125458,O+,Penicilina
+510,Valentina Ortiz Díaz,1174548318,F,Nueva EPS,1931-05-31,3162256476,B+,Sin alergias conocidas
+511,Óscar Carabalí Castillo,1143465830,M,Sura,1954-06-13,3048429681,A+,AINES
+512,Laura Díaz Caicedo,1121133473,F,Nueva EPS,1983-02-16,3018643722,O+,AINES
+513,María Ararat Castillo,1146685062,F,Sura,1960-01-23,3162121724,O+,Sin alergias conocidas
+514,Fredy Quintero Castillo,1113233195,M,Sanitas,1959-02-27,3100977371,O+,Sin alergias conocidas
+515,Nelson Balanta Sinisterra,1158898996,M,Coosalud,1973-08-17,3173984046,A-,Sulfonamidas
+516,Yolanda Possú Ortiz,1187194520,F,Sura,1963-03-29,3012845185,A+,Sin alergias conocidas
+517,Daniela Quintero Loboa,1111412002,F,Emssanar,2008-07-06,3172218151,O+,Látex
+518,Jhon Ramírez Ortiz,1127313259,M,SOS,1961-04-07,3124278379,A+,Mariscos
+519,Juan Ortiz Ararat,1145036577,M,Emssanar,1968-07-22,3213561591,O+,AINES
+520,Carlos Viveros Carabalí,1158330113,M,Emssanar,1966-07-19,3121328630,B+,Sin alergias conocidas
+521,Carmen Balanta Zapata,1149397840,F,Sura,1948-03-10,3181905853,A+,Sin alergias conocidas
+522,Jhonatan Balanta Possú,1175023401,M,Coosalud,1994-02-01,3162895016,O+,Medios de contraste yodados
+523,María Balanta Ararat,1107084295,F,Sura,1987-05-18,3185688827,O+,Sin alergias conocidas
+524,María Mosquera Ararat,1107723983,F,Asmet Salud,1981-06-27,3179975160,O+,Sin alergias conocidas
+525,Andrés Mosquera Loboa,1122240327,M,Emssanar,1972-09-30,3057793239,A+,Penicilina
+526,Wilson Zapata Rodríguez,1189278392,M,Emssanar,1934-06-13,3002879630,A+,Sin alergias conocidas
+527,Daniela Díaz Torres,1116433631,F,Sura,1961-01-06,3166417271,O-,AINES
+528,Luis Carabalí Ramírez,1133555920,M,Emssanar,1948-01-19,3051509225,O+,Sin alergias conocidas
+529,Daniela Angulo Ortiz,1110431876,F,Sura,1930-12-02,3109030095,O+,Penicilina
+530,Diego González Torres,1149090324,M,SOS,1954-01-29,3211757158,O+,Sin alergias conocidas
+531,Jhonatan Viveros Rodríguez,1183764882,M,SOS,1971-05-25,3189828899,A+,Sin alergias conocidas
+532,Karen Viveros Mosquera,1171664030,F,Emssanar,1961-09-02,3128809578,O+,Sin alergias conocidas
+533,Brayan Castillo Ramírez,1155275218,M,SOS,1965-02-22,3157639908,B+,Sin alergias conocidas
+534,Laura Torres Cortés,1184728547,F,Emssanar,1997-12-09,3177040468,A+,Sin alergias conocidas
+535,Víctor Rivas Zapata,1167687325,M,Sanitas,1984-06-06,3210735525,O+,Sin alergias conocidas
+536,Wilson Díaz Ararat,1178081021,M,Nueva EPS,1962-08-03,3173400568,O+,Penicilina
+537,Natalia Viveros Lucumí,1161451904,F,Emssanar,1989-10-17,3009993344,A+,Sin alergias conocidas
+538,Jhonatan Torres Caicedo,1184944379,M,Asmet Salud,1966-06-07,3176214978,O+,Sin alergias conocidas
+539,Laura Mosquera Torres,1104290660,F,Emssanar,1969-07-31,3145753428,O+,Sin alergias conocidas
+540,Laura Mina Loboa,1190961900,F,Salud Total,1971-11-08,3102474528,O+,Penicilina
+541,Víctor Possú Balanta,1106211532,M,Salud Total,1983-04-04,3140623853,O+,Penicilina
+542,Álvaro Quintero Rodríguez,1115864138,M,Sanitas,1990-05-15,3214967985,O+,Sin alergias conocidas
+543,Diego Viveros Gómez,1185295741,M,Emssanar,1973-03-17,3189997516,O+,AINES
+544,Marleny Ararat González,1126863509,F,Coosalud,1985-04-09,3206313294,A+,Sin alergias conocidas
+545,Daniela Zapata Carabalí,1188163691,F,Salud Total,1991-04-03,3214415808,O+,Sin alergias conocidas
+546,Yuliana Mosquera Valencia,1167456768,F,SOS,1965-07-10,3154864750,O+,Sin alergias conocidas
+547,Carmen Cortés Angulo,1101998198,F,Sanitas,1980-10-14,3102702117,A+,Sin alergias conocidas
+548,Carmen Gómez Mosquera,1143878896,F,Emssanar,1969-11-07,3055659443,A+,Sin alergias conocidas
+549,Edwin Rodríguez Sinisterra,1194798585,M,Nueva EPS,1962-06-03,3014382205,A+,Látex
+550,Víctor Zapata González,1181888339,M,Coosalud,1942-05-17,3008097533,A+,Sin alergias conocidas
+551,Diego Caicedo Sinisterra,1133008239,M,Salud Total,1943-01-13,3019802070,A+,Medios de contraste yodados
+552,Leidy Ararat Quintero,1184508639,F,Salud Total,1944-04-26,3148856348,O+,Sin alergias conocidas
+553,Karen Carabalí Hurtado,1129076343,F,Coosalud,1942-02-24,3013433675,O+,Sin alergias conocidas
+554,Hernán Díaz Loboa,1157304428,M,Emssanar,2007-10-26,3167455567,A+,Sin alergias conocidas
+555,Álvaro Díaz Balanta,1193476163,M,Emssanar,1983-04-03,3053592585,A+,Penicilina
+556,Leidy Valencia Quintero,1146045839,F,Emssanar,1976-12-13,3104455750,O+,Sin alergias conocidas
+557,Sandra Mosquera Loboa,1192222481,F,Coosalud,1999-03-21,3145652676,O+,Sin alergias conocidas
+558,Yuliana Quintero González,1171098609,F,SOS,1975-10-03,3057647279,O+,Sin alergias conocidas
+559,Diego Possú Ramírez,1174501636,M,Coosalud,1976-01-19,3130363112,B+,Sin alergias conocidas
+560,Luis González Caicedo,1150335499,M,Emssanar,1955-06-30,3041485293,A+,Sin alergias conocidas
+561,Daniela Ortiz Carabalí,1119117172,F,Sanitas,1976-09-03,3219716407,O+,Sin alergias conocidas
+562,Hernán Obregón Cortés,1127245232,M,Coosalud,1971-05-27,3059587988,O+,Medios de contraste yodados
+563,Marleny Ramírez Muñoz,1189165779,F,Coosalud,1977-01-29,3164234319,O+,Sin alergias conocidas
+564,Valentina Castillo Mina,1115543525,F,Emssanar,1989-01-10,3043460148,O+,Medios de contraste yodados
+565,Angélica Ramírez Viveros,1140171439,F,Coosalud,1958-12-25,3003153758,A+,Sin alergias conocidas
+566,Sandra Quintero Obregón,1186542657,F,Asmet Salud,1991-05-12,3139978143,O+,Sin alergias conocidas
+567,Marleny Viveros Mosquera,1137442967,F,Sura,1966-11-28,3041553269,A+,Sin alergias conocidas
+568,Carmen Quintero Lucumí,1194802990,F,Emssanar,1943-10-21,3153839547,O+,Sin alergias conocidas
+569,Jhonatan Quintero Obregón,1167963961,M,Coosalud,1996-03-15,3179118240,A+,Sin alergias conocidas
+570,Paola Quintero Mosquera,1130068186,F,Sanitas,1961-02-10,3133815790,AB+,Sin alergias conocidas
+571,Nelson Loboa Possú,1172928718,M,Salud Total,1982-09-03,3050710403,O+,Sin alergias conocidas
+572,Laura Ortiz Díaz,1121282348,F,Emssanar,1991-09-12,3049024160,B+,Mariscos
+573,Daniela Rivas Gómez,1135172452,F,Emssanar,1973-05-20,3146699658,O+,Sin alergias conocidas
+574,Paola Torres Castillo,1181908241,F,Coosalud,1958-02-21,3046198451,O+,Sin alergias conocidas
+575,Carlos Cortés Muñoz,1191808638,M,Coosalud,1963-11-07,3008446178,O+,Sin alergias conocidas
+576,Óscar Ararat Hurtado,1138274001,M,Nueva EPS,1965-05-30,3045829073,O+,Sin alergias conocidas
+577,Marleny Cortés Valencia,1178655875,F,Emssanar,1985-03-21,3143260207,O+,Sin alergias conocidas
+578,Nelson Zapata Quintero,1128992411,M,Coosalud,1947-11-19,3184166133,O+,AINES
+579,Carmen Possú Mina,1121905839,F,Emssanar,1931-06-29,3129998674,O+,Medios de contraste yodados
+580,Valentina Valencia Carabalí,1148402283,F,Nueva EPS,1970-07-02,3134782499,O+,Sulfonamidas
+581,Óscar González Castillo,1124649887,M,Emssanar,1980-02-01,3052051825,O+,Sin alergias conocidas
+582,Víctor Mina Ortiz,1129106424,M,Emssanar,1940-05-04,3008079580,O+,AINES
+583,Wilson Caicedo Muñoz,1108893734,M,Nueva EPS,1979-08-01,3200090488,A+,Mariscos
+584,Carmen Rivas Torres,1101540837,F,Sanitas,1948-06-25,3154590490,A+,Sin alergias conocidas
+585,Hernán Muñoz Rivas,1177254344,M,Emssanar,1975-10-21,3176888658,A+,Sulfonamidas
+586,Óscar Carabalí Valencia,1120807272,M,Coosalud,1995-09-10,3131202065,O+,Sin alergias conocidas
+587,Jhonatan Rivas Muñoz,1114497139,M,Emssanar,2000-02-02,3000701351,O+,Sin alergias conocidas
+588,Leidy Sinisterra Sinisterra,1196619672,F,Coosalud,1948-06-07,3048848594,O+,Mariscos
+589,Óscar Rodríguez Hurtado,1176517176,M,Asmet Salud,1961-05-15,3176148559,A+,Sin alergias conocidas
+590,Luz González Caicedo,1150973597,F,SOS,1979-06-21,3044966681,O+,Sin alergias conocidas
+591,Nubia González Obregón,1146552559,F,Coosalud,1972-05-14,3015472447,O+,Sin alergias conocidas
+592,Marleny Ararat Hurtado,1150701412,F,Asmet Salud,1970-06-03,3142206399,A+,Sin alergias conocidas
+593,Camilo Muñoz Rodríguez,1126279026,M,Coosalud,1964-08-29,3042468562,O+,Sulfonamidas
+594,Jhon Rodríguez Quintero,1189658018,M,Nueva EPS,1964-12-12,3174292909,O+,AINES
+595,Laura Carabalí Sinisterra,1147253762,F,Sanitas,1962-07-20,3051150863,A+,Penicilina
+596,Valentina Caicedo Hurtado,1120755355,F,SOS,1984-12-19,3149337039,O+,Sin alergias conocidas
+597,Carlos Díaz Carabalí,1149285184,M,Coosalud,1949-05-03,3181607446,O+,Sin alergias conocidas
+598,María Angulo Viveros,1145571818,F,SOS,1969-07-15,3205752217,O+,AINES
+599,Óscar Mosquera Caicedo,1174068399,M,Asmet Salud,1946-04-15,3125497012,A+,Sin alergias conocidas
+600,Luis Rivas Cortés,1136999831,M,SOS,1976-10-16,3058404417,O+,AINES

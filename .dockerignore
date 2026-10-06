@@ -1,0 +1,14 @@
+# Lo que NUNCA entra a la imagen de la API
+pass.env
+python/pass.env
+.venv/
+venv/
+.git/
+**/__pycache__/
+*.py[cod]
+.ipynb_checkpoints/
+notebooks/
+docs/
+evidencia_endpoints/
+.demo/
+plan/

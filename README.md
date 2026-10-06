@@ -24,14 +24,26 @@ vigente.
 ```
 proyecto 1/
 ├── db/
-│   └── schema.sql              # Esquema completo de PostgreSQL
+│   └── schema.sql              # Esquema completo de PostgreSQL (idempotente)
 ├── docker/
-│   └── docker-compose.yml      # Servidor HAPI FHIR + su propio PostgreSQL
+│   ├── docker-compose.yml      # TODO el proyecto: db, mongo, orthanc, api, front, hapi-fhir, fhir-db
+│   └── nginx.conf              # nginx del front: /api -> api, /fhir -> hapi-fhir
+├── frontend/                   # Interfaz gráfica (HTML + CSS + JS, SPA)
+│   ├── index.html
+│   ├── css/estilos.css
+│   ├── css/visor.css
+│   └── js/api.js, js/app.js, js/visor.js
+├── data/                       # Dataset del proyecto final (CSV) + diccionario de datos
 ├── python/
-│   ├── main.py                 # API (FastAPI): autenticación, roles, CRUD
+│   ├── main.py                 # API (FastAPI): autenticación, roles, CRUD, bloqueo
+│   ├── Dockerfile              # Imagen de la API
+│   ├── cargar_dataset.py       # Genera y carga el dataset de remisiones (3 grupos)
+│   ├── pacs.py                 # Cliente del PACS (Orthanc): buscar, subir y ver imágenes DICOM
+│   ├── sembrar_imagenes.py     # Base de imágenes sintéticas (Rx tórax / TAC cráneo) en el PACS
 │   └── fhir_sync.py            # Servicio de integración PostgreSQL → FHIR
 ├── notebooks/
-│   └── proyecto_trazared_huv.ipynb   # Notebook guía paso a paso
+│   ├── proyecto_trazared_huv.ipynb          # Notebook guía del Corte 1
+│   └── semana8_docker_bloqueo_dataset.ipynb # Semana 8: Docker, bloqueo y dataset
 ├── levantar_demo.py                 # Arranque automático de toda la demo (Windows/macOS/Linux)
 ├── guion_demo.md                    # Guion del pitch (10 min) y la demo (7 min)
 ├── documentacion_mapeo_roles.md      # Doc. técnica: mapeo BD → FHIR y roles
@@ -80,6 +92,65 @@ variables `PG_CONNECTION_STRING`, `MONGO_CONNECTION_STRING`, `SECRET_KEY` y
 
 El detalle campo por campo del mapeo, la matriz de endpoints × roles y las desviaciones
 frente al modelo de la Semana 3 están en [`documentacion_mapeo_roles.md`](documentacion_mapeo_roles.md).
+
+## Correr todo con Docker (semana 8)
+
+Todo el proyecto quedó en contenedores, siguiendo el esquema de la clase (db → api → front):
+
+| Servicio | Puerto | Qué es |
+|---|---|---|
+| `front` | **8080** | Interfaz gráfica servida por nginx (reparte `/api` y `/fhir`) |
+| `api` | 8000 | FastAPI (imagen propia, `python/Dockerfile`) |
+| `db` | 5434 | PostgreSQL 16 con `db/schema.sql` |
+| `mongo` | 27017 | MongoDB 7 (`gestiones_contacto`) |
+| `orthanc` | 8042 (solo tu equipo) | PACS: imágenes médicas DICOM (solo la API le habla) |
+| `hapi-fhir` / `fhir-db` | 8081 / 5433 | Servidor FHIR R4 y su base |
+
+Requisitos: Docker Desktop corriendo y `pass.env` en la raíz con `SECRET_KEY` y las cuatro `DEMO_*_PASSWORD`
+(la API crea sola los usuarios admin, médico y EPS la primera vez que arranca).
+
+```powershell
+cd docker
+docker compose up -d --build                       # levanta los 7 contenedores
+docker compose exec api python cargar_dataset.py   # carga el dataset (600 remisiones) y el usuario paciente
+docker compose exec api python sembrar_imagenes.py # crea la base de imágenes en el PACS
+```
+
+Luego abre **http://localhost:8080**. El paso a paso completo, con las pruebas del bloqueo y la evidencia de
+auditoría, está en `notebooks/semana8_docker_bloqueo_dataset.ipynb`.
+
+Dentro de Docker la API usa los contenedores `db` y `mongo`, no Neon ni Atlas. `levantar_demo.py` sigue
+funcionando igual que antes (API local contra Neon/Atlas; de este compose solo levanta HAPI).
+
+### Bloqueo de usuarios (tarea semana 8)
+
+- Cada contraseña incorrecta responde **401** con los intentos que quedan; al **3er** intento el usuario queda
+  bloqueado (**423**) y no entra ni con la contraseña correcta.
+- Todos los eventos quedan en `auditoria` (`login_fallido`, `bloqueo_usuario`, `login_bloqueado`,
+  `login_exitoso`, `desbloqueo_usuario`) con su `detalle`.
+- Solo un admin desbloquea: `POST /usuarios/{id}/desbloquear` o el botón *Desbloquear* en la sección Usuarios.
+- Nuevos endpoints de admin: `GET /usuarios`, `GET /auditoria`. Además `GET /me` y `GET /health`.
+
+### Imágenes médicas (PACS) y visor
+
+Como en el cuaderno de la clase: Orthanc guarda las imágenes como DICOM, enlazadas al paciente por
+`PatientID` = documento. La API las lista (`GET /pacientes/{id}/imagenes`), las recibe
+(`POST /pacientes/{id}/imagenes`: valida con Pillow, solo PNG/JPEG ≤ 15 MB, re-codifica para borrar EXIF) y las entrega
+(`GET /imagenes/{id}/preview`), siempre con token, rol (admin/médico) y registro en `auditoria`. En la ficha del paciente,
+la pestaña **Imágenes** tiene la galería y un **visor** con brillo, contraste, negativo, zoom y desplazamiento.
+
+### Interfaz gráfica
+
+Login dividido, menú lateral por rol, saludo, ficha del paciente con pestañas (datos, información clínica, remisión,
+gestiones, imágenes), hospital de destino y línea de estado de la remisión; además Hospitales de destino, Reportes
+(gráficas), Usuarios (desbloqueo) y Auditoría. Para poner una foto en el panel izquierdo del login, guárdenla como
+`frontend/img/login.jpg`.
+
+### Dataset del proyecto final (tarea semana 8)
+
+600 remisiones sintéticas en tres grupos según el resultado de la remisión — **efectiva**, **fallida** y
+**borderline** — con signos vitales de triage (LOINC/UCUM) y bitácora de contactos en MongoDB. Detalle y
+diccionario de datos en [`data/README.md`](data/README.md).
 
 ## Cómo correr el proyecto localmente
 
@@ -200,3 +271,11 @@ antes de la sustentación**.
 - [x] Disponibilidad en línea vía Cloudflare Tunnel (URLs arriba; pendiente prueba desde datos móviles)
 - [x] Guion de pitch y demo (`guion_demo.md`)
 - [x] Documentación técnica: mapeo BD → FHIR y justificación de roles (`documentacion_mapeo_roles.md`)
+
+## Entregables de la Semana 8
+
+- [x] Bloqueo de usuario al 3er intento fallido, con auditoría y desbloqueo solo por admin
+- [x] Base de datos del proyecto final: dataset de remisiones en 3 grupos (`data/`, `python/cargar_dataset.py`)
+- [x] Proyecto dockerizado: 7 servicios en `docker/docker-compose.yml`
+- [x] PACS (Orthanc) con base de imágenes sintéticas, subida segura y visor (brillo, contraste, zoom, paneo)
+- [x] Interfaz gráfica por rol (`frontend/`), servida por nginx en http://localhost:8080

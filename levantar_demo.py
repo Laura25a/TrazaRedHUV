@@ -54,6 +54,8 @@ DEPENDENCIAS = [
     ("multipart", "python-multipart"),
     ("jose", "python-jose[cryptography]"),
     ("passlib", "passlib[bcrypt]"),
+    ("httpx", "httpx"),        # semana 8: cliente del PACS (pacs.py)
+    ("PIL", "Pillow"),         # semana 8: validación de imágenes subidas
 ]
 
 
@@ -143,7 +145,7 @@ def detener_todo() -> None:
         ok(f"detenido: {nombre} (pid {pid})")
     PIDS.unlink(missing_ok=True)
     subprocess.run(["docker", "compose", "-f", str(RAIZ / "docker" / "docker-compose.yml"),
-                    "down"], capture_output=True)
+                    "stop", "hapi-fhir", "fhir-db"], capture_output=True)
     ok("contenedores HAPI detenidos (si había)")
     print("Las URLs públicas dejaron de funcionar en el momento del stop.")
 
@@ -244,7 +246,9 @@ def main() -> None:
         ok("HAPI ya estaba corriendo (http://localhost:8081/fhir)")
     else:
         subprocess.run(["docker", "compose", "-f", str(RAIZ / "docker" / "docker-compose.yml"),
-                        "up", "-d"], check=True, capture_output=True)
+                        # solo HAPI: la demo usa Neon/Atlas y la API local (no los
+                        # contenedores db/mongo/api/front del stack dockerizado)
+                        "up", "-d", "fhir-db", "hapi-fhir"], check=True, capture_output=True)
         if not espera_url("http://localhost:8081/fhir/metadata", "HAPI FHIR", 300):
             raise SystemExit(1)
 

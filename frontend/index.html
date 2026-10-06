@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TrazaRed HUV</title>
+  <meta name="description" content="Trazabilidad de remisiones y traslados de pacientes del Hospital Universitario del Valle">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%231f63c6'/%3E%3Cpath d='M13 6h6v7h7v6h-7v7h-6v-7H6v-6h7z' fill='white'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="css/estilos.css">
+  <link rel="stylesheet" href="css/visor.css">
+</head>
+<body>
+  <noscript>Esta aplicación necesita JavaScript para funcionar.</noscript>
+
+  <!-- Logo reutilizable (cruz médica con flecha de remisión) -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <symbol id="logo" viewBox="0 0 64 64">
+      <path d="M24 6h16a4 4 0 0 1 4 4v10h10a4 4 0 0 1 4 4v16a4 4 0 0 1-4 4H44v10a4 4 0 0 1-4 4H24a4 4 0 0 1-4-4V44H10a4 4 0 0 1-4-4V24a4 4 0 0 1 4-4h10V10a4 4 0 0 1 4-4z"
+            fill="none" stroke="currentColor" stroke-width="4.5" stroke-linejoin="round"/>
+      <path d="M44 32H22m8-8-8 8 8 8" fill="none" stroke="#2bb3e6" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </symbol>
+    <symbol id="hospital" viewBox="0 0 64 64">
+      <path d="M8 58V24h14V14h20v10h14v34M4 58h56M28 20h8M32 16v8M14 32h4M14 40h4M14 48h4M46 32h4M46 40h4M46 48h4M26 34h4M34 34h4M26 42h4M34 42h4M28 58v-8h8v8"
+            fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </symbol>
+  </svg>
+
+  <!-- ================================================================
+       VISTA 1 — Iniciar sesión (panel ilustrado + formulario)
+       ================================================================ -->
+  <section id="vista-login">
+    <aside class="login-arte" aria-hidden="true">
+      <!-- Si ponen una foto en frontend/img/login.jpg se muestra aquí; si no existe, queda la ilustración -->
+      <img class="login-foto" src="img/login.jpg" alt="" onerror="this.remove()">
+      <div class="login-arte-contenido">
+        <svg class="pulso" viewBox="0 0 600 80" preserveAspectRatio="none">
+          <path d="M0 50 H170 L185 50 L196 30 L207 50 L225 50 L236 64 L250 8 L264 72 L276 50 L300 50 L314 38 L328 50 H600"/>
+        </svg>
+        <div class="arte-ruta">
+          <svg class="arte-hospital"><use href="#hospital"/></svg>
+          <span class="arte-flecha"></span>
+          <svg class="arte-hospital"><use href="#hospital"/></svg>
+        </div>
+        <p class="arte-texto">Cada remisión, trazable de principio a fin: quién contactó, a quién, cuándo y con qué respuesta.</p>
+      </div>
+    </aside>
+
+    <div class="login-panel">
+      <div class="login-caja">
+        <div class="marca-grande">
+          <svg class="marca-logo"><use href="#logo"/></svg>
+          <div>
+            <div class="marca-nombre"><span>Traza</span><span>Red</span> <small>HUV</small></div>
+            <p class="marca-lema">Conectamos hospitales,<br>seguimos cuidando vidas.</p>
+          </div>
+        </div>
+
+        <h1 class="login-titulo">Bienvenido</h1>
+        <p class="login-sub">Ingresa a tu cuenta para gestionar las remisiones de pacientes.</p>
+
+        <form id="form-login" autocomplete="on" novalidate>
+          <label class="campo-icono">
+            <span class="sr">Usuario</span>
+            <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg>
+            <input type="text" id="login-usuario" autocomplete="username" placeholder="Usuario" maxlength="50" required>
+          </label>
+          <label class="campo-icono">
+            <span class="sr">Contraseña</span>
+            <svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>
+            <input type="password" id="login-clave" autocomplete="current-password" placeholder="Contraseña" required>
+            <button type="button" id="toggle-clave" class="ojo" aria-label="Mostrar contraseña" title="Mostrar / ocultar">
+              <svg viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>
+            </button>
+          </label>
+          <div class="login-opciones">
+            <label class="check"><input type="checkbox" id="recordar"> Recordar usuario</label>
+            <a href="#" id="olvide">¿Olvidaste tu contraseña?</a>
+          </div>
+          <button type="submit" id="btn-entrar" class="btn btn-primario btn-bloque">Iniciar sesión</button>
+        </form>
+
+        <div id="login-mensaje" aria-live="polite"></div>
+
+        <figure class="login-cita">
+          <div class="cita-ruta" aria-hidden="true">
+            <svg><use href="#hospital"/></svg><span></span><svg><use href="#hospital"/></svg>
+          </div>
+          <figcaption>“La continuidad en la atención,<br>también es una forma de cuidado.”</figcaption>
+        </figure>
+
+        <div class="servicios" id="servicios" title="Estado de los servicios">
+          <span class="servicio"><i class="punto" data-servicio="api"></i>API</span>
+          <span class="servicio"><i class="punto" data-servicio="postgres"></i>PostgreSQL</span>
+          <span class="servicio"><i class="punto" data-servicio="mongo"></i>MongoDB</span>
+          <span class="servicio"><i class="punto" data-servicio="pacs"></i>PACS</span>
+          <span class="servicio"><i class="punto" data-servicio="fhir"></i>FHIR</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================================================================
+       VISTA 2 — Aplicación (barra superior + menú lateral + contenido)
+       ================================================================ -->
+  <section id="vista-app" class="oculto">
+    <header class="topbar">
+      <button class="btn-icono menu-movil" id="btn-menu" aria-label="Abrir menú">
+        <svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+      </button>
+      <a class="marca" href="#" id="marca-inicio">
+        <svg class="marca-logo"><use href="#logo"/></svg>
+        <span class="marca-nombre"><span>Traza</span><span>Red</span> <small>HUV</small></span>
+      </a>
+      <div class="topbar-derecha">
+        <div class="desplegable">
+          <button class="btn-icono campana" id="btn-campana" aria-label="Notificaciones">
+            <svg viewBox="0 0 24 24"><path d="M6 16V11a6 6 0 0 1 12 0v5l2 2H4l2-2zM10 20a2 2 0 0 0 4 0"/></svg>
+            <span class="insignia oculto" id="insignia"></span>
+          </button>
+          <div class="menu-flotante oculto" id="panel-notif"></div>
+        </div>
+        <div class="desplegable">
+          <button class="usuario-btn" id="btn-usuario">
+            <span class="avatar" id="avatar"></span>
+            <span class="usuario-txt"><strong id="quien-nombre"></strong><small id="quien-rol"></small></span>
+            <svg class="chevron" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg>
+          </button>
+          <div class="menu-flotante oculto" id="panel-usuario">
+            <p class="reloj" id="reloj">Sesión 60:00</p>
+            <button class="menu-item" id="btn-salir-menu">Cerrar sesión</button>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <div class="cuerpo-app">
+      <nav class="lateral" id="lateral" aria-label="Secciones">
+        <ul id="menu"></ul>
+        <button class="lateral-salir" id="btn-salir">
+          <svg viewBox="0 0 24 24"><path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3M10 17l-5-5 5-5M5 12h11"/></svg>
+          Cerrar sesión
+        </button>
+      </nav>
+      <main id="contenido" tabindex="-1"></main>
+    </div>
+  </section>
+
+  <!-- ================================================================
+       Visor de imágenes médicas (PACS): brillo, contraste, zoom, paneo
+       ================================================================ -->
+  <dialog id="visor" aria-label="Visor de imágenes">
+    <div class="visor-cabeza">
+      <div><strong id="visor-titulo">Imagen</strong><small id="visor-sub"></small></div>
+      <button class="btn-icono" id="visor-cerrar" aria-label="Cerrar visor">
+        <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg>
+      </button>
+    </div>
+    <div class="visor-cuerpo">
+      <div class="visor-lienzo" id="visor-lienzo">
+        <canvas id="visor-canvas"></canvas>
+        <span class="visor-lectura" id="visor-lectura"></span>
+      </div>
+      <aside class="visor-controles">
+        <label>Brillo <output id="val-brillo">0</output>
+          <input type="range" id="ctl-brillo" min="-128" max="128" step="1" value="0"></label>
+        <label>Contraste <output id="val-contraste">1.00</output>
+          <input type="range" id="ctl-contraste" min="0.2" max="4" step="0.05" value="1"></label>
+        <label class="check"><input type="checkbox" id="ctl-invertir"> Invertir (negativo)</label>
+        <div class="visor-botones">
+          <button class="btn btn-suave" id="btn-zoom-menos" title="Alejar">−</button>
+          <span id="val-zoom">100%</span>
+          <button class="btn btn-suave" id="btn-zoom-mas" title="Acercar">+</button>
+        </div>
+        <button class="btn btn-suave" id="btn-ajustar">Ajustar a la ventana</button>
+        <button class="btn btn-secundario" id="btn-restablecer">Restablecer</button>
+        <p class="ayuda">Rueda: zoom · Arrastrar: mover · Doble clic: ajustar.<br>
+          Fórmula: salida = contraste × (entrada − 128) + 128 + brillo</p>
+      </aside>
+    </div>
+  </dialog>
+
+  <div id="tooltip" class="tooltip oculto" role="status"></div>
+  <div id="toasts" aria-live="polite"></div>
+
+  <script src="js/api.js"></script>
+  <script src="js/visor.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

@@ -1,7 +1,137 @@
-version: "3.8"
+# TrazaRed HUV — todo el proyecto dockerizado (semana 8)
+#
+#                    ┌──────────────────────────┐
+#   navegador ─────▶ │ front  (nginx :8080)     │  interfaz gráfica (frontend/)
+#                    └──────┬─────────┬─────────┘
+#                   /api/*  │         │  /fhir/*
+#                           ▼         ▼
+#          ┌──────────────────┐   ┌───────────────────────┐
+#          │ api (FastAPI     │   │ hapi-fhir (:8081)     │
+#          │      :8000)      │   │  + fhir-db (Postgres) │
+#          └───┬──────────┬───┘   └───────────────────────┘
+#              ▼          ▼
+#   ┌────────────────┐ ┌──────────────────┐
+#   │ db (Postgres   │ │ mongo (:27017)   │   + orthanc (PACS, imágenes DICOM)
+#   │  :5434)        │ │ gestiones_contacto│     solo lo usa la api
+#   └────────────────┘ └──────────────────┘
+#
+# Uso (desde esta carpeta docker/):
+#   docker compose up -d --build      -> levanta todo
+#   docker compose ps                 -> estado de los 6 contenedores
+#   docker compose logs api --tail 50 -> revisar la API
+#
+# Interfaz:  http://localhost:8080      API: http://localhost:8000/docs
+# HAPI FHIR: http://localhost:8081/fhir   Orthanc: http://localhost:8042 (api / orthanc_dev_2026)
+#
+# Nota: levantar_demo.py (demo con Neon + Atlas) sigue levantando SOLO
+# fhir-db y hapi-fhir de este mismo archivo, así que no se pisa con esto.
+
 services:
+  # ── Servicio 1: base relacional del proyecto (reemplaza a Neon en local) ──
+  db:
+    image: postgres:16
+    container_name: trazared_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: trazared
+      POSTGRES_PASSWORD: trazared_dev_2026
+      POSTGRES_DB: trazared
+      TZ: America/Bogota            # now() guarda en hora de Colombia
+      PGTZ: America/Bogota
+    ports:
+      - "5434:5432"                 # 5434 en tu máquina para no chocar con otro Postgres
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      # schema.sql se ejecuta solo en el PRIMER arranque (volumen vacío)
+      - ../db/schema.sql:/docker-entrypoint-initdb.d/01_schema.sql:ro
+    healthcheck:
+      # -h 127.0.0.1: por TCP, así solo da "sano" cuando terminó de correr
+      # schema.sql (durante el init, Postgres solo escucha por socket local)
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U trazared -d trazared"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # ── Servicio 2: base documental (bitácora de gestiones de contacto) ──
+  mongo:
+    image: mongo:7
+    container_name: trazared_mongo
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodata:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # ── Servicio 3: API FastAPI (imagen propia: python/Dockerfile) ──
+  api:
+    build:
+      context: ..                   # raíz del proyecto (necesita requirements.txt y python/)
+      dockerfile: python/Dockerfile
+    container_name: trazared_api
+    restart: unless-stopped
+    env_file:
+      - ../pass.env                 # SECRET_KEY y contraseñas DEMO_* salen de aquí
+    environment:
+      # Estas tres PISAN las de pass.env: dentro de Docker la API usa los
+      # contenedores db / mongo / hapi-fhir, no Neon ni Atlas.
+      PG_CONNECTION_STRING: postgresql://trazared:trazared_dev_2026@db:5432/trazared
+      MONGO_CONNECTION_STRING: mongodb://mongo:27017/
+      FHIR_BASE_URL: http://hapi-fhir:8080/fhir
+      ORTHANC_URL: http://orthanc:8042
+      ORTHANC_USER: api
+      ORTHANC_PASSWORD: orthanc_dev_2026
+      TZ: America/Bogota
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+      mongo:
+        condition: service_healthy
+      orthanc:
+        condition: service_started
+
+  # ── Servicio PACS: Orthanc guarda las imágenes médicas como DICOM ──
+  # El navegador nunca le habla directo: todo pasa por la api (token + rol +
+  # auditoría). El puerto 8042 se publica SOLO en tu equipo, para el laboratorio.
+  orthanc:
+    image: orthancteam/orthanc:25.5.1
+    container_name: trazared_orthanc
+    restart: unless-stopped
+    environment:
+      ORTHANC__NAME: "TrazaRed HUV PACS"
+      ORTHANC__AUTHENTICATION_ENABLED: "true"
+      ORTHANC__REMOTE_ACCESS_ALLOWED: "true"
+      ORTHANC__REGISTERED_USERS: |
+        {"api": "orthanc_dev_2026"}
+    ports:
+      - "127.0.0.1:8042:8042"
+    volumes:
+      - orthanc_data:/var/lib/orthanc/db
+
+  # ── Servicio 4: interfaz gráfica servida por nginx ──
+  front:
+    image: nginx:alpine
+    container_name: trazared_front
+    restart: unless-stopped
+    volumes:
+      - ../frontend:/usr/share/nginx/html:ro            # cambios en vivo: solo recarga el navegador
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro  # /api -> api, /fhir -> hapi-fhir
+    ports:
+      - "8080:80"
+    depends_on:
+      - api
+      - hapi-fhir
+
+  # ── Servicio 5: base propia de HAPI FHIR ──
   fhir-db:
     image: postgres:15
+    container_name: trazared_fhir_db
     environment:
       POSTGRES_USER: hapi
       POSTGRES_PASSWORD: hapi
@@ -11,8 +141,10 @@ services:
     volumes:
       - fhir_db_data:/var/lib/postgresql/data
 
+  # ── Servicio 6: servidor FHIR R4 (interoperabilidad) ──
   hapi-fhir:
     image: hapiproject/hapi:latest
+    container_name: trazared_hapi_fhir
     depends_on:
       - fhir-db
     ports:
@@ -39,4 +171,7 @@ services:
       spring.jpa.properties.hibernate.dialect: ca.uhn.fhir.jpa.model.dialect.HapiFhirPostgresDialect
 
 volumes:
+  orthanc_data:
+  pgdata:
+  mongodata:
   fhir_db_data:
