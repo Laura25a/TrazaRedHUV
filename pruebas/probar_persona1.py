@@ -1,14 +1,16 @@
-"""Prueba de la Persona 1 — pasos 1 (main.py partido), 2 (cinco roles) y 3 (aviso del bloqueo). Correr desde la raíz del repo:
+"""Prueba de la Persona 1 — pasos 1 a 4: main.py partido, cinco roles, aviso del bloqueo y seguridad de acceso (R03). Correr desde la raíz del repo:
     python pruebas/probar_persona1.py
 Usa las contraseñas DEMO_* de pass.env y prueba por nginx (http://localhost:8080/api)."""
 import secrets
 import subprocess
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import requests
 from dotenv import dotenv_values
 
-ENV = dotenv_values(Path(__file__).resolve().parent.parent / "pass.env")
+RAIZ = Path(__file__).resolve().parent.parent
+ENV = {**dotenv_values(RAIZ / "pass.env"), **dotenv_values(RAIZ / ".env")}
 API = "http://localhost:8080/api"
 ok_total, fallas = 0, 0
 
@@ -108,11 +110,57 @@ revisar("bloqueo y desbloqueo en la auditoría", {"bloqueo_usuario"} <= acciones
 
 print("\n7. R02 · El bloqueo avisa al admin con publicar()")
 try:
-    logs = subprocess.run(["docker", "compose", "logs", "api", "--since", "5m"], capture_output=True, text=True,
-                          cwd=Path(__file__).resolve().parent.parent / "docker").stdout
-    revisar("publicar() recibió el evento usuario_bloqueado de esta cuenta",
-            "[evento] usuario_bloqueado" in logs and correo in logs, "no aparece en docker compose logs api")
-except FileNotFoundError:
+    salida = subprocess.run(["docker", "compose", "logs", "api", "--since", "5m"], capture_output=True, text=True,
+                            cwd=RAIZ / "docker")
+    if salida.returncode != 0:
+        print("  (no se pudieron leer los logs de Docker; revisa a mano: docker compose logs api | findstr evento)")
+    else:
+        revisar("publicar() recibió el evento usuario_bloqueado de esta cuenta",
+                "[evento] usuario_bloqueado" in salida.stdout and correo in salida.stdout,
+                "no aparece en docker compose logs api")
+except (FileNotFoundError, NotADirectoryError):
     print("  (no se encontró el comando docker; revisa a mano: docker compose logs api | findstr evento)")
+
+print("\n8. R03 · Seguridad de acceso")
+contable = entrar("contable@huv.gov.co", ENV.get("DEMO_CONTABLE_PASSWORD", ""))
+paciente = entrar("paciente@correo.com", ENV.get("DEMO_PACIENTE_PASSWORD", ""))
+id_propio = requests.get(f"{API}/me", headers=paciente).json().get("paciente_id") if paciente else None
+otro = next((p["id"] for p in pacientes if p["id"] != id_propio), None)
+if otro is None:   # base casi vacía: se crea un segundo paciente de prueba
+    otro = requests.post(f"{API}/pacientes", headers=medico, json={
+        "nombre": "Paciente prueba P1", "documento": f"99{secrets.token_hex(4)}", "genero": "F",
+        "eps": "Coosalud"}).json()["id"]
+revisar("el contable NO ve datos clínicos de un paciente (403)",
+        requests.get(f"{API}/pacientes/{otro}", headers=contable).status_code == 403)
+revisar("el contable NO ve remisiones (403)",
+        requests.get(f"{API}/remisiones", headers=contable).status_code == 403)
+revisar("el paciente NO ve los datos de otro paciente (403/404)",
+        requests.get(f"{API}/pacientes/{otro}", headers=paciente).status_code in (403, 404))
+revisar("el paciente SÍ ve sus propios datos",
+        requests.get(f"{API}/pacientes/{id_propio}", headers=paciente).status_code == 200)
+for ruta in ["/remisiones", "/usuarios", "/auditoria", "/me"]:
+    revisar(f"sin token, {ruta} da 401/403", requests.get(f"{API}{ruta}").status_code in (401, 403))
+
+malo = "https://sitio-malicioso.example"
+r = requests.options(f"{API}/me", headers={"Origin": malo, "Access-Control-Request-Method": "GET"})
+revisar("CORS: un origen desconocido no recibe * ni su origen reflejado",
+        r.headers.get("Access-Control-Allow-Origin") not in ("*", malo), r.headers.get("Access-Control-Allow-Origin"))
+for nombre, resp in [("la API", requests.get(f"{API}/me", headers=admin)), ("la interfaz", requests.get(API[:-4] + "/"))]:
+    revisar(f"cabecera X-Content-Type-Options: nosniff en {nombre}",
+            resp.headers.get("X-Content-Type-Options", "").lower() == "nosniff", dict(resp.headers))
+    revisar(f"cabecera X-Frame-Options en {nombre}", bool(resp.headers.get("X-Frame-Options")))
+
+try:
+    archivos = subprocess.run(["git", "ls-files"], cwd=RAIZ, capture_output=True, text=True).stdout.split()
+    nombres = {Path(a).name for a in archivos}
+    revisar("en el repo NO hay .env ni pass.env", not ({".env", "pass.env"} & nombres))
+    revisar("en el repo SÍ está .env.example", ".env.example" in nombres)
+except FileNotFoundError:
+    print("  (no se encontró git para revisar el repositorio)")
+
+# al final, porque gasta el cupo de peticiones por unos segundos
+with ThreadPoolExecutor(max_workers=20) as ex:
+    codigos = list(ex.map(lambda _: requests.get(f"{API}/health").status_code, range(80)))
+revisar("una ráfaga de 80 peticiones recibe 429", 429 in codigos, f"{codigos.count(429)} de 80 con 429")
 
 print(f"\nResultado: {ok_total} OK, {fallas} FALLA")

@@ -12,3 +12,7 @@ docs/
 evidencia_endpoints/
 .demo/
 plan/
+
+.env
+**/.env
+**/pass.env

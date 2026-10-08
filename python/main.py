@@ -20,7 +20,10 @@ from typing import List, Optional
 
 import psycopg2
 import psycopg2.extras
+import os
+
 from fastapi import Depends, FastAPI, HTTPException, Query
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 import auth
@@ -35,6 +38,42 @@ app = FastAPI(
     description="API de trazabilidad de remisiones y traslados de pacientes del HUV, con roles y FHIR.",
     version="3.0.0",
 )
+
+# ----------------------------------------------------------------------------
+# R03 · Seguridad que aplica a TODAS las rutas
+# ----------------------------------------------------------------------------
+# CORS restringido: solo los orígenes de CORS_ORIGINS (en .env, separados por
+# comas) reciben Access-Control-Allow-Origin. Un origen desconocido no recibe
+# "*" ni su propio origen reflejado. La interfaz no lo necesita porque nginx la
+# sirve desde el mismo origen que la API (/ y /api).
+ORIGENES_CORS = [o.strip().rstrip("/") for o in
+                 os.getenv("CORS_ORIGINS", "http://localhost:8080,http://127.0.0.1:8080").split(",")
+                 if o.strip() and o.strip() != "*"]          # "*" nunca se acepta
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=ORIGENES_CORS,
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type"],
+)
+
+# Cabeceras de seguridad en todas las respuestas de la API (nginx también las pone):
+#   nosniff -> el navegador no "adivina" el tipo de archivo
+#   DENY    -> nadie puede meter la aplicación dentro de un iframe (clickjacking)
+CABECERAS_SEGURIDAD = {
+    "X-Content-Type-Options": "nosniff",
+    "X-Frame-Options": "DENY",
+    "Referrer-Policy": "no-referrer",
+}
+
+
+@app.middleware("http")
+async def cabeceras_de_seguridad(request, call_next):
+    respuesta = await call_next(request)
+    for nombre, valor in CABECERAS_SEGURIDAD.items():
+        respuesta.headers.setdefault(nombre, valor)
+    return respuesta
+
 
 # Cada módulo trae sus rutas en un "router"; aquí se conectan a la app.
 app.include_router(auth.router)
@@ -150,7 +189,10 @@ def crear_paciente(paciente: PacienteCreate, db=Depends(get_db)):
 def obtener_paciente_visible(db, paciente_id: int, usuario: dict) -> dict:
     """Devuelve el paciente solo si este usuario puede verlo (si no, 404: no se
     revela si existe). Admin, médico y especialista ven a todos; la EPS, a sus afiliados; el
-    paciente, solo a sí mismo. La usan la ficha y las imágenes del PACS."""
+    paciente, solo a sí mismo. La usan la ficha, las imágenes del PACS y la historia clínica.
+    R03: el contable nunca ve datos clínicos -> 403."""
+    if usuario["rol"] == "contable":
+        raise HTTPException(status_code=403, detail="El rol contable no tiene acceso a datos clínicos")
     cur = db.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
     cur.execute(f"SELECT {COLUMNAS_PACIENTE} FROM pacientes WHERE id = %s;", (paciente_id,))
     p = cur.fetchone()

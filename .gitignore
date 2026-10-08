@@ -22,3 +22,8 @@ URLs_demo.txt
 .DS_Store
 Thumbs.db
 .pytest_cache/
+
+.env
+python/.env
+*.env
+!.env.example

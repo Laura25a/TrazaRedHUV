@@ -39,19 +39,23 @@ router = APIRouter(tags=["Usuarios y acceso"])
 # ── Variables de entorno ──────────────────────────────────────────────────
 # override=False: si la variable ya viene del entorno (docker-compose la
 # define para apuntar a los contenedores db/mongo), esa es la que manda;
-# pass.env solo llena las que falten (caso local con Neon/Atlas).
-load_dotenv(Path(__file__).resolve().parent.parent / "pass.env", override=False)
+# el archivo solo llena las que falten (caso local con Neon/Atlas).
+# Se lee ".env" (el nombre de la plantilla .env.example) y también "pass.env"
+# (el nombre que el equipo ya tenía). Ninguno de los dos se sube al repo (R03).
+RAIZ = Path(__file__).resolve().parent.parent
+load_dotenv(RAIZ / ".env", override=False)
+load_dotenv(RAIZ / "pass.env", override=False)
 
 PG_CONNECTION_STRING = os.getenv("PG_CONNECTION_STRING")
 MONGO_CONNECTION_STRING = os.getenv("MONGO_CONNECTION_STRING")
 SECRET_KEY = os.getenv("SECRET_KEY")
 
 if not PG_CONNECTION_STRING:
-    raise ValueError("Falta PG_CONNECTION_STRING en pass.env")
+    raise ValueError("Falta PG_CONNECTION_STRING en .env / pass.env")
 if not MONGO_CONNECTION_STRING:
-    raise ValueError("Falta MONGO_CONNECTION_STRING en pass.env")
+    raise ValueError("Falta MONGO_CONNECTION_STRING en .env / pass.env")
 if not SECRET_KEY:
-    raise ValueError("Falta SECRET_KEY en pass.env")
+    raise ValueError("Falta SECRET_KEY en .env / pass.env")
 
 print("Variables cargadas correctamente.")
 

@@ -75,7 +75,12 @@ services:
     container_name: trazared_api
     restart: unless-stopped
     env_file:
-      - ../pass.env                 # SECRET_KEY y contraseñas DEMO_* salen de aquí
+      # SECRET_KEY, CORS_ORIGINS y contraseñas DEMO_* salen de aquí. Sirve el
+      # nombre de la plantilla (.env) o el que ya teníamos (pass.env): basta uno.
+      - path: ../.env
+        required: false
+      - path: ../pass.env
+        required: false
     environment:
       # Estas tres PISAN las de pass.env: dentro de Docker la API usa los
       # contenedores db / mongo / hapi-fhir, no Neon ni Atlas.

@@ -23,6 +23,12 @@ from auth import ROLES_CLINICOS, con_zona, db_mongo, get_db, get_usuario_actual,
 
 router = APIRouter(tags=["Remisiones"])
 
+
+def sin_contable(usuario: dict):
+    """R03: las remisiones son datos clínicos; el contable no las ve (403)."""
+    if usuario["rol"] == "contable":
+        raise HTTPException(status_code=403, detail="El rol contable no tiene acceso a datos clínicos")
+
 class RemisionCreate(BaseModel):
     paciente_id: int
     institucion_origen: str
@@ -79,6 +85,7 @@ def listar_remisiones(
     db=Depends(get_db),
     usuario=Depends(get_usuario_actual),
 ):
+    sin_contable(usuario)
     cur = db.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
 
     if usuario["rol"] == "paciente":
@@ -119,6 +126,7 @@ def listar_remisiones(
 
 @router.get("/remisiones/{remision_id}")
 def obtener_remision(remision_id: int, db=Depends(get_db), usuario=Depends(get_usuario_actual)):
+    sin_contable(usuario)
     cur = db.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
 
     if usuario["rol"] == "paciente":
