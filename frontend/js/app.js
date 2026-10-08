@@ -952,6 +952,7 @@ const ACCIONES = {
   login_fallido: "Login fallido", bloqueo_usuario: "Bloqueo de usuario", login_bloqueado: "Intento con usuario bloqueado",
   desbloqueo_usuario: "Desbloqueo", login_exitoso: "Login exitoso", imagen_subida: "Imagen subida", imagen_vista: "Imagen vista",
   soft_edit: "Edición (soft edit)", soft_delete: "Eliminación (soft delete)", restaurar: "Restauración",
+  usuario_creado: "Usuario creado", paciente_creado: "Paciente creado", remision_creada: "Remisión creada",
 };
 async function vistaAuditoria() {
   $("#contenido").innerHTML = `<div class="pagina">
@@ -971,7 +972,7 @@ async function vistaAuditoria() {
         ${kpi("candado", "tono-rojo", c("bloqueo_usuario"), "Bloqueos")}${kpi("x", "tono-rojo", c("login_bloqueado"), "Intentos con usuario bloqueado")}
         ${kpi("usuarios", "tono-violeta", c("desbloqueo_usuario"), "Desbloqueos")}${kpi("imagen", "tono-azul", c("imagen_subida") + c("imagen_vista"), "Accesos a imágenes")}</div>`;
       $("#a-total").textContent = `${filas.length} evento${filas.length === 1 ? "" : "s"}`;
-      $("#a-tabla").innerHTML = filas.length ? `<table><thead><tr><th>Fecha y hora</th><th>Usuario</th><th>Acción</th><th>Registro</th><th>Detalle</th></tr></thead>
+      $("#a-tabla").innerHTML = filas.length ? `<table><thead><tr><th>Fecha y hora</th><th>Usuario</th><th>Acción</th><th>Recurso</th><th>Detalle</th></tr></thead>
         <tbody>${filas.map(f => `<tr><td class="num" style="white-space:nowrap">${fechaHora(f.fecha)}</td><td>${esc(f.correo || (f.usuario_id ? `#${f.usuario_id}` : "—"))}</td>
           <td><span class="accion ${ACCIONES[f.accion] ? `ac-${esc(f.accion)}` : "ac-otra"}">${esc(f.accion)}</span></td>
           <td class="num" style="white-space:nowrap">${esc(f.tabla)}${f.registro_id ? ` #${f.registro_id}` : ""}</td><td>${esc(f.detalle || "")}</td></tr>`).join("")}</tbody></table>`

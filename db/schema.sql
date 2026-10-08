@@ -119,3 +119,6 @@ ALTER TABLE pacientes ADD COLUMN IF NOT EXISTS alergias TEXT;
 ALTER TABLE usuarios DROP CONSTRAINT IF EXISTS usuarios_rol_check;
 ALTER TABLE usuarios ADD CONSTRAINT usuarios_rol_check
     CHECK (rol IN ('admin','medico','especialista','paciente','contable','eps'));
+
+-- R13: consultas rápidas de la auditoría por recurso (p. ej. "todo lo del paciente 12")
+CREATE INDEX IF NOT EXISTS idx_auditoria_recurso ON auditoria (tabla, registro_id);

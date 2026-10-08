@@ -424,6 +424,7 @@ td .sub { display: block; font-size: .78rem; color: var(--texto-tenue); }
 .ac-login_exitoso { background: var(--ok-fondo); color: var(--ok); }
 .ac-desbloqueo_usuario { background: var(--violeta-fondo); color: var(--violeta); }
 .ac-imagen_subida, .ac-imagen_vista { background: var(--azul-suave); color: var(--azul-oscuro); }
+.ac-usuario_creado, .ac-paciente_creado, .ac-remision_creada { background: var(--ok-fondo); color: var(--ok); }
 .ac-otra { background: var(--fondo); color: var(--texto-suave); }
 
 /* Lista compacta (remisiones que requieren atención) */

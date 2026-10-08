@@ -184,6 +184,8 @@ def crear_remision(remision: RemisionCreate, db=Depends(get_db), usuario=Depends
     fila = cur.fetchone()
     db.commit()
     cur.close()
+    registrar_auditoria(db, usuario["id"], "remision_creada", "remisiones", fila["id"],
+                        f"paciente {fila['paciente_id']}")
     return fila
 
 

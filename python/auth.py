@@ -403,17 +403,25 @@ def desbloquear_usuario(usuario_id: int, db=Depends(get_db), admin=Depends(requi
 
 @router.get("/auditoria", dependencies=[Depends(requiere_rol("admin"))])
 def listar_auditoria(
-    accion: Optional[str] = Query(None, description="p. ej. login_fallido, bloqueo_usuario, soft_edit"),
-    usuario_id: Optional[int] = Query(None),
+    accion: Optional[str] = Query(None, description="p. ej. login_fallido, paciente_creado, soft_delete"),
+    usuario_id: Optional[int] = Query(None, description="quién hizo la acción"),
+    tabla: Optional[str] = Query(None, description="tipo de recurso: usuarios, pacientes, remisiones"),
+    registro_id: Optional[int] = Query(None, description="id del recurso (p. ej. el paciente 12)"),
     limite: int = Query(200, ge=1, le=1000),
     db=Depends(get_db),
 ):
-    """Log de auditoría (más reciente primero). Solo admin."""
+    """Log de auditoría (R13), más reciente primero. Solo admin.
+    Cada fila trae usuario (quién), accion (qué), recurso (sobre qué, p. ej.
+    "pacientes/12") y fecha (cuándo). Se puede filtrar por cualquiera de ellos."""
     condiciones, valores = [], []
     if accion:
         condiciones.append("a.accion = %s"); valores.append(accion)
     if usuario_id is not None:
         condiciones.append("a.usuario_id = %s"); valores.append(usuario_id)
+    if tabla:
+        condiciones.append("a.tabla = %s"); valores.append(tabla)
+    if registro_id is not None:
+        condiciones.append("a.registro_id = %s"); valores.append(registro_id)
     where = ("WHERE " + " AND ".join(condiciones)) if condiciones else ""
     cur = db.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
     cur.execute(
@@ -421,7 +429,9 @@ def listar_auditoria(
         # horaria de la base (en Neon, UTC). "AT TIME ZONE current_setting(...)"
         # le pega esa zona, así la API entrega la hora con zona explícita y la
         # interfaz la muestra en hora de Colombia sin corrimientos de 5 horas.
-        f"""SELECT a.id, a.usuario_id, u.correo, a.accion, a.tabla, a.registro_id,
+        f"""SELECT a.id, a.usuario_id, u.correo AS usuario, u.correo, a.accion,
+                   a.tabla, a.registro_id,
+                   a.tabla || COALESCE('/' || a.registro_id, '') AS recurso,
                    a.detalle, a.fecha AT TIME ZONE current_setting('TimeZone') AS fecha
               FROM auditoria a LEFT JOIN usuarios u ON u.id = a.usuario_id
               {where} ORDER BY a.id DESC LIMIT %s;""",
@@ -434,9 +444,10 @@ def listar_auditoria(
 
 @router.post("/usuarios", response_model=UsuarioOut, status_code=201,
              dependencies=[Depends(requiere_rol("admin"))])
-def crear_usuario(usuario: UsuarioCreate, db=Depends(get_db)):
+def crear_usuario(usuario: UsuarioCreate, db=Depends(get_db), admin=Depends(get_usuario_actual)):
     """Solo el admin crea usuarios y les asigna el rol (R01). No hay registro
-    público: nadie puede crearse una cuenta ni asignarse un rol a sí mismo."""
+    público: nadie puede crearse una cuenta ni asignarse un rol a sí mismo.
+    R13: queda en la auditoría quién creó la cuenta y con qué rol."""
     cur = db.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
     try:
         cur.execute(
@@ -455,6 +466,7 @@ def crear_usuario(usuario: UsuarioCreate, db=Depends(get_db)):
     fila = cur.fetchone()
     db.commit()
     cur.close()
+    registrar_auditoria(db, admin["id"], "usuario_creado", "usuarios", fila["id"], f"rol {fila['rol']}")
     return fila
 
 

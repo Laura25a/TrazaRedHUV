@@ -166,7 +166,7 @@ def listar_pacientes(
 
 @app.post("/pacientes", response_model=PacienteOut, status_code=201,
           dependencies=[Depends(requiere_rol("admin", "medico"))])
-def crear_paciente(paciente: PacienteCreate, db=Depends(get_db)):
+def crear_paciente(paciente: PacienteCreate, db=Depends(get_db), usuario=Depends(get_usuario_actual)):
     cur = db.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
     try:
         cur.execute(
@@ -183,6 +183,8 @@ def crear_paciente(paciente: PacienteCreate, db=Depends(get_db)):
     fila = cur.fetchone()
     db.commit()
     cur.close()
+    # R13: sin datos personales en el detalle; el id basta para rastrearlo
+    registrar_auditoria(db, usuario["id"], "paciente_creado", "pacientes", fila["id"])
     return fila
 
 

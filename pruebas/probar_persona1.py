@@ -1,5 +1,5 @@
-"""Prueba de la Persona 1 — pasos 1 a 5: main.py partido, cinco roles, aviso del bloqueo, seguridad de acceso (R03)
-y todo en Docker con túnel público (R04/R05). Correr desde la raíz del repo:
+"""Prueba de la Persona 1 — pasos 1 a 6: main.py partido, cinco roles, aviso del bloqueo, seguridad de acceso (R03)
+todo en Docker con túnel público (R04/R05) y auditoría completa (R13). Correr desde la raíz del repo:
     python pruebas/probar_persona1.py
 Usa las contraseñas DEMO_* de pass.env y prueba por nginx (http://localhost:8080/api)."""
 import secrets
@@ -222,6 +222,45 @@ if publica:
                     "username": "medico@huv.gov.co", "password": ENV["DEMO_MEDICO_PASSWORD"]}).status_code == 200)
     except requests.exceptions.RequestException as e:
         revisar("por el túnel la interfaz responde", False, e)
+
+print("\n10. R13 · Auditoría: quién hizo qué, sobre qué y cuándo")
+sufijo = secrets.token_hex(3)
+cuenta = requests.post(f"{API}/usuarios", headers=admin, json={
+    "nombre": "Prueba auditoria (se puede borrar)", "correo": f"auditoria.{sufijo}@huv.gov.co",
+    "contrasena": "Clave123", "rol": "contable"})
+pac = requests.post(f"{API}/pacientes", headers=medico, json={
+    "nombre": "Paciente auditoria", "documento": f"98{sufijo}", "genero": "M", "eps": "Coosalud"})
+rem_nueva = requests.post(f"{API}/remisiones", headers=medico, json={
+    "paciente_id": pac.json().get("id") if pac.status_code == 201 else pacientes[0]["id"],
+    "institucion_origen": "Hospital Universitario del Valle", "institucion_destino": "Clínica de prueba",
+    "fecha_solicitud": "2026-10-07", "motivo": "Prueba de auditoría", "estado": "pendiente",
+    "convenio_vigente": True})
+revisar("se crearon usuario, paciente y remisión de prueba",
+        (cuenta.status_code, pac.status_code, rem_nueva.status_code) == (201, 201, 201),
+        (cuenta.status_code, pac.status_code, rem_nueva.status_code))
+
+
+def auditado(accion, tabla, rid):
+    filas = requests.get(f"{API}/auditoria", headers=admin,
+                         params={"tabla": tabla, "registro_id": rid}).json()
+    return next((f for f in filas if f["accion"] == accion), None)
+
+
+if (cuenta.status_code, pac.status_code, rem_nueva.status_code) == (201, 201, 201):
+    f_usr = auditado("usuario_creado", "usuarios", cuenta.json()["id"])
+    f_pac = auditado("paciente_creado", "pacientes", pac.json()["id"])
+    f_rem = auditado("remision_creada", "remisiones", rem_nueva.json()["id"])
+    revisar("creación de usuario auditada (y quién la hizo: el admin)",
+            f_usr and f_usr["usuario"] == "admin@trazared.huv", f_usr)
+    revisar("creación de paciente auditada (sin datos personales en el detalle)",
+            f_pac and not f_pac.get("detalle"), f_pac)
+    revisar("creación de remisión auditada", f_rem, f_rem)
+    revisar("cada fila trae usuario, acción, recurso y fecha",
+            f_rem and all(f_rem.get(k) for k in ("usuario", "accion", "recurso", "fecha"))
+            and f_rem["recurso"] == f"remisiones/{rem_nueva.json()['id']}", f_rem)
+    solo_pac = requests.get(f"{API}/auditoria", headers=admin, params={"tabla": "pacientes"}).json()
+    revisar("el filtro por tipo de recurso funciona", solo_pac and all(f["tabla"] == "pacientes" for f in solo_pac))
+    requests.delete(f"{API}/remisiones/{rem_nueva.json()['id']}", headers=medico)   # deja limpia la bandeja
 
 # al final, porque gasta el cupo de peticiones por unos segundos
 with ThreadPoolExecutor(max_workers=20) as ex:
