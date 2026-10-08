@@ -305,4 +305,4 @@ servicio `cloudflared` del `docker-compose.yml`.
 - [x] R05 · Nueve servicios con un solo `docker compose up`, incluido `ml`
 - [x] R13 · Auditoría con usuario, acción, recurso y fecha, con filtros
 - [x] R14 · Soft delete del médico y restauración solo del admin
-- [ ] `tester.yaml` con la plantilla oficial del profesor y todas las rutas del Corte 2
+- [x] `tester.yaml` con la plantilla oficial del profesor y todas las rutas del Corte 2
