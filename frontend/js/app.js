@@ -97,7 +97,7 @@ const EXPLICA_PACIENTE = {
   rechazada: "La institución no pudo recibirte. El hospital buscará otra opción.",
   completada: "Tu traslado ya se realizó.",
 };
-const ROLES = { admin: "Administrador", medico: "Médico", eps: "EPS", paciente: "Paciente" };
+const ROLES = { admin: "Administrador", medico: "Médico", especialista: "Especialista", contable: "Contable", eps: "EPS", paciente: "Paciente" };
 
 const VITALES = [
   { loinc: "8867-4", tipo: "Frecuencia cardiaca", unidad: "/min", min: 60, max: 100 },
@@ -299,7 +299,7 @@ $("#marca-inicio").addEventListener("click", (e) => { e.preventDefault(); ir("in
 $("#btn-menu").addEventListener("click", () => $("#lateral").classList.toggle("abierto"));
 
 async function actualizarNotificaciones() {
-  if (!sesion.usuario) return;
+  if (!sesion.usuario || sesion.usuario.rol === "contable") return;
   try {
     const lista = activas(await remisiones()).filter(r => r.estado === "pendiente" || r.estado === "en_gestion")
       .sort((a, b) => String(b.fecha_solicitud).localeCompare(String(a.fecha_solicitud)));
@@ -319,14 +319,14 @@ async function actualizarNotificaciones() {
 // MENÚ LATERAL Y NAVEGACIÓN
 // ==========================================================================
 const SECCIONES = {
-  inicio: { titulo: "Inicio", icono: "inicio", roles: ["admin", "medico", "eps", "paciente"], pintar: vistaInicio },
-  remisiones: { titulo: "Remisiones", icono: "remisiones", roles: ["admin", "medico", "eps"], pintar: vistaRemisiones },
-  pacientes: { titulo: "Pacientes", icono: "pacientes", roles: ["admin", "medico"], pintar: vistaPacientes },
-  hospitales: { titulo: "Hospitales de destino", icono: "hospitales", roles: ["admin", "medico", "eps"], pintar: vistaHospitales },
-  reportes: { titulo: "Reportes", icono: "reportes", roles: ["admin", "medico", "eps"], pintar: vistaReportes },
+  inicio: { titulo: "Inicio", icono: "inicio", roles: ["admin", "medico", "especialista", "contable", "eps", "paciente"], pintar: vistaInicio },
+  remisiones: { titulo: "Remisiones", icono: "remisiones", roles: ["admin", "medico", "especialista", "eps"], pintar: vistaRemisiones },
+  pacientes: { titulo: "Pacientes", icono: "pacientes", roles: ["admin", "medico", "especialista"], pintar: vistaPacientes },
+  hospitales: { titulo: "Hospitales de destino", icono: "hospitales", roles: ["admin", "medico", "especialista", "eps"], pintar: vistaHospitales },
+  reportes: { titulo: "Reportes", icono: "reportes", roles: ["admin", "medico", "especialista", "eps"], pintar: vistaReportes },
   usuarios: { titulo: "Usuarios", icono: "usuarios", roles: ["admin"], pintar: vistaUsuarios, grupo: "Administración" },
   auditoria: { titulo: "Auditoría", icono: "auditoria", roles: ["admin"], pintar: vistaAuditoria, grupo: "Administración" },
-  ficha: { oculta: true, roles: ["admin", "medico", "eps", "paciente"], pintar: vistaFicha, padre: "remisiones" },
+  ficha: { oculta: true, roles: ["admin", "medico", "especialista", "eps", "paciente"], pintar: vistaFicha, padre: "remisiones" },
 };
 
 function armarMenu() {
@@ -397,6 +397,8 @@ async function vistaInicio() {
     medico: "Aquí puedes gestionar las remisiones de tus pacientes y hacer seguimiento a su estado.",
     eps: "Aquí puedes hacer seguimiento a las remisiones de tus afiliados.",
     paciente: "Aquí puedes ver a dónde vas a ser remitido y en qué va tu traslado.",
+    especialista: "Aquí puedes ver las remisiones y atender a los pacientes que te remiten.",
+    contable: "Aquí vas a gestionar la facturación de los servicios. Por tu rol no ves datos clínicos.",
   }[u.rol];
   main.innerHTML = `<div class="pagina">
     <section class="tarjeta bienvenida">
@@ -405,6 +407,10 @@ async function vistaInicio() {
     </section>
     <div id="inicio-kpis"></div>
     <div id="inicio-cuerpo">${cargando()}</div></div>`;
+  if (u.rol === "contable") {   // el contable no ve remisiones ni datos clínicos
+    $("#inicio-cuerpo").innerHTML = `<div class="tarjeta vacio">Aquí irá la facturación (contabilidad).</div>`;
+    return;
+  }
   let lista;
   try { lista = activas(await remisiones(true)); } catch (e) { $("#inicio-cuerpo").innerHTML = `<div class="tarjeta vacio">${esc(e.message)}</div>`; return; }
   actualizarNotificaciones();
@@ -465,7 +471,7 @@ async function vistaFicha({ remision, paciente, desde }) {
 
 async function pintarFicha(caja, { remisionId, pacienteId }) {
   const u = sesion.usuario;
-  const clinico = u.rol === "admin" || u.rol === "medico";
+  const clinico = u.rol === "admin" || u.rol === "medico" || u.rol === "especialista";
   caja.innerHTML = `<div class="tarjeta">${cargando("Cargando ficha…")}</div>`;
   let r = null, p = null, obs = [], contactos = [];
   try {

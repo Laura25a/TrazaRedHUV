@@ -69,6 +69,41 @@ mongo_client = pymongo.MongoClient(MONGO_CONNECTION_STRING, serverSelectionTimeo
 db_mongo = mongo_client["trazared_huv"]
 
 
+def migrar_base():
+    """Aplica db/schema.sql cada vez que la API arranca.
+
+    schema.sql es idempotente (CREATE TABLE IF NOT EXISTS, ADD COLUMN IF NOT
+    EXISTS...): correrlo otra vez no borra nada, solo agrega lo que falte. Hace
+    falta porque Postgres en Docker solo ejecuta schema.sql la PRIMERA vez que
+    se crea el volumen; sin esto, una base que ya existía nunca recibiría los
+    cambios nuevos (por ejemplo, los roles especialista y contable)."""
+    ruta = Path(__file__).resolve().parent.parent / "db" / "schema.sql"
+    if not ruta.exists():
+        print(f"[arranque] no se encontró {ruta}; no se migró la base")
+        return
+    conn = None
+    for intento in range(1, 16):   # hasta ~30 s esperando a que Postgres acepte conexiones
+        try:
+            conn = psycopg2.connect(PG_CONNECTION_STRING, connect_timeout=5)
+            break
+        except psycopg2.OperationalError:
+            time.sleep(2)
+    if conn is None:
+        print("[arranque] PostgreSQL no responde; no se migró la base")
+        return
+    try:
+        cur = conn.cursor()
+        cur.execute(ruta.read_text(encoding="utf-8"))
+        conn.commit()
+        cur.close()
+        print("[arranque] esquema de la base al día (db/schema.sql)")
+    except psycopg2.Error as e:
+        conn.rollback()
+        print(f"[arranque] error aplicando db/schema.sql: {e}")
+    finally:
+        conn.close()
+
+
 def con_zona(valor):
     """MongoDB guarda las fechas en UTC pero pymongo las devuelve "sin zona":
     se les marca UTC para que la interfaz las muestre en hora de Colombia
@@ -84,8 +119,17 @@ def con_zona(valor):
 # (primera barrera contra inyección SQL, tal como se vio en la clase de la semana 8).
 PATRON_USUARIO = re.compile(r"^[A-Za-z0-9._@-]{3,50}$")
 
-# Roles válidos (si se agrega uno, también va en el CHECK de usuarios en db/schema.sql)
-ROLES = ("admin", "medico", "eps", "paciente")
+# Roles válidos (R01). Si se agrega uno, también va en el CHECK de usuarios (db/schema.sql).
+#   admin         gestiona usuarios, restaura registros, desbloquea cuentas y ve la auditoría
+#   medico        médico general: atiende, crea pacientes, ejecuta la IA, aprueba reportes y remite
+#   especialista  recibe remisiones y atiende a los pacientes remitidos
+#   paciente      solo ve su propia información
+#   contable      gestiona la facturación y NO ve datos clínicos
+#   eps           (del Corte 1) sigue las remisiones de sus afiliados, solo lectura
+ROLES = ("admin", "medico", "especialista", "paciente", "contable", "eps")
+
+# Roles que ven datos clínicos (pacientes, imágenes, observaciones). El contable no está.
+ROLES_CLINICOS = ("admin", "medico", "especialista")
 
 
 class UsuarioCreate(BaseModel):
@@ -307,7 +351,7 @@ def login(form: OAuth2PasswordRequestForm = Depends(), db=Depends(get_db)):
 
 @router.get("/me", response_model=UsuarioOut)
 def quien_soy(usuario=Depends(get_usuario_actual), db=Depends(get_db)):
-    """Datos del usuario de la sesión (lo usa la interfaz para saber qué mostrar)."""
+    """Datos del usuario de la sesión con su "rol" (R01: el tester lo revisa aquí)."""
     cur = db.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
     cur.execute(f"SELECT {COLUMNAS_USUARIO} FROM usuarios WHERE id = %s;", (usuario["id"],))
     fila = cur.fetchone()
@@ -379,6 +423,8 @@ def listar_auditoria(
 @router.post("/usuarios", response_model=UsuarioOut, status_code=201,
              dependencies=[Depends(requiere_rol("admin"))])
 def crear_usuario(usuario: UsuarioCreate, db=Depends(get_db)):
+    """Solo el admin crea usuarios y les asigna el rol (R01). No hay registro
+    público: nadie puede crearse una cuenta ni asignarse un rol a sí mismo."""
     cur = db.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
     try:
         cur.execute(
@@ -405,13 +451,15 @@ def crear_usuario(usuario: UsuarioCreate, db=Depends(get_db)):
 # ----------------------------------------------------------------------------
 # En un contenedor recién creado la base está vacía y POST /usuarios exige un
 # admin... que todavía no existe. Al arrancar, la API crea los usuarios de
-# prueba que falten, con las contraseñas DEMO_* de pass.env (si una variable
+# prueba que falten, uno por rol, con las contraseñas DEMO_* de pass.env (si una variable
 # no está definida, ese usuario simplemente no se crea). En Neon, donde ya
 # existen, no hace nada. El usuario paciente lo crea cargar_dataset.py, porque
 # necesita un paciente existente al cual quedar vinculado.
 USUARIOS_INICIALES = [
     ("Administrador TrazaRed", "admin@trazared.huv", "admin", None, "DEMO_ADMIN_PASSWORD"),
     ("Médico HUV", "medico@huv.gov.co", "medico", None, "DEMO_MEDICO_PASSWORD"),
+    ("Especialista HUV", "especialista@huv.gov.co", "especialista", None, "DEMO_ESPECIALISTA_PASSWORD"),
+    ("Contabilidad HUV", "contable@huv.gov.co", "contable", None, "DEMO_CONTABLE_PASSWORD"),
     ("EPS Coosalud", "eps@coosalud.com", "eps", "Coosalud", "DEMO_EPS_PASSWORD"),
 ]
 

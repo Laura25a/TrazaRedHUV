@@ -18,6 +18,8 @@ COPY python/ ./python/
 COPY frontend/ ./frontend/
 # 3) CSV del dataset del proyecto final (los carga cargar_dataset.py)
 COPY data/ ./data/
+# 4) Esquema de la base: la API lo aplica en cada arranque (es idempotente)
+COPY db/ ./db/
 
 WORKDIR /app/python
 EXPOSE 8000

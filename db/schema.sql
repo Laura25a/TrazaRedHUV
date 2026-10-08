@@ -30,7 +30,7 @@ CREATE TABLE IF NOT EXISTS usuarios (
     nombre TEXT NOT NULL,
     correo TEXT NOT NULL UNIQUE,
     contrasena_hash TEXT NOT NULL,
-    rol TEXT NOT NULL CHECK (rol IN ('admin','medico','eps','paciente')),
+    rol TEXT NOT NULL CHECK (rol IN ('admin','medico','especialista','paciente','contable','eps')),
     activo BOOLEAN NOT NULL DEFAULT TRUE,
     paciente_id INTEGER REFERENCES pacientes(id),
     eps_nombre TEXT
@@ -107,3 +107,15 @@ ALTER TABLE pacientes ADD COLUMN IF NOT EXISTS alergias TEXT;
 
 -- Las imágenes médicas NO se guardan en PostgreSQL: viven en el PACS (Orthanc)
 -- como DICOM, y se enlazan con el paciente por el tag PatientID = documento.
+
+-- ============================================================================
+-- CORTE 2 — R01: cinco roles (solo AGREGA roles, no quita ninguno)
+-- ============================================================================
+--   admin, medico, especialista, paciente, contable (+ eps, que viene del Corte 1)
+-- El CHECK original solo admitía admin/medico/eps/paciente. Se reemplaza por
+-- uno que también acepta especialista y contable. Es idempotente: si ya está
+-- actualizado, se vuelve a crear igual. La API corre este archivo en cada
+-- arranque (auth.migrar_base), así que una base vieja se actualiza sola.
+ALTER TABLE usuarios DROP CONSTRAINT IF EXISTS usuarios_rol_check;
+ALTER TABLE usuarios ADD CONSTRAINT usuarios_rol_check
+    CHECK (rol IN ('admin','medico','especialista','paciente','contable','eps'));

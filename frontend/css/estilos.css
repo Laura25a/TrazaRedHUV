@@ -416,6 +416,8 @@ td .sub { display: block; font-size: .78rem; color: var(--texto-tenue); }
 .rol-medico { background: var(--ok-fondo); color: var(--ok); }
 .rol-eps { background: var(--alerta-fondo); color: #a86a05; }
 .rol-paciente { background: var(--azul-suave); color: var(--azul-oscuro); }
+.rol-especialista { background: var(--ok-fondo); color: var(--azul-oscuro); }
+.rol-contable { background: var(--alerta-fondo); color: var(--navy); }
 .accion { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: .76rem; font-weight: 600; padding: .15rem .45rem; border-radius: 6px; white-space: nowrap; }
 .ac-login_fallido { background: var(--alerta-fondo); color: #8a5a06; }
 .ac-bloqueo_usuario, .ac-login_bloqueado { background: var(--error-fondo); color: var(--error); }

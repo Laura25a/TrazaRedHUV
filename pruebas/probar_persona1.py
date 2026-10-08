@@ -1,4 +1,4 @@
-"""Prueba de la Persona 1 — paso 1 (main.py partido). Correr desde la raíz del repo:
+"""Prueba de la Persona 1 — pasos 1 (main.py partido) y 2 (cinco roles). Correr desde la raíz del repo:
     python pruebas/probar_persona1.py
 Usa las contraseñas DEMO_* de pass.env y prueba por nginx (http://localhost:8080/api)."""
 import secrets
@@ -39,6 +39,30 @@ medico = entrar("medico@huv.gov.co", ENV["DEMO_MEDICO_PASSWORD"])
 revisar("entra el admin", admin)
 revisar("entra el médico", medico)
 revisar("/me del médico dice rol=medico", requests.get(f"{API}/me", headers=medico).json().get("rol") == "medico")
+
+print("\n2b. R01 · Cinco roles")
+cuentas = {
+    "admin": ("admin@trazared.huv", "DEMO_ADMIN_PASSWORD"),
+    "medico": ("medico@huv.gov.co", "DEMO_MEDICO_PASSWORD"),
+    "especialista": ("especialista@huv.gov.co", "DEMO_ESPECIALISTA_PASSWORD"),
+    "contable": ("contable@huv.gov.co", "DEMO_CONTABLE_PASSWORD"),
+    "paciente": ("paciente@correo.com", "DEMO_PACIENTE_PASSWORD"),
+}
+roles_vistos = set()
+for rol, (correo, variable) in cuentas.items():
+    if not ENV.get(variable):
+        revisar(f"{variable} está en pass.env", False, "agrégala a pass.env")
+        continue
+    h = entrar(correo, ENV[variable])
+    rol_me = requests.get(f"{API}/me", headers=h).json().get("rol") if h else None
+    roles_vistos.add(rol_me)
+    revisar(f"entra {correo} y /me dice rol={rol}", rol_me == rol, rol_me)
+revisar("hay 5 roles distintos", len(roles_vistos - {None}) >= 5, roles_vistos)
+nuevo = {"nombre": "x", "correo": f"x.{secrets.token_hex(3)}@huv.gov.co", "contrasena": "Clave123", "rol": "admin"}
+revisar("un médico NO puede crear usuarios (403)",
+        requests.post(f"{API}/usuarios", headers=medico, json=nuevo).status_code == 403)
+revisar("sin token nadie se crea una cuenta (401)",
+        requests.post(f"{API}/usuarios", json=nuevo).status_code == 401)
 
 print("\n3. Seguridad")
 revisar("sin token, /pacientes da 401", requests.get(f"{API}/pacientes").status_code == 401)

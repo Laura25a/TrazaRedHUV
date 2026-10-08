@@ -27,8 +27,8 @@ import auth
 import contabilidad
 import ia
 import remisiones
-from auth import (PG_CONNECTION_STRING, get_db, get_usuario_actual, mongo_client,
-                  registrar_auditoria, requiere_rol)
+from auth import (PG_CONNECTION_STRING, ROLES_CLINICOS, get_db, get_usuario_actual,
+                  mongo_client, registrar_auditoria, requiere_rol)
 
 app = FastAPI(
     title="API TrazaRed HUV",
@@ -45,7 +45,8 @@ app.include_router(contabilidad.router)
 
 @app.on_event("startup")
 def al_arrancar():
-    auth.crear_usuarios_iniciales()
+    auth.migrar_base()               # db/schema.sql al día (roles nuevos, columnas nuevas...)
+    auth.crear_usuarios_iniciales()  # un usuario de prueba por rol
 
 
 @app.get("/")
@@ -104,7 +105,7 @@ COLUMNAS_PACIENTE = "id, nombre, documento, genero, eps, fecha_nacimiento, telef
 
 
 @app.get("/pacientes", response_model=List[PacienteOut],
-         dependencies=[Depends(requiere_rol("admin", "medico"))])
+         dependencies=[Depends(requiere_rol(*ROLES_CLINICOS))])
 def listar_pacientes(
     q: Optional[str] = Query(None, description="Busca por documento o por nombre"),
     db=Depends(get_db),
@@ -148,14 +149,14 @@ def crear_paciente(paciente: PacienteCreate, db=Depends(get_db)):
 
 def obtener_paciente_visible(db, paciente_id: int, usuario: dict) -> dict:
     """Devuelve el paciente solo si este usuario puede verlo (si no, 404: no se
-    revela si existe). Admin y médico ven a todos; la EPS, a sus afiliados; el
+    revela si existe). Admin, médico y especialista ven a todos; la EPS, a sus afiliados; el
     paciente, solo a sí mismo. La usan la ficha y las imágenes del PACS."""
     cur = db.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
     cur.execute(f"SELECT {COLUMNAS_PACIENTE} FROM pacientes WHERE id = %s;", (paciente_id,))
     p = cur.fetchone()
     cur.close()
     visible = p is not None and (
-        usuario["rol"] in ("admin", "medico")
+        usuario["rol"] in ROLES_CLINICOS
         or (usuario["rol"] == "eps" and p["eps"] == usuario["eps_nombre"])
         or (usuario["rol"] == "paciente" and p["id"] == usuario["paciente_id"])
     )
@@ -185,7 +186,7 @@ MAX_IMAGEN = 15 * 1024 * 1024   # 15 MB
 
 @app.get("/pacientes/{paciente_id}/imagenes", tags=["Imágenes (PACS)"])
 def listar_imagenes(paciente_id: int, db=Depends(get_db),
-                    usuario=Depends(requiere_rol("admin", "medico"))):
+                    usuario=Depends(requiere_rol(*ROLES_CLINICOS))):
     paciente = obtener_paciente_visible(db, paciente_id, usuario)
     return {"imagenes": pacs.list_images(paciente["documento"])}
 
@@ -232,7 +233,7 @@ def subir_imagen(
 
 @app.get("/imagenes/{instance_id}/preview", tags=["Imágenes (PACS)"])
 def ver_imagen(instance_id: str, db=Depends(get_db),
-               usuario=Depends(requiere_rol("admin", "medico"))):
+               usuario=Depends(requiere_rol(*ROLES_CLINICOS))):
     """PNG de la imagen, solo si el paciente es visible para este usuario."""
     pacs.check_instance_id(instance_id)
     documento = pacs.instance_patient_id(instance_id)

@@ -19,7 +19,7 @@ from bson import ObjectId
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 
-from auth import con_zona, db_mongo, get_db, get_usuario_actual, registrar_auditoria, requiere_rol
+from auth import ROLES_CLINICOS, con_zona, db_mongo, get_db, get_usuario_actual, registrar_auditoria, requiere_rol
 
 router = APIRouter(tags=["Remisiones"])
 
@@ -264,7 +264,7 @@ def restaurar_remision(remision_id: int, db=Depends(get_db), usuario=Depends(get
 
 
 @router.get("/observaciones", response_model=List[ObservacionOut],
-         dependencies=[Depends(requiere_rol("admin", "medico"))])
+         dependencies=[Depends(requiere_rol(*ROLES_CLINICOS))])
 def listar_observaciones(remision_id: Optional[int] = Query(None), db=Depends(get_db)):
     cur = db.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
     if remision_id is not None:
@@ -322,7 +322,7 @@ class GestionContactoCreate(BaseModel):
     contactos: List[Contacto] = []
 
 
-@router.get("/gestiones-contacto", dependencies=[Depends(requiere_rol("admin", "medico"))])
+@router.get("/gestiones-contacto", dependencies=[Depends(requiere_rol(*ROLES_CLINICOS))])
 def listar_gestiones(remision_id: Optional[int] = Query(None)):
     filtro = {}
     if remision_id is not None:
@@ -331,7 +331,7 @@ def listar_gestiones(remision_id: Optional[int] = Query(None)):
     return [documento_a_dict(d) for d in documentos]
 
 
-@router.get("/gestiones-contacto/{gestion_id}", dependencies=[Depends(requiere_rol("admin", "medico"))])
+@router.get("/gestiones-contacto/{gestion_id}", dependencies=[Depends(requiere_rol(*ROLES_CLINICOS))])
 def obtener_gestion(gestion_id: str):
     try:
         oid = ObjectId(gestion_id)
