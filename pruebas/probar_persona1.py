@@ -1,7 +1,8 @@
-"""Prueba de la Persona 1 — pasos 1 (main.py partido) y 2 (cinco roles). Correr desde la raíz del repo:
+"""Prueba de la Persona 1 — pasos 1 (main.py partido), 2 (cinco roles) y 3 (aviso del bloqueo). Correr desde la raíz del repo:
     python pruebas/probar_persona1.py
 Usa las contraseñas DEMO_* de pass.env y prueba por nginx (http://localhost:8080/api)."""
 import secrets
+import subprocess
 from pathlib import Path
 
 import requests
@@ -104,5 +105,14 @@ revisar("después entra con la clave correcta",
         requests.post(f"{API}/login", data={"username": correo, "password": "Clave123"}).status_code == 200)
 acciones = {a["accion"] for a in requests.get(f"{API}/auditoria?usuario_id={usuario['id']}", headers=admin).json()}
 revisar("bloqueo y desbloqueo en la auditoría", {"bloqueo_usuario"} <= acciones, acciones)
+
+print("\n7. R02 · El bloqueo avisa al admin con publicar()")
+try:
+    logs = subprocess.run(["docker", "compose", "logs", "api", "--since", "5m"], capture_output=True, text=True,
+                          cwd=Path(__file__).resolve().parent.parent / "docker").stdout
+    revisar("publicar() recibió el evento usuario_bloqueado de esta cuenta",
+            "[evento] usuario_bloqueado" in logs and correo in logs, "no aparece en docker compose logs api")
+except FileNotFoundError:
+    print("  (no se encontró el comando docker; revisa a mano: docker compose logs api | findstr evento)")
 
 print(f"\nResultado: {ok_total} OK, {fallas} FALLA")

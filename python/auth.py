@@ -31,6 +31,8 @@ from jose import JWTError, jwt
 from passlib.context import CryptContext
 from pydantic import BaseModel, field_validator
 
+from eventos import ids_con_rol, publicar
+
 router = APIRouter(tags=["Usuarios y acceso"])
 
 
@@ -332,6 +334,12 @@ def login(form: OAuth2PasswordRequestForm = Depends(), db=Depends(get_db)):
         if estado["bloqueado"]:
             registrar_auditoria(db, usuario["id"], "bloqueo_usuario", "usuarios", usuario["id"],
                                 f"{correo}: bloqueado al llegar a {MAX_INTENTOS} intentos fallidos")
+            # R02/R19: el bloqueo avisa a todos los admin (la Persona 4 hace que llegue)
+            publicar(ids_con_rol(db, "admin"), {
+                "tipo": "usuario_bloqueado",
+                "mensaje": f"La cuenta {correo} se bloqueó por {MAX_INTENTOS} intentos fallidos",
+                "usuario_afectado": correo,
+            })
             raise HTTPException(status_code=423, detail={
                 "mensaje": "Usuario bloqueado por intentos fallidos. Solo un administrador puede desbloquearlo.",
                 "intentos_restantes": 0, "bloqueado": True})
