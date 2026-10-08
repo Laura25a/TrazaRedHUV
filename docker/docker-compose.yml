@@ -1,30 +1,31 @@
-# TrazaRed HUV — todo el proyecto dockerizado (semana 8)
+# TrazaRed HUV — todo el proyecto dockerizado (Corte 2, R05)
+# Un solo comando levanta los 9 servicios:   docker compose up -d --build
 #
-#                    ┌──────────────────────────┐
-#   navegador ─────▶ │ front  (nginx :8080)     │  interfaz gráfica (frontend/)
-#                    └──────┬─────────┬─────────┘
-#                   /api/*  │         │  /fhir/*
-#                           ▼         ▼
-#          ┌──────────────────┐   ┌───────────────────────┐
-#          │ api (FastAPI     │   │ hapi-fhir (:8081)     │
-#          │      :8000)      │   │  + fhir-db (Postgres) │
-#          └───┬──────────┬───┘   └───────────────────────┘
-#              ▼          ▼
-#   ┌────────────────┐ ┌──────────────────┐
-#   │ db (Postgres   │ │ mongo (:27017)   │   + orthanc (PACS, imágenes DICOM)
-#   │  :5434)        │ │ gestiones_contacto│     solo lo usa la api
-#   └────────────────┘ └──────────────────┘
+#   internet ──▶ cloudflared (túnel HTTPS) ──┐
+#                                             ▼
+#   navegador ───────────────────────▶ front (nginx :8080)  interfaz + cabeceras de seguridad + límite 429
+#                                 /api/*  │          │  /fhir/*
+#                                         ▼          ▼
+#                       ┌──────────────────┐   ┌───────────────────────┐
+#                       │ api (FastAPI)    │   │ hapi-fhir             │
+#                       │                  │   │  + fhir-db (Postgres) │
+#                       └─┬──────┬──────┬──┘   └───────────────────────┘
+#                         ▼      ▼      ▼
+#                   db (Postgres) mongo  orthanc (PACS)     ml (IA, solo la api le habla)
 #
 # Uso (desde esta carpeta docker/):
 #   docker compose up -d --build      -> levanta todo
-#   docker compose ps                 -> estado de los 6 contenedores
+#   docker compose ps                 -> estado de los contenedores
 #   docker compose logs api --tail 50 -> revisar la API
+#   URL pública del túnel:            -> docker compose logs cloudflared | findstr trycloudflare
+#                                        (o abre http://localhost:2000/quicktunnel)
 #
-# Interfaz:  http://localhost:8080      API: http://localhost:8000/docs
-# HAPI FHIR: http://localhost:8081/fhir   Orthanc: http://localhost:8042 (api / orthanc_dev_2026)
-#
-# Nota: levantar_demo.py (demo con Neon + Atlas) sigue levantando SOLO
-# fhir-db y hapi-fhir de este mismo archivo, así que no se pisa con esto.
+# Local:  interfaz http://localhost:8080 · API http://localhost:8000/docs
+#         HAPI FHIR http://localhost:8081/fhir · Orthanc http://localhost:8042
+# Los puertos de bases, API y FHIR se publican SOLO en 127.0.0.1 (tu equipo):
+# desde afuera solo se entra por nginx (front), que es quien pone las
+# protecciones. Las credenciales salen de ../.env (o ../pass.env), que nunca
+# se suben al repositorio.
 
 services:
   # ── Servicio 1: base relacional del proyecto (reemplaza a Neon en local) ──
@@ -39,7 +40,7 @@ services:
       TZ: America/Bogota            # now() guarda en hora de Colombia
       PGTZ: America/Bogota
     ports:
-      - "5434:5432"                 # 5434 en tu máquina para no chocar con otro Postgres
+      - "127.0.0.1:5434:5432"       # 5434 en tu máquina para no chocar con otro Postgres
     volumes:
       - pgdata:/var/lib/postgresql/data
       # schema.sql se ejecuta solo en el PRIMER arranque (volumen vacío)
@@ -58,7 +59,7 @@ services:
     container_name: trazared_mongo
     restart: unless-stopped
     ports:
-      - "27017:27017"
+      - "127.0.0.1:27017:27017"
     volumes:
       - mongodata:/data/db
     healthcheck:
@@ -75,24 +76,25 @@ services:
     container_name: trazared_api
     restart: unless-stopped
     env_file:
-      # SECRET_KEY, CORS_ORIGINS y contraseñas DEMO_* salen de aquí. Sirve el
-      # nombre de la plantilla (.env) o el que ya teníamos (pass.env): basta uno.
+      # SECRET_KEY, CORS_ORIGINS y contraseñas DEMO_* salen de aquí. Se acepta
+      # el nombre nuevo (.env) o el anterior (pass.env); basta con tener uno.
       - path: ../.env
         required: false
       - path: ../pass.env
         required: false
     environment:
-      # Estas tres PISAN las de pass.env: dentro de Docker la API usa los
-      # contenedores db / mongo / hapi-fhir, no Neon ni Atlas.
+      # Estas PISAN las de .env: dentro de Docker la API usa los contenedores
+      # db / mongo / hapi-fhir / orthanc / ml, no Neon ni Atlas.
       PG_CONNECTION_STRING: postgresql://trazared:trazared_dev_2026@db:5432/trazared
       MONGO_CONNECTION_STRING: mongodb://mongo:27017/
       FHIR_BASE_URL: http://hapi-fhir:8080/fhir
       ORTHANC_URL: http://orthanc:8042
       ORTHANC_USER: api
       ORTHANC_PASSWORD: orthanc_dev_2026
+      ML_URL: http://ml:8001
       TZ: America/Bogota
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"       # solo para el cuaderno y /docs en tu equipo
     depends_on:
       db:
         condition: service_healthy
@@ -100,6 +102,20 @@ services:
         condition: service_healthy
       orthanc:
         condition: service_started
+      ml:
+        condition: service_started
+
+  # ── Servicio de IA (imagen propia: ml/Dockerfile) — R05, R10, R12 ──
+  # No publica puertos ni tiene ruta en nginx: solo la api le habla (http://ml:8001),
+  # y la api le quita los datos personales antes (capa de seudonimización, R12).
+  ml:
+    build:
+      context: ../ml
+      dockerfile: Dockerfile
+    container_name: trazared_ml
+    restart: unless-stopped
+    environment:
+      TZ: America/Bogota
 
   # ── Servicio PACS: Orthanc guarda las imágenes médicas como DICOM ──
   # El navegador nunca le habla directo: todo pasa por la api (token + rol +
@@ -133,6 +149,41 @@ services:
       - api
       - hapi-fhir
 
+  # ── Túnel de Cloudflare: el sistema en línea con HTTPS público (R04) ──
+  # Túnel rápido (sin cuenta): Cloudflare asigna una URL https://xxxx.trycloudflare.com
+  # que apunta a nginx. La URL se mantiene mientras el contenedor no se reinicie;
+  # para la evaluación NO se debe bajar este servicio.
+  # Verla: docker compose logs cloudflared | findstr trycloudflare
+  #        o http://localhost:2000/quicktunnel  (campo "hostname")
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: trazared_cloudflared
+    restart: unless-stopped
+    command: tunnel --no-autoupdate --metrics 0.0.0.0:2000 --url http://front:80
+    ports:
+      - "127.0.0.1:2000:2000"
+    depends_on:
+      - front
+
+  # Alternativa con URL FIJA (túnel con nombre de una cuenta de Cloudflare):
+  # se pone TUNNEL_TOKEN en ../.env y se levanta con el perfil "tunel-fijo"
+  # en lugar del túnel rápido:
+  #   docker compose --profile tunel-fijo up -d
+  #   docker compose stop cloudflared
+  cloudflared-fijo:
+    image: cloudflare/cloudflared:latest
+    container_name: trazared_cloudflared_fijo
+    restart: unless-stopped
+    profiles: ["tunel-fijo"]
+    command: tunnel --no-autoupdate run
+    env_file:
+      - path: ../.env
+        required: false
+      - path: ../pass.env
+        required: false
+    depends_on:
+      - front
+
   # ── Servicio 5: base propia de HAPI FHIR ──
   fhir-db:
     image: postgres:15
@@ -142,7 +193,7 @@ services:
       POSTGRES_PASSWORD: hapi
       POSTGRES_DB: hapi
     ports:
-      - "5433:5432"
+      - "127.0.0.1:5433:5432"
     volumes:
       - fhir_db_data:/var/lib/postgresql/data
 
@@ -153,9 +204,11 @@ services:
     depends_on:
       - fhir-db
     ports:
-      - "8081:8080"
+      - "127.0.0.1:8081:8080"
     environment:
       hapi.fhir.default_encoding: json
+      # R21: suscripciones rest-hook (HAPI avisa a la api cuando llega un dato nuevo)
+      hapi.fhir.subscription.resthook_enabled: "true"
       # HAPI fija su URL base en el arranque y la anuncia en api-docs/web UI.
       # Con Quick Tunnels (dominios efímeros) ningún dominio público puede ser
       # el fijo, así que se ancla al puerto local documentado (8081). Las

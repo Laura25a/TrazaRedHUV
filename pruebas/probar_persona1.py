@@ -1,8 +1,10 @@
-"""Prueba de la Persona 1 — pasos 1 a 4: main.py partido, cinco roles, aviso del bloqueo y seguridad de acceso (R03). Correr desde la raíz del repo:
+"""Prueba de la Persona 1 — pasos 1 a 5: main.py partido, cinco roles, aviso del bloqueo, seguridad de acceso (R03)
+y todo en Docker con túnel público (R04/R05). Correr desde la raíz del repo:
     python pruebas/probar_persona1.py
 Usa las contraseñas DEMO_* de pass.env y prueba por nginx (http://localhost:8080/api)."""
 import secrets
 import subprocess
+import time
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
@@ -157,6 +159,69 @@ try:
     revisar("en el repo SÍ está .env.example", ".env.example" in nombres)
 except FileNotFoundError:
     print("  (no se encontró git para revisar el repositorio)")
+
+print("\n9. R04/R05 · Todo en Docker y en línea por el túnel")
+
+
+def compose(*args):
+    try:
+        r = subprocess.run(["docker", "compose", *args], capture_output=True, text=True, cwd=RAIZ / "docker")
+        return r.stdout if r.returncode == 0 else None
+    except (FileNotFoundError, NotADirectoryError):
+        return None
+
+
+estado = compose("ps", "--format", "{{.Service}}|{{.State}}|{{.Ports}}")
+if estado is None:
+    print("  (no se pudo usar docker compose; revisa a mano: docker compose ps)")
+else:
+    filas = [linea.split("|") for linea in estado.strip().splitlines() if linea.count("|") == 2]
+    corriendo = {s for s, st, _ in filas if st == "running"}
+    esperados = {"db", "mongo", "api", "ml", "orthanc", "front", "fhir-db", "hapi-fhir", "cloudflared"}
+    revisar("los 9 servicios están corriendo", esperados <= corriendo, sorted(esperados - corriendo))
+    expuestos = [f"{s}: {p}" for s, _, p in filas
+                 if s != "front" and ("0.0.0.0:" in p or "[::]:" in p)]
+    revisar("bases, API, FHIR y PACS solo escuchan en 127.0.0.1 (afuera solo se entra por nginx)",
+            not expuestos, expuestos)
+    salud_ml = compose("exec", "-T", "api", "python", "-c",
+                       "import urllib.request;print(urllib.request.urlopen('http://ml:8001/health').read().decode())")
+    revisar("la API alcanza al servicio ml por dentro de Docker", salud_ml and '"ok"' in salud_ml, salud_ml)
+revisar("ml/ tiene su propio Dockerfile", (RAIZ / "ml" / "Dockerfile").exists())
+try:
+    requests.get("http://localhost:8001/health", timeout=2)
+    revisar("el servicio ml NO se ve desde afuera", False, "responde en localhost:8001")
+except requests.exceptions.RequestException:
+    revisar("el servicio ml NO se ve desde afuera", True)
+
+publica = None
+try:
+    host = requests.get("http://localhost:2000/quicktunnel", timeout=5).json().get("hostname")
+    publica = f"https://{host}" if host else None
+except (requests.exceptions.RequestException, ValueError):
+    pass
+revisar("cloudflared entregó una URL pública", publica, "revisa: docker compose logs cloudflared")
+if publica:
+    print(f"         URL pública: {publica}   <- esta va en tester.yaml")
+    r = None
+    for _ in range(12):            # el DNS del túnel nuevo puede tardar unos segundos
+        try:
+            r = requests.get(f"{publica}/api/health", timeout=10)
+            if r.status_code == 200:
+                break
+        except requests.exceptions.RequestException:
+            pass
+        time.sleep(5)
+    revisar("por HTTPS público, /api/health responde 200", r is not None and r.status_code == 200,
+            r.status_code if r is not None else "sin respuesta")
+    try:
+        r = requests.get(f"{publica}/", timeout=10)
+        revisar("por el túnel la interfaz llega con cabeceras de seguridad",
+                r.status_code == 200 and bool(r.headers.get("X-Frame-Options")), r.status_code)
+        revisar("por el túnel el login funciona",
+                requests.post(f"{publica}/api/login", timeout=10, data={
+                    "username": "medico@huv.gov.co", "password": ENV["DEMO_MEDICO_PASSWORD"]}).status_code == 200)
+    except requests.exceptions.RequestException as e:
+        revisar("por el túnel la interfaz responde", False, e)
 
 # al final, porque gasta el cupo de peticiones por unos segundos
 with ThreadPoolExecutor(max_workers=20) as ex:
