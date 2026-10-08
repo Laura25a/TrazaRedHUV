@@ -2,7 +2,8 @@
 
 Sistema de trazabilidad para la remisión y el traslado de pacientes del Hospital
 Universitario del Valle "Evaristo García" (HUV), desarrollado para la asignatura de
-Salud Digital — Corte 1.
+Salud Digital (2026-2). Este README corresponde al **Corte 2**: el sistema del Corte 1
+convertido en un sistema activo, dockerizado, en línea y con capa de seguridad.
 
 **Equipo:** Luz Angela Carabali Mulato, Laura Daniela Astudillo Ortega, Nicolás Zapata
 Obando, David Ortega Quintero.
@@ -19,70 +20,221 @@ TrazaRed HUV registra cada gestión de traslado de forma única y visible para t
 partes: quién contactó, a quién, cuándo, con qué respuesta, y si existía convenio
 vigente.
 
+## Arquitectura
+
+Un solo `docker compose up -d` levanta los nueve servicios (R05). Desde internet solo se
+entra por el túnel de Cloudflare, que llega a nginx: ahí se aplican las cabeceras de
+seguridad y el límite de peticiones (R03). Las bases, el PACS y el servicio de IA no
+están expuestos hacia afuera.
+
+```mermaid
+flowchart LR
+    internet((Internet)) -->|HTTPS| cf[cloudflared<br/>túnel]
+    nav((Navegador local)) -->|:8080| front
+    cf --> front[front · nginx<br/>interfaz + cabeceras + 429]
+    front -->|/api| api[api · FastAPI]
+    front -->|/fhir| hapi[hapi-fhir · FHIR R4]
+    hapi --> fhirdb[(fhir-db · Postgres)]
+    api --> db[(db · PostgreSQL)]
+    api --> mongo[(mongo · MongoDB)]
+    api --> orthanc[orthanc · PACS DICOM]
+    api -->|datos seudonimizados| ml[ml · servicio de IA]
+    hapi -.->|Subscription rest-hook| api
+```
+
+| Servicio | Imagen | Puerto en tu equipo | Qué hace |
+|---|---|---|---|
+| `front` | nginx:alpine | **8080** | Interfaz (SPA) y puerta única: `/api` → api, `/fhir` → hapi-fhir |
+| `cloudflared` | cloudflare/cloudflared | 127.0.0.1:2000 (solo métricas) | Túnel HTTPS público hacia `front` (R04) |
+| `api` | propia (`python/Dockerfile`) | 127.0.0.1:8000 | FastAPI: roles, pacientes, remisiones, auditoría, eventos |
+| `ml` | propia (`ml/Dockerfile`) | — (solo interno) | Servicio de IA; solo la api le habla (`http://ml:8001`) |
+| `db` | postgres:16 | 127.0.0.1:5434 | Base relacional (`db/schema.sql`) |
+| `mongo` | mongo:7 | 127.0.0.1:27017 | Gestiones de contacto (y en el Corte 2 facturas y notificaciones) |
+| `orthanc` | orthancteam/orthanc | 127.0.0.1:8042 | PACS: imágenes médicas DICOM |
+| `hapi-fhir` / `fhir-db` | hapiproject/hapi · postgres:15 | 127.0.0.1:8081 / 5433 | Servidor FHIR R4 y su base |
+
+nginx busca la dirección de `api` y `hapi-fhir` en el DNS interno de Docker en cada
+petición, así que reconstruir la API no deja a la interfaz con un 502.
+
+### Diagrama de eventos
+
+Cuando pasa algo importante, el módulo que lo detecta llama a `publicar()` (en
+`python/eventos.py`) y de ahí salen las reacciones automáticas (R17–R21). Hoy ya publica
+el bloqueo de cuentas; el resto de flujos los conectan las personas 2, 3 y 4.
+
+```mermaid
+flowchart LR
+    bloqueo[3 intentos fallidos<br/>auth.py] --> pub{{publicar}}
+    remitir[Médico remite<br/>remisiones.py] --> pub
+    aceptar[Especialista acepta<br/>remisiones.py] --> pub
+    aprobar[Reporte de IA aprobado<br/>ia.py] --> pub
+    critico[Caso crítico del modelo<br/>ia.py] --> pub
+    fhir[Observation nueva en FHIR<br/>rest-hook] --> pub
+    pub --> bandeja[Bandeja de notificaciones]
+    pub --> sse[Canal en vivo SSE]
+    pub --> factura[Factura automática en MongoDB]
+    pub --> alerta[Alerta crítica con reconocimiento]
+    pub --> aud[Auditoría]
+```
+
 ## Estructura del repositorio
 
 ```
-proyecto 1/
-├── db/
-│   └── schema.sql              # Esquema completo de PostgreSQL (idempotente)
+TrazaRedHUV/
+├── .env.example                  # Plantilla de variables (el .env / pass.env real NUNCA se sube)
+├── db/schema.sql                 # Esquema de PostgreSQL (idempotente; la API lo aplica al arrancar)
 ├── docker/
-│   ├── docker-compose.yml      # TODO el proyecto: db, mongo, orthanc, api, front, hapi-fhir, fhir-db
-│   └── nginx.conf              # nginx del front: /api -> api, /fhir -> hapi-fhir
-├── frontend/                   # Interfaz gráfica (HTML + CSS + JS, SPA)
-│   ├── index.html
-│   ├── css/estilos.css
-│   ├── css/visor.css
-│   └── js/api.js, js/app.js, js/visor.js
-├── data/                       # Dataset del proyecto final (CSV) + diccionario de datos
-├── python/
-│   ├── main.py                 # API (FastAPI): autenticación, roles, CRUD, bloqueo
-│   ├── Dockerfile              # Imagen de la API
-│   ├── cargar_dataset.py       # Genera y carga el dataset de remisiones (3 grupos)
-│   ├── pacs.py                 # Cliente del PACS (Orthanc): buscar, subir y ver imágenes DICOM
-│   ├── sembrar_imagenes.py     # Base de imágenes sintéticas (Rx tórax / TAC cráneo) en el PACS
-│   └── fhir_sync.py            # Servicio de integración PostgreSQL → FHIR
-├── notebooks/
-│   ├── proyecto_trazared_huv.ipynb          # Notebook guía del Corte 1
-│   └── semana8_docker_bloqueo_dataset.ipynb # Semana 8: Docker, bloqueo y dataset
-├── levantar_demo.py                 # Arranque automático de toda la demo (Windows/macOS/Linux)
-├── guion_demo.md                    # Guion del pitch (10 min) y la demo (7 min)
-├── documentacion_mapeo_roles.md      # Doc. técnica: mapeo BD → FHIR y roles
-├── pass.env.example                  # Plantilla de variables de entorno
+│   ├── docker-compose.yml        # Los 9 servicios
+│   └── nginx.conf                # Puerta única: cabeceras de seguridad, límite 429, /api, /fhir, SSE
+├── python/                       # API (FastAPI)
+│   ├── main.py                   # Arma la app: CORS, cabeceras, routers, pacientes e imágenes
+│   ├── auth.py                   # Conexiones, login con bloqueo, roles, /me, usuarios, auditoría
+│   ├── remisiones.py             # Remisiones, soft delete, observaciones, gestiones de contacto
+│   ├── ia.py                     # (Persona 2) Análisis de IA con aprobación y seudonimización
+│   ├── contabilidad.py           # (Persona 3) Facturación en MongoDB
+│   ├── eventos.py                # publicar(): notificaciones, tiempo real, flujos automáticos
+│   ├── pacs.py                   # Cliente de Orthanc
+│   ├── cargar_dataset.py         # Carga el dataset del proyecto
+│   ├── sembrar_imagenes.py       # Base de imágenes en el PACS
+│   ├── fhir_sync.py              # Integración PostgreSQL → FHIR
+│   └── Dockerfile
+├── ml/                           # Servicio de IA (main.py, Dockerfile, requirements.txt)
+├── frontend/                     # Interfaz (HTML + CSS + JS, una sola página)
+├── data/                         # Dataset del proyecto (CSV) y su diccionario
+├── docs/                         # Documentos de entrega
+├── notebooks/                    # Cuadernos del Corte 1 y de la semana 8
+├── pruebas/probar_persona1.py    # Prueba automática de R01–R05, R13 y R14
+├── levantar_demo.py              # Demo del Corte 1 sin Docker
+├── documentacion_mapeo_roles.md  # Mapeo BD → FHIR y justificación de roles
 └── README.md
 ```
 
-`pass.env` (con las credenciales reales) **no está en el repositorio** — cada quien lo
-crea localmente en la raíz del proyecto a partir de `pass.env.example`, con las
-variables `PG_CONNECTION_STRING`, `MONGO_CONNECTION_STRING`, `SECRET_KEY` y
-`FHIR_BASE_URL`.
+## Despliegue paso a paso
+
+Requisitos: **Docker Desktop** corriendo (con Docker Compose 2.24 o más nuevo) y Python
+3.10+ para las pruebas y los cuadernos.
+
+**1. Variables de entorno.** En la raíz del proyecto, copia la plantilla y llénala con los
+valores que el equipo comparte por el canal privado:
+
+```powershell
+copy .env.example pass.env
+```
+
+La API y el compose leen `.env` y, si no existe, `pass.env`; cualquiera de los dos
+nombres sirve. Ninguno se sube nunca al repositorio (están en `.gitignore`).
+
+**2. Levantar todo:**
+
+```powershell
+cd docker
+docker compose up -d --build
+docker compose ps                                   # deben aparecer 9 servicios en "running"
+```
+
+Al arrancar, la API actualiza sola el esquema de la base (`db/schema.sql`) y crea un
+usuario de prueba por rol con las contraseñas `DEMO_*`.
+
+**3. Cargar los datos** (solo la primera vez):
+
+```powershell
+docker compose exec api python cargar_dataset.py    # dataset y usuario paciente
+docker compose exec api python sembrar_imagenes.py  # imágenes en el PACS
+```
+
+**4. Ver la URL pública del túnel:**
+
+```powershell
+docker compose logs cloudflared | findstr trycloudflare
+```
+
+o abrir http://localhost:2000/quicktunnel (campo `hostname`). Esa URL se mantiene
+mientras el contenedor `cloudflared` no se reinicie, así que **no hay que bajarlo durante
+la evaluación** (nada de `docker compose down`). Para una URL fija, ver el servicio
+`cloudflared-fijo` del `docker-compose.yml`.
+
+**5. Verificar** (desde la raíz, con el entorno de Python activo):
+
+```powershell
+pip install -r requirements.txt
+python pruebas\probar_persona1.py
+```
+
+La prueba recorre los cinco roles, el bloqueo, los permisos, CORS, las cabeceras, el
+límite 429, los nueve servicios, el túnel por HTTPS y la auditoría, e imprime la URL
+pública al final de la sección 9.
+
+Local: interfaz en **http://localhost:8080**, documentación de la API en
+http://localhost:8000/docs.
+
+## Roles y permisos (R01)
+
+Solo el `admin` crea usuarios y asigna roles; no existe registro público.
+
+| Rol | Puede | No puede |
+|---|---|---|
+| `admin` | Gestionar usuarios, desbloquear cuentas, restaurar registros, ver la auditoría | Aprobar reportes de IA |
+| `medico` | Atender, crear pacientes y remisiones, soft delete de lo suyo | Ver la auditoría, restaurar, crear usuarios |
+| `especialista` | Ver pacientes y remisiones, recibir los casos remitidos | Ver la auditoría, crear usuarios |
+| `paciente` | Ver solo su propia información | Ver a otros pacientes (404), crear remisiones |
+| `contable` | Gestionar la facturación | Ver datos clínicos: pacientes, remisiones (403) |
+| `eps` | (Corte 1) Seguir las remisiones de sus afiliados, solo lectura | Modificar |
+
+`GET /me` devuelve el usuario de la sesión con su `rol`.
+
+## Seguridad (R02, R03)
+
+- **Bloqueo:** al 3er intento fallido la cuenta queda bloqueada (423) y no entra ni con la
+  clave correcta. Solo el admin desbloquea (`POST /usuarios/{id}/desbloquear`). El bloqueo
+  avisa a los admin por `publicar()`.
+- **Token en todas las rutas de datos:** sin token, 401.
+- **Control por rol:** `requiere_rol(...)` en cada ruta (403 si el rol no corresponde).
+- **Contraseñas** con hash bcrypt (passlib), nunca en texto plano.
+- **CORS restringido** a `CORS_ORIGINS` (sin `*` y sin reflejar orígenes desconocidos).
+- **Cabeceras:** `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY` y
+  `Referrer-Policy: no-referrer`, en nginx y en la API; nginx no anuncia su versión.
+- **Límite de peticiones:** nginx responde 429 a quien pase de 10 peticiones por segundo
+  (ráfagas de 20), contando por la IP real del visitante (`CF-Connecting-IP`). La
+  adivinación de contraseñas ya la frena el bloqueo al 3er intento.
+- **Secretos:** en el repositorio solo está `.env.example`; `.env` y `pass.env` están en
+  `.gitignore` y `.dockerignore`.
+- **Superficie mínima:** bases, PACS, FHIR y API se publican solo en `127.0.0.1`; el
+  servicio de IA no se publica.
+
+## Auditoría (R13)
+
+Cada acción relevante queda en la tabla `auditoria`. Solo el admin la consulta con
+`GET /auditoria`, y cada fila trae `usuario` (quién), `accion` (qué), `recurso` (sobre
+qué, p. ej. `pacientes/12`) y `fecha` (cuándo). Se puede filtrar por `accion`,
+`usuario_id`, `tabla` (tipo de recurso) y `registro_id`.
+
+Acciones registradas hoy: `login_exitoso`, `login_fallido`, `login_bloqueado`,
+`bloqueo_usuario`, `desbloqueo_usuario`, `usuario_creado`, `paciente_creado`,
+`remision_creada`, `soft_edit`, `soft_delete`, `restaurar`, `imagen_subida` e
+`imagen_vista`. La creación de pacientes no guarda datos personales en el detalle: el id
+basta para rastrearla. En la interfaz, el admin las ve en la sección **Auditoría**.
 
 ## Modelo de datos
 
-**PostgreSQL (Neon):**
-- `pacientes` — nombre, documento (único), género, EPS
-- `usuarios` — con rol (`admin`, `medico`, `eps`, `paciente`) y vínculos opcionales a
-  paciente/EPS
-- `remisiones` — entidad principal: paciente, instituciones de origen/destino, motivo,
-  estado, convenio vigente, creado_por, activo (soft delete)
-- `observaciones` — signos vitales / triage asociados a una remisión, con código LOINC
-- `remisiones_historial` — copia del estado anterior de cada remisión (soft edit)
-- `auditoria` — registro de quién hizo qué acción, sobre qué y cuándo
+**PostgreSQL:**
+- `pacientes` — nombre, documento (único), género, EPS y datos de la ficha
+- `usuarios` — rol, vínculo opcional a paciente o EPS, intentos fallidos y bloqueo
+- `remisiones` — paciente, instituciones de origen y destino, motivo, estado, convenio,
+  `creado_por`, `activo` (soft delete)
+- `observaciones` — signos vitales con código LOINC
+- `remisiones_historial` — estado anterior de cada remisión (soft edit)
+- `auditoria` — quién hizo qué, sobre qué recurso y cuándo
 
-**MongoDB (Atlas):**
-- `gestiones_contacto` — bitácora anidada de intentos de contacto por remisión
+**MongoDB:**
+- `gestiones_contacto` — bitácora de intentos de contacto por remisión
+- (Corte 2) facturas y notificaciones
 
-## Roles y permisos
-
-| Rol | Acceso |
-|---|---|
-| **Admin** | Control total; único que restaura registros eliminados |
-| **Médico** | Crea/edita/elimina (soft delete) solo lo que él mismo generó |
-| **EPS** | Lectura completa de sus propios pacientes y del hospital |
-| **Paciente** | Lectura reducida: solo a dónde y en cuánto tiempo será remitido |
+El dataset del proyecto (600 remisiones sintéticas en tres grupos: efectiva, fallida y
+borderline) y su diccionario están en [`data/README.md`](data/README.md).
 
 ## Interoperabilidad FHIR
 
-`fhir_sync.py` sincroniza los datos de negocio con un servidor HAPI FHIR (R4):
+`fhir_sync.py` sincroniza los datos de negocio con el servidor HAPI FHIR (R4):
 
 | Tabla PostgreSQL | Recurso FHIR |
 |---|---|
@@ -90,118 +242,36 @@ variables `PG_CONNECTION_STRING`, `MONGO_CONNECTION_STRING`, `SECRET_KEY` y
 | `remisiones` | `Encounter` |
 | `observaciones` | `Observation` |
 
-El detalle campo por campo del mapeo, la matriz de endpoints × roles y las desviaciones
-frente al modelo de la Semana 3 están en [`documentacion_mapeo_roles.md`](documentacion_mapeo_roles.md).
+El detalle del mapeo está en [`documentacion_mapeo_roles.md`](documentacion_mapeo_roles.md).
+HAPI tiene activadas las suscripciones `rest-hook` para avisar a la API cuando llega un
+dato nuevo (R21).
 
-## Correr todo con Docker (semana 8)
+## Imágenes médicas (PACS)
 
-Todo el proyecto quedó en contenedores, siguiendo el esquema de la clase (db → api → front):
+Orthanc guarda las imágenes como DICOM, enlazadas al paciente por `PatientID` =
+documento. La API las lista (`GET /pacientes/{id}/imagenes`), las recibe
+(`POST /pacientes/{id}/imagenes`: solo PNG/JPEG ≤ 15 MB, re-codificadas para borrar
+EXIF) y las entrega (`GET /imagenes/{id}/preview`), siempre con token, rol clínico y
+registro en la auditoría. La ficha del paciente tiene un visor con brillo, contraste,
+negativo, zoom y desplazamiento.
 
-| Servicio | Puerto | Qué es |
+## Credenciales de demostración (datos sintéticos)
+
+La API crea estos usuarios al arrancar; el paciente lo crea `cargar_dataset.py`.
+
+| Rol | Usuario | Clave (variable en `.env` / `pass.env`) |
 |---|---|---|
-| `front` | **8080** | Interfaz gráfica servida por nginx (reparte `/api` y `/fhir`) |
-| `api` | 8000 | FastAPI (imagen propia, `python/Dockerfile`) |
-| `db` | 5434 | PostgreSQL 16 con `db/schema.sql` |
-| `mongo` | 27017 | MongoDB 7 (`gestiones_contacto`) |
-| `orthanc` | 8042 (solo tu equipo) | PACS: imágenes médicas DICOM (solo la API le habla) |
-| `hapi-fhir` / `fhir-db` | 8081 / 5433 | Servidor FHIR R4 y su base |
+| Admin | `admin@trazared.huv` | `DEMO_ADMIN_PASSWORD` |
+| Médico | `medico@huv.gov.co` | `DEMO_MEDICO_PASSWORD` |
+| Especialista | `especialista@huv.gov.co` | `DEMO_ESPECIALISTA_PASSWORD` |
+| Contable | `contable@huv.gov.co` | `DEMO_CONTABLE_PASSWORD` |
+| Paciente | `paciente@correo.com` | `DEMO_PACIENTE_PASSWORD` |
+| EPS (Coosalud) | `eps@coosalud.com` | `DEMO_EPS_PASSWORD` |
 
-Requisitos: Docker Desktop corriendo y `pass.env` en la raíz con `SECRET_KEY` y las cuatro `DEMO_*_PASSWORD`
-(la API crea sola los usuarios admin, médico y EPS la primera vez que arranca).
+Las contraseñas **no están en el repositorio**: se comparten por el canal privado y se
+rotan antes de la sustentación.
 
-```powershell
-cd docker
-docker compose up -d --build                       # levanta los 7 contenedores
-docker compose exec api python cargar_dataset.py   # carga el dataset (600 remisiones) y el usuario paciente
-docker compose exec api python sembrar_imagenes.py # crea la base de imágenes en el PACS
-```
-
-Luego abre **http://localhost:8080**. El paso a paso completo, con las pruebas del bloqueo y la evidencia de
-auditoría, está en `notebooks/semana8_docker_bloqueo_dataset.ipynb`.
-
-Dentro de Docker la API usa los contenedores `db` y `mongo`, no Neon ni Atlas. `levantar_demo.py` sigue
-funcionando igual que antes (API local contra Neon/Atlas; de este compose solo levanta HAPI).
-
-### Bloqueo de usuarios (tarea semana 8)
-
-- Cada contraseña incorrecta responde **401** con los intentos que quedan; al **3er** intento el usuario queda
-  bloqueado (**423**) y no entra ni con la contraseña correcta.
-- Todos los eventos quedan en `auditoria` (`login_fallido`, `bloqueo_usuario`, `login_bloqueado`,
-  `login_exitoso`, `desbloqueo_usuario`) con su `detalle`.
-- Solo un admin desbloquea: `POST /usuarios/{id}/desbloquear` o el botón *Desbloquear* en la sección Usuarios.
-- Nuevos endpoints de admin: `GET /usuarios`, `GET /auditoria`. Además `GET /me` y `GET /health`.
-
-### Imágenes médicas (PACS) y visor
-
-Como en el cuaderno de la clase: Orthanc guarda las imágenes como DICOM, enlazadas al paciente por
-`PatientID` = documento. La API las lista (`GET /pacientes/{id}/imagenes`), las recibe
-(`POST /pacientes/{id}/imagenes`: valida con Pillow, solo PNG/JPEG ≤ 15 MB, re-codifica para borrar EXIF) y las entrega
-(`GET /imagenes/{id}/preview`), siempre con token, rol (admin/médico) y registro en `auditoria`. En la ficha del paciente,
-la pestaña **Imágenes** tiene la galería y un **visor** con brillo, contraste, negativo, zoom y desplazamiento.
-
-### Interfaz gráfica
-
-Login dividido, menú lateral por rol, saludo, ficha del paciente con pestañas (datos, información clínica, remisión,
-gestiones, imágenes), hospital de destino y línea de estado de la remisión; además Hospitales de destino, Reportes
-(gráficas), Usuarios (desbloqueo) y Auditoría. Para poner una foto en el panel izquierdo del login, guárdenla como
-`frontend/img/login.jpg`.
-
-### Dataset del proyecto final (tarea semana 8)
-
-600 remisiones sintéticas en tres grupos según el resultado de la remisión — **efectiva**, **fallida** y
-**borderline** — con signos vitales de triage (LOINC/UCUM) y bitácora de contactos en MongoDB. Detalle y
-diccionario de datos en [`data/README.md`](data/README.md).
-
-## Cómo correr el proyecto localmente
-
-**1. Clonar el repositorio y crear el entorno virtual**
-```powershell
-git clone https://github.com/Laura25a/TrazaRedHUV.git
-cd TrazaRedHUV
-python -m venv .venv
-.\.venv\Scripts\Activate.ps1
-pip install -r requirements.txt
-```
-
-**2. Configurar las variables de entorno**
-
-Copia `pass.env.example` como `pass.env` en la raíz del proyecto y pon tus credenciales
-reales:
-
-```
-PG_CONNECTION_STRING=postgresql://usuario:clave@host/neondb?sslmode=require
-MONGO_CONNECTION_STRING=mongodb+srv://usuario:clave@cluster/...
-SECRET_KEY=una_clave_secreta_propia
-FHIR_BASE_URL=http://localhost:8081/fhir
-```
-
-**3. Crear el esquema en PostgreSQL**
-
-Ejecuta `db/schema.sql` contra tu base de Neon (ver el notebook, Sección 3, o cualquier
-cliente SQL).
-
-**4. Correr la API**
-```powershell
-cd python
-uvicorn main:app --reload
-```
-Documentación interactiva en `http://localhost:8000/docs`.
-
-**5. Levantar el servidor FHIR**
-```powershell
-cd docker
-docker compose up -d
-```
-Servidor disponible en `http://localhost:8081/fhir` (el compose publica el 8080 del
-contenedor en el puerto 8081 del host — usa 8081 en túneles y navegador).
-
-**6. Notebook guía**
-
-`notebooks/proyecto_trazared_huv.ipynb` recorre todo el proceso paso a paso: creación
-del primer usuario Admin, pruebas de los endpoints, sincronización con FHIR, y
-verificación de la disponibilidad en línea vía Cloudflare Tunnel.
-
-## Disponibilidad en línea (Cloudflare Tunnel)
+## Demo del Corte 1 sin Docker (`levantar_demo.py`)
 
 <!-- URLS-DEMO:ini -->
 URLs públicas generadas el **2026-09-08 08:30** con `levantar_demo` (Quick Tunnel:
@@ -211,71 +281,28 @@ efímeras — cambian en cada arranque):
 - **Servidor FHIR (HAPI):** https://housewives-privacy-colour-ipod.trycloudflare.com — `/fhir/metadata` verificado
 <!-- URLS-DEMO:fin -->
 
-> **Nota sobre la web de HAPI:** su interfaz administrativa (swagger-ui de HAPI) solo
-> funciona completa en `localhost:8081` — HAPI anuncia una URL base fija y, como los
-> Quick Tunnels cambian de dominio en cada arranque, desde fuera esa página no logra
-> cargar su definición (mixed content). Los **recursos REST funcionan perfectamente por
-> cualquier túnel**: para explorar desde fuera abre las URLs directas, p. ej.
-> `https://<túnel>/fhir/Patient/1000`, `.../fhir/Encounter/1001`, `.../fhir/Observation/1002`
-> o búsquedas como `.../fhir/Patient?gender=female`.
+`python levantar_demo.py` levanta la API local contra Neon y Atlas, HAPI y dos túneles
+con `cloudflared` instalado en el equipo. Desde el Corte 2 el túnel oficial es el
+servicio `cloudflared` del `docker-compose.yml`.
 
-Para (re)generarlas no hay que hacer nada manual: corre **`python levantar_demo.py`**
-desde la raíz. El script despierta Neon y MongoDB, levanta HAPI y la API esperando a
-que cada uno responda, abre los dos túneles, detecta las URLs automáticamente, las
-verifica y actualiza esta misma sección del README (quedan también en
-`notebooks/URLs_demo.txt`, local). Con `python levantar_demo.py --stop` se detiene todo.
+## Entregables
 
-### Cómo levantar la demo en otra máquina (Windows incluido)
+**Corte 1**
+- [x] Modelo relacional, servidor FHIR R4 e integración BD → FHIR
+- [x] Roles con JWT, soft delete, soft edit y restauración
+- [x] Documentación técnica: mapeo BD → FHIR y justificación de roles
 
-Requisitos: **Python 3.10+**, **Docker Desktop corriendo** y **`cloudflared` instalado**
-(si no lo tienes, instala primero: `winget install --id Cloudflare.cloudflared` o descarga
-[`cloudflared-windows-amd64.exe`](https://github.com/cloudflare/cloudflared/releases/latest)
-y déjalo en el `PATH` o junto a `levantar_demo.py`):
+**Semana 8**
+- [x] Bloqueo al 3er intento fallido, con auditoría y desbloqueo por admin
+- [x] Dataset del proyecto, proyecto dockerizado, PACS con visor e interfaz por rol
 
-```
-git pull
-# pass.env en la raíz con las 8 variables (las 4 de siempre + las 4 DEMO_*)
-python -m venv .venv ; .\.venv\Scripts\Activate.ps1
-pip install -r requirements.txt
-python levantar_demo.py          # arranca todo (Docker Desktop debe estar corriendo)
-python levantar_demo.py --stop   # apaga todo
-```
-
-En macOS/Linux el mismo flujo con `python3 -m venv .venv && source .venv/bin/activate`.
-El script imprime las URLs al final y las deja también en `notebooks/URLs_demo.txt`.
-
-## Credenciales de demostración (datos sintéticos)
-
-Todas las bases manejan **datos sintéticos de prueba**. Los usuarios los crea la
-sección 6b del notebook:
-
-| Rol | Usuario | Clave (variable en `pass.env`) |
-|---|---|---|
-| Admin | `admin@trazared.huv` | `DEMO_ADMIN_PASSWORD` |
-| Médico | `medico@huv.gov.co` | `DEMO_MEDICO_PASSWORD` |
-| EPS (Coosalud) | `eps@coosalud.com` | `DEMO_EPS_PASSWORD` |
-| Paciente (Ana Torres) | `paciente@correo.com` | `DEMO_PACIENTE_PASSWORD` |
-
-Las contraseñas **no están en el repositorio**: cada integrante las pone en su
-`pass.env` (ver `pass.env.example`) y el notebook (§6b) las lee de ahí para crear los
-usuarios y hacer login. Los valores se comparten por el canal privado y **se rotan
-antes de la sustentación**.
-
-## Entregables del Corte 1
-
-- [x] Modelo relacional multi-tabla (`db/schema.sql`)
-- [x] Servidor y modelado FHIR R4 (`docker/docker-compose.yml`)
-- [x] Servicio de integración BD → FHIR (`python/fhir_sync.py`)
-- [x] Roles de usuario con JWT (`python/main.py`)
-- [x] Soft delete, soft edit y restauración
-- [x] Disponibilidad en línea vía Cloudflare Tunnel (URLs arriba; pendiente prueba desde datos móviles)
-- [x] Guion de pitch y demo (`guion_demo.md`)
-- [x] Documentación técnica: mapeo BD → FHIR y justificación de roles (`documentacion_mapeo_roles.md`)
-
-## Entregables de la Semana 8
-
-- [x] Bloqueo de usuario al 3er intento fallido, con auditoría y desbloqueo solo por admin
-- [x] Base de datos del proyecto final: dataset de remisiones en 3 grupos (`data/`, `python/cargar_dataset.py`)
-- [x] Proyecto dockerizado: 7 servicios en `docker/docker-compose.yml`
-- [x] PACS (Orthanc) con base de imágenes sintéticas, subida segura y visor (brillo, contraste, zoom, paneo)
-- [x] Interfaz gráfica por rol (`frontend/`), servida por nginx en http://localhost:8080
+**Corte 2 — Persona 1 (seguridad e infraestructura)**
+- [x] API partida en módulos (`auth`, `remisiones`, `ia`, `contabilidad`, `eventos`), con `publicar()` lista para los flujos automáticos
+- [x] R01 · Cinco roles; solo el admin crea usuarios; `/me` devuelve el rol
+- [x] R02 · El bloqueo avisa al admin por `publicar()`
+- [x] R03 · Token, control por rol, CORS, cabeceras, límite 429, solo `.env.example`
+- [x] R04 · `cloudflared` como servicio del compose, con HTTPS público
+- [x] R05 · Nueve servicios con un solo `docker compose up`, incluido `ml`
+- [x] R13 · Auditoría con usuario, acción, recurso y fecha, con filtros
+- [x] R14 · Soft delete del médico y restauración solo del admin
+- [ ] `tester.yaml` con la plantilla oficial del profesor y todas las rutas del Corte 2
