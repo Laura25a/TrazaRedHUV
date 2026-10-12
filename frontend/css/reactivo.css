@@ -1,0 +1,150 @@
+/* ==========================================================================
+   TrazaRed HUV — sistema reactivo en vivo (R16/R18/R20, Persona 4)
+   Bandeja de notificaciones, contadores de trabajo y alerta crítica
+   persistente. Se agregó como archivo aparte para no tocar estilos.css.
+   ========================================================================== */
+
+/* ── Bandeja dentro de la campanita ─────────────────────────────────────── */
+.bandeja-bloque { border-top: 1px solid var(--borde, #e4e7ec); margin-top: .25rem; }
+
+.fila-notif {
+  display: flex;
+  gap: .55rem;
+  align-items: flex-start;
+  width: 100%;
+  text-align: left;
+  padding: .5rem .7rem;
+  background: none;
+  border: 0;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+  border-radius: 8px;
+}
+.fila-notif:hover { background: var(--fondo-hover, #f2f5fa); }
+.fila-notif .punto {
+  width: 8px;
+  height: 8px;
+  margin-top: .42rem;
+  border-radius: 50%;
+  background: var(--azul, #1f63c6);
+  flex: none;
+}
+.fila-notif.leida .punto { background: transparent; border: 1px solid var(--texto-tenue, #9aa3b2); }
+.fila-notif.leida .fila-notif-texto { color: var(--texto-tenue, #7b8494); }
+.fila-notif-texto { display: block; font-size: .84rem; line-height: 1.35; }
+.fila-notif-texto small { display: block; color: var(--texto-tenue, #9aa3b2); font-size: .72rem; }
+
+/* ── Contadores de trabajo pendiente (R18) ──────────────────────────────── */
+.pendientes-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .35rem;
+  padding: .55rem .7rem .25rem;
+  border-top: 1px solid var(--borde, #e4e7ec);
+  margin-top: .25rem;
+}
+.pendientes-strip .pendiente {
+  font-size: .72rem;
+  padding: .22rem .55rem;
+  border-radius: 999px;
+  background: var(--fondo-hover, #eef2f9);
+  color: var(--texto, #243044);
+  white-space: nowrap;
+}
+
+/* ── Alerta crítica persistente con desplegable (R20) ───────────────────── */
+#alertas-contenedor { position: relative; z-index: 40; }
+
+.alertas-panel {
+  margin: .6rem 1rem 0;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 6px 18px rgba(255, 90, 70, .18);
+  animation: alerta-entra .25s ease-out;
+}
+
+.alertas-toggle {
+  display: flex;
+  align-items: center;
+  gap: .65rem;
+  width: 100%;
+  padding: .7rem 1rem;
+  border: 0;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+  background: linear-gradient(100deg, #fff1f0, #ffe6e2);
+  border: 1px solid #ff9c8f;
+}
+.alertas-toggle svg {
+  width: 22px;
+  height: 22px;
+  flex: none;
+  stroke: #d43c2b;
+  stroke-width: 1.8;
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.alertas-toggle strong { color: #a3271a; font-size: .9rem; white-space: nowrap; }
+.alertas-resumen {
+  flex: 1;
+  min-width: 0;
+  color: #7c2014;
+  font-size: .82rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.alertas-flecha { color: #d43c2b; font-size: 1rem; transition: transform .2s ease; }
+.alertas-toggle[aria-expanded="true"] .alertas-flecha { transform: rotate(180deg); }
+
+.alertas-lista {
+  display: flex;
+  flex-direction: column;
+  gap: .55rem;
+  padding: .6rem;
+  background: #fff7f6;
+  border: 1px solid #ff9c8f;
+  border-top: 0;
+  max-height: 46vh;
+  overflow-y: auto;
+}
+.alertas-lista.oculto { display: none; }
+
+.alerta-critica {
+  padding: .75rem .9rem;
+  border-radius: 10px;
+  background: #fff;
+  border: 1px solid #f1c4bc;
+}
+.alerta-cuerpo strong { display: block; color: #a3271a; font-size: .88rem; }
+.alerta-cuerpo p { margin: .22rem 0 .5rem; font-size: .85rem; color: #7c2014; }
+.alerta-acciones { display: flex; gap: .55rem; flex-wrap: wrap; }
+.alerta-nota {
+  flex: 1;
+  min-width: 200px;
+  padding: .42rem .7rem;
+  border: 1px solid #e6a79c;
+  border-radius: 8px;
+  font: inherit;
+  font-size: .83rem;
+  background: #fff;
+}
+.btn-reconocer {
+  padding: .42rem 1.1rem;
+  border: 0;
+  border-radius: 8px;
+  background: #d43c2b;
+  color: #fff;
+  font-weight: 600;
+  font-size: .83rem;
+  cursor: pointer;
+}
+.btn-reconocer:hover { background: #b32d1e; }
+
+@keyframes alerta-entra {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: none; }
+}
