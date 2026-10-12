@@ -53,7 +53,7 @@ class AnalisisIn(BaseModel):
     fr: Optional[float] = None
     temperatura: Optional[float] = None
     saturacion: Optional[float] = None
-    remision_id: int
+    remision_id: Optional[int] = None
 
 
 class RevisionIn(BaseModel):
@@ -135,22 +135,28 @@ def analizar(
                 detail="Paciente no encontrado",
             )
 
-        # Se valida la remisión ANTES de llamar al modelo
-        cur.execute(
-            """
-            SELECT id, paciente_id
-            FROM remisiones
-            WHERE id = %s AND paciente_id = %s AND activo = TRUE
-            """,
-            (datos.remision_id, datos.paciente_id),
-        )
-        remision = cur.fetchone()
-
-        if not remision:
-            raise HTTPException(
-                status_code=404,
-                detail="No existe una remisión activa para ese paciente",
+        # Se valida la remisión ANTES de llamar al modelo.
+        # Si no viene remision_id, se usa la última remisión activa del paciente (si tiene).
+        remision_id = datos.remision_id
+        if remision_id is not None:
+            cur.execute(
+                "SELECT id FROM remisiones WHERE id = %s AND paciente_id = %s AND activo = TRUE;",
+                (remision_id, datos.paciente_id),
             )
+            if cur.fetchone() is None:
+                raise HTTPException(
+                    status_code=404,
+                    detail="No existe una remisión activa para ese paciente",
+                )
+        else:
+            cur.execute(
+                """SELECT id FROM remisiones
+                    WHERE paciente_id = %s AND activo = TRUE
+                    ORDER BY fecha_solicitud DESC, id DESC LIMIT 1;""",
+                (datos.paciente_id,),
+            )
+            fila = cur.fetchone()
+            remision_id = fila["id"] if fila else None
 
         payload = armar_payload(paciente, datos)
         resultado = llamar_modelo(payload)
@@ -178,7 +184,7 @@ def analizar(
             RETURNING id;
             """,
             (
-                datos.remision_id,
+                remision_id,
                 paciente["id"],
                 usuario["id"],
                 resultado["version_modelo"],
@@ -414,4 +420,4 @@ def entrenar(db=Depends(get_db), admin=Depends(requiere_rol("admin"))):
 def listar_clusters(
     usuario=Depends(requiere_rol("admin", "medico", "especialista")),
 ):
-    return _pedir_a_ml("GET", "/clusters", espera=60)
+    return _pedir_a_ml("GET", "/clusters", espera=60)["clusters"]

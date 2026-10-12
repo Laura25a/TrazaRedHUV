@@ -126,18 +126,18 @@ CREATE INDEX IF NOT EXISTS idx_auditoria_recurso ON auditoria (tabla, registro_i
 -- CORTE 2 — R10/R12 (Persona 2): reportes de IA con aprobación clínica
 CREATE TABLE IF NOT EXISTS reportes_ia (
     id SERIAL PRIMARY KEY,
+    remision_id INTEGER REFERENCES remisiones(id),
     paciente_id INTEGER NOT NULL REFERENCES pacientes(id),
     creado_por INTEGER REFERENCES usuarios(id),
+    modelo TEXT,
+    probabilidad_urgente NUMERIC NOT NULL,
+    prediccion TEXT NOT NULL,
+    critico_segun_umbral BOOLEAN NOT NULL DEFAULT FALSE,
+    payload_seudonimizado JSONB NOT NULL,
     estado TEXT NOT NULL DEFAULT 'pendiente' CHECK (estado IN ('pendiente','aprobado','rechazado')),
-    id_seudonimo TEXT NOT NULL,
-    payload JSONB NOT NULL,
-    probabilidad NUMERIC NOT NULL,
-    nivel TEXT NOT NULL,
-    critico BOOLEAN NOT NULL DEFAULT FALSE,
-    version_modelo TEXT,
-    observaciones TEXT,
+    observacion_revision TEXT,
     revisado_por INTEGER REFERENCES usuarios(id),
-    fecha_creacion TIMESTAMP NOT NULL DEFAULT now(),
-    fecha_revision TIMESTAMP
+    revisado_en TIMESTAMP,
+    creado_en TIMESTAMP NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS idx_reportes_ia_paciente ON reportes_ia (paciente_id, estado);
