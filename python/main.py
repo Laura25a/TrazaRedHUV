@@ -28,6 +28,7 @@ from pydantic import BaseModel
 
 import auth
 import contabilidad
+import eventos
 import ia
 import remisiones
 from auth import (PG_CONNECTION_STRING, ROLES_CLINICOS, get_db, get_usuario_actual,
@@ -80,6 +81,7 @@ app.include_router(auth.router)
 app.include_router(remisiones.router)
 app.include_router(ia.router)
 app.include_router(contabilidad.router)
+app.include_router(eventos.router)
 
 
 @app.on_event("startup")

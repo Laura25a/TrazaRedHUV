@@ -141,3 +141,44 @@ CREATE TABLE IF NOT EXISTS reportes_ia (
     creado_en TIMESTAMP NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS idx_reportes_ia_paciente ON reportes_ia (paciente_id, estado);
+-- ============================================================================
+-- CORTE 2 — R18/R20: notificaciones y alertas críticas (Persona 4, sistema reactivo)
+-- ============================================================================
+-- La bandeja de cada usuario (R18) y las alertas críticas con reconocimiento
+-- (R20). Igual que lo anterior: solo AGREGA, se puede correr las veces que sea.
+
+-- Alertas críticas: nace "activa" cuando el modelo pasa el umbral (evento
+-- "alerta_critica"), queda visible hasta que un clínico la "reconoce" con nota,
+-- y si nadie la reconoce a tiempo se marca escalada y se avisa al admin.
+CREATE TABLE IF NOT EXISTS alertas (
+    id SERIAL PRIMARY KEY,
+    paciente_id INTEGER REFERENCES pacientes(id),
+    nivel TEXT NOT NULL DEFAULT 'critico',
+    estado TEXT NOT NULL CHECK (estado IN ('activa','reconocida')),
+    mensaje TEXT NOT NULL,
+    reporte_id INTEGER,                              -- reporte de IA de la Persona 2 (sin FK: tabla aparte)
+    responsable_id INTEGER REFERENCES usuarios(id),  -- clínico responsable; NULL = la ve todo el equipo clínico
+    creada_en TIMESTAMP NOT NULL DEFAULT now(),
+    reconocida_en TIMESTAMP,
+    reconocida_por INTEGER REFERENCES usuarios(id),
+    nota TEXT,
+    escalada BOOLEAN NOT NULL DEFAULT FALSE
+);
+CREATE INDEX IF NOT EXISTS idx_alertas_estado ON alertas (estado, creada_en);
+
+-- Bandeja de notificaciones (R18): una fila por destinatario por evento.
+-- "datos" guarda los campos extra del hecho (p. ej. usuario_afectado).
+CREATE TABLE IF NOT EXISTS notificaciones (
+    id SERIAL PRIMARY KEY,
+    usuario_id INTEGER NOT NULL REFERENCES usuarios(id),
+    tipo TEXT NOT NULL,
+    mensaje TEXT NOT NULL,
+    leida BOOLEAN NOT NULL DEFAULT FALSE,
+    fecha TIMESTAMP NOT NULL DEFAULT now(),
+    paciente_id INTEGER REFERENCES pacientes(id),
+    reporte_id INTEGER,
+    remision_id INTEGER REFERENCES remisiones(id),
+    alerta_id INTEGER REFERENCES alertas(id),
+    datos JSONB
+);
+CREATE INDEX IF NOT EXISTS idx_notificaciones_usuario ON notificaciones (usuario_id, fecha);

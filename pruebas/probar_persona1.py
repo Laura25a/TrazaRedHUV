@@ -36,7 +36,10 @@ print("1. La API responde con el código partido")
 r = requests.get(f"{API}/health")
 revisar("GET /health", r.status_code == 200, r.text)
 rutas = requests.get("http://localhost:8000/openapi.json").json()["paths"]
-revisar("la API tiene sus 27 rutas", sum(len(m) for m in rutas.values()) == 27, len(rutas))
+# >= 27: las 27 rutas base de la Persona 1 siguen siendo el piso; cada persona
+# AGREGA rutas (la Persona 4 sumó 6 de notificaciones/alertas/eventos), así que
+# un == fijo se rompería con cada entrega. Si baja de 27, alguien borró una ruta.
+revisar("la API conserva sus 27 rutas base", sum(len(m) for m in rutas.values()) >= 27, len(rutas))
 
 print("\n2. Login y roles (auth.py)")
 admin = entrar("admin@trazared.huv", ENV["DEMO_ADMIN_PASSWORD"])

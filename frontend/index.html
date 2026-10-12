@@ -8,6 +8,7 @@
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%231f63c6'/%3E%3Cpath d='M13 6h6v7h7v6h-7v7h-6v-7H6v-6h7z' fill='white'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="css/estilos.css">
   <link rel="stylesheet" href="css/visor.css">
+  <link rel="stylesheet" href="css/reactivo.css">
 </head>
 <body>
   <noscript>Esta aplicación necesita JavaScript para funcionar.</noscript>
@@ -103,6 +104,8 @@
        VISTA 2 — Aplicación (barra superior + menú lateral + contenido)
        ================================================================ -->
   <section id="vista-app" class="oculto">
+    <!-- Aviso persistente de alertas críticas (R20, Persona 4) -->
+    <div id="alertas-contenedor" aria-live="assertive"></div>
     <header class="topbar">
       <button class="btn-icono menu-movil" id="btn-menu" aria-label="Abrir menú">
         <svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
@@ -185,5 +188,10 @@
   <script src="js/api.js"></script>
   <script src="js/visor.js"></script>
   <script src="js/app.js"></script>
+  <!-- Sistema reactivo en vivo (R17/R18/R20, Persona 4): van después de app.js
+       para enganchar sus funciones globales sin modificarlas -->
+  <script src="js/eventos.js"></script>
+  <script src="js/notificaciones.js"></script>
+  <script src="js/alertas.js"></script>
 </body>
 </html>
