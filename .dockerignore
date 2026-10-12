@@ -16,3 +16,4 @@ plan/
 .env
 **/.env
 **/pass.env
+datos_imagenes/

@@ -122,3 +122,22 @@ ALTER TABLE usuarios ADD CONSTRAINT usuarios_rol_check
 
 -- R13: consultas rápidas de la auditoría por recurso (p. ej. "todo lo del paciente 12")
 CREATE INDEX IF NOT EXISTS idx_auditoria_recurso ON auditoria (tabla, registro_id);
+
+-- CORTE 2 — R10/R12 (Persona 2): reportes de IA con aprobación clínica
+CREATE TABLE IF NOT EXISTS reportes_ia (
+    id SERIAL PRIMARY KEY,
+    paciente_id INTEGER NOT NULL REFERENCES pacientes(id),
+    creado_por INTEGER REFERENCES usuarios(id),
+    estado TEXT NOT NULL DEFAULT 'pendiente' CHECK (estado IN ('pendiente','aprobado','rechazado')),
+    id_seudonimo TEXT NOT NULL,
+    payload JSONB NOT NULL,
+    probabilidad NUMERIC NOT NULL,
+    nivel TEXT NOT NULL,
+    critico BOOLEAN NOT NULL DEFAULT FALSE,
+    version_modelo TEXT,
+    observaciones TEXT,
+    revisado_por INTEGER REFERENCES usuarios(id),
+    fecha_creacion TIMESTAMP NOT NULL DEFAULT now(),
+    fecha_revision TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_reportes_ia_paciente ON reportes_ia (paciente_id, estado);

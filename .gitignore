@@ -27,3 +27,5 @@ Thumbs.db
 python/.env
 *.env
 !.env.example
+
+datos_imagenes/
