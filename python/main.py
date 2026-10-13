@@ -29,6 +29,7 @@ from pydantic import BaseModel
 import auth
 import contabilidad
 import eventos
+import historia
 import ia
 import remisiones
 from auth import (PG_CONNECTION_STRING, ROLES_CLINICOS, get_db, get_usuario_actual,
@@ -79,6 +80,7 @@ async def cabeceras_de_seguridad(request, call_next):
 # Cada módulo trae sus rutas en un "router"; aquí se conectan a la app.
 app.include_router(auth.router)
 app.include_router(remisiones.router)
+app.include_router(historia.router)
 app.include_router(ia.router)
 app.include_router(contabilidad.router)
 app.include_router(eventos.router)
