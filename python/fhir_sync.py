@@ -115,7 +115,87 @@ def consultar_recurso_fhir(tipo: str, fhir_id: str) -> dict:
     r = requests.get(f"{FHIR_BASE_URL}/{tipo}/{fhir_id}", headers=HEADERS)
     r.raise_for_status()
     return r.json()
+# ── R08: Remisión entre médicos (remisiones_medicas) → ServiceRequest ─────
 
+def remision_medica_a_fhir(remision: dict, patient_fhir_id: str,
+                            medico_nombre: str = "Médico HUV",
+                            especialista_nombre: str = "Especialista HUV") -> dict:
+    """remisiones_medicas -> ServiceRequest (remisión a especialista)."""
+    estado_fhir = {
+        "pendiente": "active",
+        "aceptada": "completed",
+        "rechazada": "revoked",
+        "completada": "completed",
+    }.get(remision["estado"], "active")
+    return {
+        "resourceType": "ServiceRequest",
+        "status": estado_fhir,
+        "intent": "order",
+        "priority": "routine",
+        "code": {
+            "coding": [{
+                "system": "http://snomed.info/sct",
+                "code": "306206005",
+                "display": "Referral to service"
+            }],
+            "text": remision["motivo"],
+        },
+        "subject": {"reference": f"Patient/{patient_fhir_id}"},
+        "requester": {"display": medico_nombre},
+        "performer": [{"display": especialista_nombre}],
+        "reasonCode": [{"text": remision["motivo"]}],
+        "note": [{"text": remision.get("observaciones") or ""}],
+    }
+
+
+def buscar_paciente_fhir_por_documento(documento: str):
+    """Busca un Patient en FHIR por su documento. Devuelve el id o None."""
+    r = requests.get(
+        f"{FHIR_BASE_URL}/Patient",
+        params={"identifier": f"urn:trazared:documento|{documento}"},
+        headers=HEADERS,
+        timeout=10,
+    )
+    if r.status_code != 200:
+        return None
+    bundle = r.json()
+    entradas = bundle.get("entry", [])
+    if not entradas:
+        return None
+    return entradas[0]["resource"]["id"]
+
+
+def obtener_o_crear_paciente_fhir(documento: str) -> str:
+    """Busca el Patient en FHIR; si no existe, lo crea desde Postgres."""
+    fhir_id = buscar_paciente_fhir_por_documento(documento)
+    if fhir_id:
+        return fhir_id
+    conn = get_db()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cur.execute("SELECT * FROM pacientes WHERE documento = %s;", (documento,))
+    paciente = cur.fetchone()
+    cur.close(); conn.close()
+    if paciente is None:
+        raise ValueError(f"Paciente con documento {documento} no existe en Postgres")
+    resultado = crear_recurso_fhir(paciente_a_fhir(paciente))
+    return resultado["id"]
+
+
+def sincronizar_remision_medica(remision_id: int, patient_fhir_id: str,
+                                 medico_nombre: str = "Médico HUV",
+                                 especialista_nombre: str = "Especialista HUV") -> str:
+    """Envía una remisión médica a FHIR como ServiceRequest. Devuelve el id FHIR."""
+    conn = get_db()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cur.execute("SELECT * FROM remisiones_medicas WHERE id = %s;", (remision_id,))
+    remision = cur.fetchone()
+    cur.close(); conn.close()
+    if remision is None:
+        raise ValueError("Remisión médica no encontrada en Postgres")
+    recurso = remision_medica_a_fhir(remision, patient_fhir_id,
+                                      medico_nombre, especialista_nombre)
+    resultado = crear_recurso_fhir(recurso)
+    return resultado["id"]
 
 if __name__ == "__main__":
     # Ejemplo de uso manual: sincronizar el paciente y remisión creados en la Sección 6

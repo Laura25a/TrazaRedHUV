@@ -21,6 +21,7 @@ from pydantic import BaseModel
 
 from auth import ROLES_CLINICOS, con_zona, db_mongo, get_db, get_usuario_actual, registrar_auditoria, requiere_rol
 from eventos import publicar
+import fhir_sync
 
 router = APIRouter(tags=["Remisiones"])
 
@@ -410,12 +411,12 @@ def remitir(body: RemitirIn, db=Depends(get_db), usuario=Depends(get_usuario_act
     cur = db.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
 
     # Validar paciente
-    cur.execute("SELECT id, nombre FROM pacientes WHERE id = %s;", (body.paciente_id,))
+    cur.execute("SELECT id, nombre, documento FROM pacientes WHERE id = %s;", (body.paciente_id,))
     paciente = cur.fetchone()
     if paciente is None:
         cur.close()
         raise HTTPException(404, "Paciente no encontrado")
-
+      
     # Validar especialista
     cur.execute(
         "SELECT id, nombre, rol FROM usuarios WHERE id = %s AND activo = TRUE;",
@@ -447,6 +448,17 @@ def remitir(body: RemitirIn, db=Depends(get_db), usuario=Depends(get_usuario_act
         db, usuario["id"], "remision_creada", "remisiones_medicas", fila["id"],
         f"paciente {body.paciente_id} → especialista {body.especialista_id}"
     )
+    # R08 + FHIR: reflejar la remisión en FHIR como ServiceRequest
+    try:
+        fhir_patient_id = fhir_sync.obtener_o_crear_paciente_fhir(paciente["documento"])
+        fhir_sr_id = fhir_sync.sincronizar_remision_medica(
+            fila["id"], fhir_patient_id,
+            medico_nombre=usuario["nombre"],
+            especialista_nombre=especialista["nombre"],
+        )
+        print(f"[FHIR] ServiceRequest {fhir_sr_id} creado para remisión {fila['id']}")
+    except Exception as e:
+        print(f"[FHIR] no se pudo sincronizar la remisión {fila['id']}: {e}")
 
     # R19: notificar al especialista
     publicar([body.especialista_id], {
