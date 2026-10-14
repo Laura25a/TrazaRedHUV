@@ -29,3 +29,8 @@ python/.env
 !.env.example
 docker/remitir_*.json
 docker/-w
+
+# Backups locales (no subir)
+*.backup
+*.backup2
+*.bak
