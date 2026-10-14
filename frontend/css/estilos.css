@@ -520,3 +520,14 @@ td .sub { display: block; font-size: .78rem; color: var(--texto-tenue); }
   *, *::before, *::after { animation: none !important; transition: none !important; }
   .pulso path { stroke-dashoffset: 0; }
 }
+
+/* R08 · Vista de remisión a especialista */
+.pestanas button { border: 1px solid #ddd; background: white; padding: .5rem 1rem; cursor: pointer; border-radius: 4px 4px 0 0; font-size: .9rem; margin-right: .3rem; }
+.pestanas button.activa { background: var(--azul, #1f63c6); color: white; border-color: var(--azul, #1f63c6); }
+/* Los SVG dentro de botones deben tener tamaño controlado */
+.btn svg {
+  width: 1.1em;
+  height: 1.1em;
+  vertical-align: -0.15em;
+  flex-shrink: 0;
+}

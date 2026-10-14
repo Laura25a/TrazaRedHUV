@@ -115,7 +115,87 @@ def consultar_recurso_fhir(tipo: str, fhir_id: str) -> dict:
     r = requests.get(f"{FHIR_BASE_URL}/{tipo}/{fhir_id}", headers=HEADERS)
     r.raise_for_status()
     return r.json()
+# ── R08: Remisión entre médicos (remisiones_medicas) → ServiceRequest ─────
 
+def remision_medica_a_fhir(remision: dict, patient_fhir_id: str,
+                            medico_nombre: str = "Médico HUV",
+                            especialista_nombre: str = "Especialista HUV") -> dict:
+    """remisiones_medicas -> ServiceRequest (remisión a especialista)."""
+    estado_fhir = {
+        "pendiente": "active",
+        "aceptada": "completed",
+        "rechazada": "revoked",
+        "completada": "completed",
+    }.get(remision["estado"], "active")
+    return {
+        "resourceType": "ServiceRequest",
+        "status": estado_fhir,
+        "intent": "order",
+        "priority": "routine",
+        "code": {
+            "coding": [{
+                "system": "http://snomed.info/sct",
+                "code": "306206005",
+                "display": "Referral to service"
+            }],
+            "text": remision["motivo"],
+        },
+        "subject": {"reference": f"Patient/{patient_fhir_id}"},
+        "requester": {"display": medico_nombre},
+        "performer": [{"display": especialista_nombre}],
+        "reasonCode": [{"text": remision["motivo"]}],
+        "note": [{"text": remision.get("observaciones") or ""}],
+    }
+
+
+def buscar_paciente_fhir_por_documento(documento: str):
+    """Busca un Patient en FHIR por su documento. Devuelve el id o None."""
+    r = requests.get(
+        f"{FHIR_BASE_URL}/Patient",
+        params={"identifier": f"urn:trazared:documento|{documento}"},
+        headers=HEADERS,
+        timeout=10,
+    )
+    if r.status_code != 200:
+        return None
+    bundle = r.json()
+    entradas = bundle.get("entry", [])
+    if not entradas:
+        return None
+    return entradas[0]["resource"]["id"]
+
+
+def obtener_o_crear_paciente_fhir(documento: str) -> str:
+    """Busca el Patient en FHIR; si no existe, lo crea desde Postgres."""
+    fhir_id = buscar_paciente_fhir_por_documento(documento)
+    if fhir_id:
+        return fhir_id
+    conn = get_db()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cur.execute("SELECT * FROM pacientes WHERE documento = %s;", (documento,))
+    paciente = cur.fetchone()
+    cur.close(); conn.close()
+    if paciente is None:
+        raise ValueError(f"Paciente con documento {documento} no existe en Postgres")
+    resultado = crear_recurso_fhir(paciente_a_fhir(paciente))
+    return resultado["id"]
+
+
+def sincronizar_remision_medica(remision_id: int, patient_fhir_id: str,
+                                 medico_nombre: str = "Médico HUV",
+                                 especialista_nombre: str = "Especialista HUV") -> str:
+    """Envía una remisión médica a FHIR como ServiceRequest. Devuelve el id FHIR."""
+    conn = get_db()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cur.execute("SELECT * FROM remisiones_medicas WHERE id = %s;", (remision_id,))
+    remision = cur.fetchone()
+    cur.close(); conn.close()
+    if remision is None:
+        raise ValueError("Remisión médica no encontrada en Postgres")
+    recurso = remision_medica_a_fhir(remision, patient_fhir_id,
+                                      medico_nombre, especialista_nombre)
+    resultado = crear_recurso_fhir(recurso)
+    return resultado["id"]
 
 if __name__ == "__main__":
     # Ejemplo de uso manual: sincronizar el paciente y remisión creados en la Sección 6
@@ -126,3 +206,140 @@ if __name__ == "__main__":
     print("Encounter creado en FHIR con id:", eid_fhir)
 
     print(consultar_recurso_fhir("Patient", pid_fhir))
+
+    # ── R21 · Suscripción reactiva a Observation de glucosa (LOINC 2339-0) ─────
+# HAPI FHIR, al detectar una Observation nueva con este código, hace POST al
+# endpoint configurado en el canal rest-hook. La API responde y publica el
+# evento para que el médico sea notificado en vivo.
+
+URL_API_RECEPTORA = os.getenv("API_WEBHOOK_URL", "http://api:8000/fhir/observacion")
+GLUCOSA_LOINC = "2339-0"
+
+
+def crear_subscription_fhir(max_intentos: int = 10, espera_seg: int = 3) -> dict:
+    """Crea (o reemplaza) la Subscription de HAPI FHIR que avisa a la API
+    cuando llega una Observation de glucosa (LOINC 2339-0).
+
+    El canal es rest-hook, apuntando a POST {URL_API_RECEPTORA}.
+    Si ya existe una con el mismo criterio, la elimina primero (idempotente).
+
+    Reintenta si HAPI FHIR todavía no está listo (bootea en ~30s).
+    """
+    import time
+
+    criterio = f"Observation?code={GLUCOSA_LOINC}"
+
+    # Esperar a que HAPI FHIR esté disponible
+    for intento in range(1, max_intentos + 1):
+        try:
+            r = requests.get(f"{FHIR_BASE_URL}/metadata", timeout=5)
+            if r.status_code == 200:
+                print(f"[FHIR] HAPI disponible tras {intento} intento(s)")
+                break
+        except requests.RequestException:
+            pass
+        print(f"[FHIR] esperando a HAPI FHIR… (intento {intento}/{max_intentos})")
+        time.sleep(espera_seg)
+    else:
+        print("[FHIR] HAPI FHIR no respondió; no se creó la Subscription")
+        return {}
+
+    # 1. Eliminar Subscriptions previas con el mismo criterio (idempotente)
+    try:
+        r = requests.get(
+            f"{FHIR_BASE_URL}/Subscription",
+            params={"criteria": criterio, "_count": "100"},
+            headers=HEADERS, timeout=10,
+        )
+        if r.status_code == 200:
+            for entrada in r.json().get("entry", []):
+                sub_id = entrada["resource"]["id"]
+                requests.delete(f"{FHIR_BASE_URL}/Subscription/{sub_id}",
+                                headers=HEADERS, timeout=5)
+                print(f"[FHIR] Subscription vieja {sub_id} eliminada")
+    except requests.RequestException as e:
+        print(f"[FHIR] no se pudieron listar Subscriptions: {e}")
+
+    # 2. Crear la nueva Subscription
+    subscription = {
+        "resourceType": "Subscription",
+        "status": "requested",
+        "reason": "Notificar a TrazaRed HUV cuando llegue una Observation de glucosa",
+        "criteria": criterio,
+        "channel": {
+            "type": "rest-hook",
+            "endpoint": URL_API_RECEPTORA,
+            "payload": "application/fhir+json",
+            "header": ["Content-Type: application/fhir+json"],
+        },
+    }
+    r = requests.post(f"{FHIR_BASE_URL}/Subscription",
+                      json=subscription, headers=HEADERS, timeout=10)
+    if r.status_code not in (200, 201):
+        print(f"[FHIR] error creando Subscription: {r.status_code} {r.text[:300]}")
+        return {}
+    resultado = r.json()
+    print(f"[FHIR] Subscription creada: {resultado.get('id')} → {URL_API_RECEPTORA}")
+    return resultado
+
+
+def paciente_id_por_fhir_reference(reference: str):
+    """Dada una referencia FHIR 'Patient/abc-123', devuelve el id de Postgres
+    o None si no se encuentra."""
+    if not reference or "/" not in reference:
+        return None
+    fhir_id = reference.split("/")[-1]
+    try:
+        r = requests.get(f"{FHIR_BASE_URL}/Patient/{fhir_id}", headers=HEADERS, timeout=10)
+        if r.status_code != 200:
+            return None
+        patient = r.json()
+        for ident in patient.get("identifier", []):
+            if ident.get("system") == "urn:trazared:documento":
+                documento = ident.get("value")
+                conn = get_db()
+                cur = conn.cursor()
+                cur.execute("SELECT id FROM pacientes WHERE documento = %s;", (documento,))
+                fila = cur.fetchone()
+                cur.close(); conn.close()
+                return fila[0] if fila else None
+    except requests.RequestException:
+        return None
+    return None
+
+
+def sincronizar_observacion_fhir(paciente_id: int, valor: float,
+                                  unidad: str = "mg/dL",
+                                  loinc: str = GLUCOSA_LOINC,
+                                  fecha: str = None) -> dict:
+    """Crea una Observation de glucosa en HAPI FHIR para el paciente dado.
+
+    Se usa desde el endpoint `/fhir/observacion/simular` para la demo.
+    """
+    conn = get_db()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cur.execute("SELECT * FROM pacientes WHERE id = %s;", (paciente_id,))
+    paciente = cur.fetchone()
+    cur.close(); conn.close()
+    if paciente is None:
+        raise ValueError("Paciente no encontrado")
+
+    # Buscar o crear el Patient en FHIR
+    patient_fhir_id = obtener_o_crear_paciente_fhir(paciente["documento"])
+
+    obs = {
+        "resourceType": "Observation",
+        "status": "final",
+        "code": {
+            "coding": [{"system": "http://loinc.org", "code": loinc, "display": "Glucose"}],
+            "text": "Glucosa en sangre",
+        },
+        "subject": {"reference": f"Patient/{patient_fhir_id}"},
+        "valueQuantity": {"value": float(valor), "unit": unidad, "system": "http://unitsofmeasure.org"},
+    }
+    if fecha:
+        obs["effectiveDateTime"] = fecha
+
+    r = requests.post(f"{FHIR_BASE_URL}/Observation", json=obs, headers=HEADERS, timeout=10)
+    r.raise_for_status()
+    return r.json()

@@ -20,6 +20,8 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 
 from auth import ROLES_CLINICOS, con_zona, db_mongo, get_db, get_usuario_actual, registrar_auditoria, requiere_rol
+from eventos import publicar
+import fhir_sync
 
 router = APIRouter(tags=["Remisiones"])
 
@@ -387,3 +389,190 @@ def borrar_gestion(gestion_id: str):
     resultado = coleccion_gestiones.delete_one({"_id": oid})
     if resultado.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Gestión de contacto no encontrada")
+    
+    # =====================================================
+# R08 · Remisión entre médicos (médico → especialista)
+# =====================================================
+# La tabla `remisiones` del Corte 1 es para traslados a instituciones.
+# Esta es para remitir un paciente a OTRO médico (especialista).
+
+
+class RemitirIn(BaseModel):
+    paciente_id: int
+    especialista_id: int
+    motivo: str
+    observaciones: Optional[str] = None
+
+
+@router.post("/remitir", status_code=201,
+          dependencies=[Depends(requiere_rol("medico", "admin"))])
+def remitir(body: RemitirIn, db=Depends(get_db), usuario=Depends(get_usuario_actual)):
+    """R08: el médico remite un paciente a un especialista."""
+    cur = db.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+
+    # Validar paciente
+    cur.execute("SELECT id, nombre, documento FROM pacientes WHERE id = %s;", (body.paciente_id,))
+    paciente = cur.fetchone()
+    if paciente is None:
+        cur.close()
+        raise HTTPException(404, "Paciente no encontrado")
+      
+    # Validar especialista
+    cur.execute(
+        "SELECT id, nombre, rol FROM usuarios WHERE id = %s AND activo = TRUE;",
+        (body.especialista_id,),
+    )
+    especialista = cur.fetchone()
+    if especialista is None:
+        cur.close()
+        raise HTTPException(404, "Especialista no encontrado")
+    if especialista["rol"] != "especialista":
+        cur.close()
+        raise HTTPException(422, "El destinatario no es un especialista")
+
+    # Crear la remisión
+    cur.execute(
+        """INSERT INTO remisiones_medicas
+              (paciente_id, medico_id, especialista_id, motivo, observaciones, estado)
+           VALUES (%s, %s, %s, %s, %s, 'pendiente')
+           RETURNING id, estado, created_at;""",
+        (body.paciente_id, usuario["id"], body.especialista_id,
+         body.motivo, body.observaciones),
+    )
+    fila = cur.fetchone()
+    db.commit()
+    cur.close()
+
+    # Auditoría (R13)
+    registrar_auditoria(
+        db, usuario["id"], "remision_creada", "remisiones_medicas", fila["id"],
+        f"paciente {body.paciente_id} → especialista {body.especialista_id}"
+    )
+    # R08 + FHIR: reflejar la remisión en FHIR como ServiceRequest
+    try:
+        fhir_patient_id = fhir_sync.obtener_o_crear_paciente_fhir(paciente["documento"])
+        fhir_sr_id = fhir_sync.sincronizar_remision_medica(
+            fila["id"], fhir_patient_id,
+            medico_nombre=usuario["nombre"],
+            especialista_nombre=especialista["nombre"],
+        )
+        print(f"[FHIR] ServiceRequest {fhir_sr_id} creado para remisión {fila['id']}")
+    except Exception as e:
+        print(f"[FHIR] no se pudo sincronizar la remisión {fila['id']}: {e}")
+
+    # R19: notificar al especialista
+    publicar([body.especialista_id], {
+        "tipo": "remision_creada",
+        "mensaje": f"Nueva remisión de {usuario['nombre']}: {paciente['nombre']}",
+        "paciente_id": body.paciente_id,
+        "remision_id": fila["id"],
+    })
+
+    return {"id": fila["id"], "estado": fila["estado"]}
+
+
+@router.post("/remitir/{remision_id}/aceptar",
+          dependencies=[Depends(requiere_rol("especialista", "admin"))])
+def aceptar_remision(
+    remision_id: int,
+    observaciones: Optional[str] = None,
+    db=Depends(get_db),
+    usuario=Depends(get_usuario_actual),
+):
+    """R08: el especialista acepta la remisión. Se avisa al médico remitente."""
+    cur = db.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cur.execute(
+        """SELECT r.*, p.nombre AS paciente_nombre, p.id AS paciente_id
+             FROM remisiones_medicas r
+             JOIN pacientes p ON p.id = r.paciente_id
+            WHERE r.id = %s;""",
+        (remision_id,),
+    )
+    r = cur.fetchone()
+    if r is None:
+        cur.close()
+        raise HTTPException(404, "Remisión no encontrada")
+    if r["especialista_id"] != usuario["id"] and usuario["rol"] != "admin":
+        cur.close()
+        raise HTTPException(403, "Esta remisión no es para usted")
+    if r["estado"] != "pendiente":
+        cur.close()
+        raise HTTPException(409, f"La remisión ya está {r['estado']}")
+
+    cur.execute(
+        """UPDATE remisiones_medicas
+              SET estado = 'aceptada',
+                  aceptada_en = now(),
+                  observaciones = COALESCE(%s, observaciones)
+            WHERE id = %s
+            RETURNING id, estado, aceptada_en;""",
+        (observaciones, remision_id),
+    )
+    fila = cur.fetchone()
+    db.commit()
+    cur.close()
+
+    registrar_auditoria(
+        db, usuario["id"], "remision_aceptada", "remisiones_medicas", remision_id,
+        f"paciente {r['paciente_id']}"
+    )
+
+    # R19: avisar al médico remitente
+    publicar([r["medico_id"]], {
+        "tipo": "remision_aceptada",
+        "mensaje": f"El especialista aceptó la remisión de {r['paciente_nombre']}",
+        "paciente_id": r["paciente_id"],
+        "remision_id": remision_id,
+    })
+
+    return {"id": fila["id"], "estado": fila["estado"]}
+
+
+@router.get("/remitir/bandeja",
+         dependencies=[Depends(requiere_rol("especialista", "admin"))])
+def bandeja_especialista(estado: Optional[str] = None,
+                        db=Depends(get_db),
+                        usuario=Depends(get_usuario_actual)):
+    """R08: las remisiones dirigidas al especialista autenticado."""
+    cur = db.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    sql = """
+        SELECT r.id, r.paciente_id, r.motivo, r.observaciones, r.estado,
+               r.created_at, r.aceptada_en,
+               p.nombre AS paciente_nombre, p.documento AS paciente_documento,
+               m.nombre AS medico_nombre, m.correo AS medico_correo
+          FROM remisiones_medicas r
+          JOIN pacientes p ON p.id = r.paciente_id
+          JOIN usuarios  m ON m.id = r.medico_id
+         WHERE r.especialista_id = %s
+    """
+    params = [usuario["id"]]
+    if estado:
+        sql += " AND r.estado = %s"
+        params.append(estado)
+    sql += " ORDER BY r.created_at DESC;"
+    cur.execute(sql, tuple(params))
+    filas = cur.fetchall()
+    cur.close()
+    return filas
+
+
+@router.get("/remitir/enviadas",
+         dependencies=[Depends(requiere_rol("medico", "admin"))])
+def remisiones_enviadas(db=Depends(get_db), usuario=Depends(get_usuario_actual)):
+    """R08: las remisiones que yo (médico) he enviado."""
+    cur = db.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cur.execute(
+        """SELECT r.id, r.paciente_id, r.motivo, r.estado, r.created_at,
+                  r.aceptada_en,
+                  p.nombre AS paciente_nombre,
+                  e.nombre AS especialista_nombre, e.correo AS especialista_correo
+             FROM remisiones_medicas r
+             JOIN pacientes p ON p.id = r.paciente_id
+             JOIN usuarios  e ON e.id = r.especialista_id
+            WHERE r.medico_id = %s
+            ORDER BY r.created_at DESC;""",
+        (usuario["id"],),
+    )
+    filas = cur.fetchall()
+    cur.close()
+    return filas
