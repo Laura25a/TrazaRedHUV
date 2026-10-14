@@ -187,8 +187,20 @@ def crear_paciente(paciente: PacienteCreate, db=Depends(get_db), usuario=Depends
     fila = cur.fetchone()
     db.commit()
     cur.close()
+
     # R13: sin datos personales en el detalle; el id basta para rastrearlo
     registrar_auditoria(db, usuario["id"], "paciente_creado", "pacientes", fila["id"])
+
+    # R15 · Interoperabilidad FHIR: sincronizar el paciente con HAPI FHIR.
+    # Si HAPI no responde, se registra el error pero no se tumba la creación
+    # del paciente en Postgres (ya está guardado y es lo importante).
+    try:
+        import fhir_sync
+        fhir_id = fhir_sync.sincronizar_paciente(fila["id"])
+        print(f"[FHIR] Patient {fhir_id} creado para paciente {fila['id']} ({fila['documento']})")
+    except Exception as e:
+        print(f"[FHIR] no se pudo sincronizar el paciente {fila['id']}: {e}")
+
     return fila
 
 
@@ -297,6 +309,145 @@ def ver_imagen(instance_id: str, db=Depends(get_db),
     return Response(content=png, media_type="image/png",
                     headers={"Cache-Control": "private, max-age=300"})
 
+# ----------------------------------------------------------------------------
+# R21 · Interoperabilidad reactiva con FHIR
+# ----------------------------------------------------------------------------
+# HAPI FHIR, al detectar una Observation nueva de glucosa (LOINC 2339-0),
+# hace POST aquí (rest-hook). Identificamos al paciente por subject.reference,
+# notificamos al médico y dejamos constancia en la auditoría con origen FHIR.
+#
+# También ofrecemos /fhir/observacion/simular para probar el flujo completo
+# desde la interfaz sin necesidad de Postman.
+class ObservacionFHIRIn(BaseModel):
+    resourceType: str
+    id: Optional[str] = None
+    status: Optional[str] = None
+    code: Optional[dict] = None
+    subject: Optional[dict] = None
+    valueQuantity: Optional[dict] = None
+    effectiveDateTime: Optional[str] = None
+
+
+class SimularObservacionIn(BaseModel):
+    paciente_id: int
+    valor: float
+    unidad: str = "mg/dL"
+
+
+@app.post("/fhir/observacion", tags=["R21 FHIR reactivo"], status_code=202)
+@app.put("/fhir/observacion/Observation/{observation_id}", tags=["R21 FHIR reactivo"], status_code=202)
+async def recibir_observacion_fhir(
+    observacion: ObservacionFHIRIn,
+    observation_id: Optional[str] = None,
+):
+    """R21: receptor del rest-hook de HAPI FHIR para Observation de glucosa.
+
+    Acepta dos formas:
+      * POST /fhir/observacion                     → pruebas manuales.
+      * PUT  /fhir/observacion/Observation/{id}    → formato real de HAPI FHIR.
+
+    HAPI FHIR reintenta el webhook varias veces si no recibe una respuesta
+    que considere "válida". Para no crear notificaciones duplicadas, usamos
+    el fhir_observation_id como clave de idempotencia: si ya procesamos esa
+    Observation, no volvemos a notificar.
+    """
+    import fhir_sync
+    from eventos import publicar
+
+    # 0. Idempotencia: ¿ya procesamos esta Observation?
+    obs_id = observacion.id or observation_id or "desconocido"
+
+    conn = psycopg2.connect(PG_CONNECTION_STRING)
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            """CREATE TABLE IF NOT EXISTS fhir_observaciones_procesadas (
+                   fhir_id TEXT PRIMARY KEY,
+                   paciente_id INTEGER,
+                   valor NUMERIC,
+                   procesado_en TIMESTAMP DEFAULT now()
+               );"""
+        )
+        cur.execute(
+            "SELECT 1 FROM fhir_observaciones_procesadas WHERE fhir_id = %s;",
+            (obs_id,),
+        )
+        ya_procesada = cur.fetchone() is not None
+
+        if ya_procesada:
+            print(f"[FHIR] Observation {obs_id} ya procesada; reintento ignorado")
+            cur.close()
+            return {"recibido": True, "motivo": "ya procesada", "fhir_id": obs_id}
+
+        # 1. Identificar al paciente por subject.reference
+        referencia = (observacion.subject or {}).get("reference") or ""
+        paciente_id = fhir_sync.paciente_id_por_fhir_reference(referencia)
+        if paciente_id is None:
+            print(f"[FHIR] Observation recibida sin paciente conocido: {referencia}")
+            cur.close()
+            return {"recibido": False, "motivo": "paciente no encontrado"}
+
+        # 2. Extraer el valor de glucosa
+        valor = (observacion.valueQuantity or {}).get("value")
+        unidad = (observacion.valueQuantity or {}).get("unit") or "mg/dL"
+
+        # 3. Marcar como procesada ANTES de notificar (evita race conditions)
+        cur.execute(
+            """INSERT INTO fhir_observaciones_procesadas (fhir_id, paciente_id, valor)
+               VALUES (%s, %s, %s) ON CONFLICT (fhir_id) DO NOTHING;""",
+            (obs_id, paciente_id, valor),
+        )
+        conn.commit()
+
+        # 4. Notificar a los clínicos activos
+        cur.execute(
+            """SELECT id FROM usuarios
+               WHERE activo = TRUE AND rol IN ('medico','especialista','admin');"""
+        )
+        responsables = [f[0] for f in cur.fetchall()]
+        cur.close()
+    finally:
+        conn.close()
+
+    # 5. Publicar evento
+    publicar(responsables, {
+        "tipo": "observacion_fhir",
+        "mensaje": f"Glucosa {valor} {unidad} recibida por FHIR para el paciente {paciente_id}",
+        "paciente_id": paciente_id,
+        "valor_glucosa": valor,
+        "unidad": unidad,
+        "origen": "FHIR",
+        "fhir_observation_id": obs_id,
+    })
+
+    return {"recibido": True, "paciente_id": paciente_id, "valor": valor, "fhir_id": obs_id}
+
+
+@app.post("/fhir/observacion/simular", tags=["R21 FHIR reactivo"], status_code=201)
+def simular_observacion(body: SimularObservacionIn,
+                        usuario=Depends(requiere_rol("admin", "medico"))):
+    """R21: simula la llegada de una Observation desde otro sistema.
+
+    Publica la Observation en HAPI FHIR; HAPI, al cumplir el criteria de la
+    Subscription, hace POST al endpoint /fhir/observacion y el médico recibe
+    la notificación en vivo. Sirve para probar desde la interfaz sin Postman.
+    """
+    import fhir_sync
+    try:
+        resultado = fhir_sync.sincronizar_observacion_fhir(
+            paciente_id=body.paciente_id,
+            valor=body.valor,
+            unidad=body.unidad,
+        )
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"No se pudo publicar en HAPI FHIR: {e}")
+    return {
+        "fhir_observation_id": resultado.get("id"),
+        "paciente_id": body.paciente_id,
+        "valor": body.valor,
+        "unidad": body.unidad,
+        "mensaje": "Observation publicada; la Subscription notificará al médico.",
+    }
 
 # ----------------------------------------------------------------------------
 # SEMANA 8 — Interfaz gráfica (frontend/) servida por la misma API

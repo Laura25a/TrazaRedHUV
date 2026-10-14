@@ -370,6 +370,26 @@ def quien_soy(usuario=Depends(get_usuario_actual), db=Depends(get_db)):
     cur.close()
     return fila
 
+@router.get("/especialistas", response_model=List[UsuarioOut])
+def listar_especialistas(
+    db=Depends(get_db),
+    usuario=Depends(requiere_rol("admin", "medico", "especialista")),
+):
+    """Lista de especialistas activos (para remitir pacientes).
+
+    Este endpoint SÍ lo pueden usar los médicos: necesitan ver a quién
+    remitir. Solo devuelve usuarios con rol 'especialista' y activos.
+    """
+    cur = db.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cur.execute(
+        f"""SELECT {COLUMNAS_USUARIO}
+              FROM usuarios
+             WHERE rol = 'especialista' AND activo = TRUE
+             ORDER BY nombre;"""
+    )
+    filas = cur.fetchall()
+    cur.close()
+    return filas
 
 @router.get("/usuarios", response_model=List[UsuarioOut],
             dependencies=[Depends(requiere_rol("admin"))])

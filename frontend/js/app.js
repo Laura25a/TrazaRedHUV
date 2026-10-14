@@ -68,6 +68,7 @@ const ICONOS = {
   auditoria: '<path d="M12 3 4 6v6c0 4.5 3.4 8.3 8 9 4.6-.7 8-4.5 8-9V6z"/><path d="m9 12 2 2 4-4"/>',
   reloj: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
   check: '<path d="m5 12 5 5 9-10"/>',
+  derivar: '<path d="M4 20V10M10 20V4M16 20v-7"/><path d="m18 8 3-3-3-3M21 5h-7"/>',
   x: '<path d="M6 6l12 12M18 6 6 18"/>',
   flecha: '<path d="M12 5v14M6 13l6 6 6-6"/>',
   info: '<circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.5"/>',
@@ -77,6 +78,8 @@ const ICONOS = {
   alerta: '<path d="M12 3 2 21h20L12 3z"/><path d="M12 10v5M12 18v.5"/>',
   imagen: '<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="m21 16-5-5-9 9"/>',
   trazo: '<path d="M3 12h4l3 7 4-14 3 7h4"/>',
+  campana: '<path d="M6 16V11a6 6 0 0 1 12 0v5l2 2H4l2-2zM10 20a2 2 0 0 0 4 0"/>',
+  billete: '<rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="3"/><path d="M6 10v4M18 10v4"/>',
 };
 const icono = (n, extra = "") => `<svg viewBox="0 0 24 24" ${extra} fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">${ICONOS[n] || ""}</svg>`;
 
@@ -321,9 +324,12 @@ async function actualizarNotificaciones() {
 const SECCIONES = {
   inicio: { titulo: "Inicio", icono: "inicio", roles: ["admin", "medico", "especialista", "contable", "eps", "paciente"], pintar: vistaInicio },
   remisiones: { titulo: "Remisiones", icono: "remisiones", roles: ["admin", "medico", "especialista", "eps"], pintar: vistaRemisiones },
+  remitir: { titulo: "Remisión a especialista", icono: "derivar", roles: ["admin", "medico", "especialista"], pintar: vistaRemitir },
   pacientes: { titulo: "Pacientes", icono: "pacientes", roles: ["admin", "medico", "especialista"], pintar: vistaPacientes },
   hospitales: { titulo: "Hospitales de destino", icono: "hospitales", roles: ["admin", "medico", "especialista", "eps"], pintar: vistaHospitales },
   reportes: { titulo: "Reportes", icono: "reportes", roles: ["admin", "medico", "especialista", "eps"], pintar: vistaReportes },
+  notificaciones: { titulo: "Notificaciones", icono: "campana", roles: ["admin", "medico", "especialista", "contable", "eps", "paciente"], pintar: vistaNotificaciones },
+  contabilidad: { titulo: "Contabilidad", icono: "billete", roles: ["admin", "contable"], pintar: vistaContabilidad, grupo: "Administración" },
   usuarios: { titulo: "Usuarios", icono: "usuarios", roles: ["admin"], pintar: vistaUsuarios, grupo: "Administración" },
   auditoria: { titulo: "Auditoría", icono: "auditoria", roles: ["admin"], pintar: vistaAuditoria, grupo: "Administración" },
   ficha: { oculta: true, roles: ["admin", "medico", "especialista", "eps", "paciente"], pintar: vistaFicha, padre: "remisiones" },
@@ -407,10 +413,42 @@ async function vistaInicio() {
     </section>
     <div id="inicio-kpis"></div>
     <div id="inicio-cuerpo">${cargando()}</div></div>`;
-  if (u.rol === "contable") {   // el contable no ve remisiones ni datos clínicos
-    $("#inicio-cuerpo").innerHTML = `<div class="tarjeta vacio">Aquí irá la facturación (contabilidad).</div>`;
+    if (u.rol === "contable") {
+    // Vista de inicio para el contable: resumen de facturas
+    try {
+      const facturas = await API.get("/facturas");
+      const total = facturas.reduce((s, f) => s + (f.valor || 0), 0);
+      const pendientes = facturas.filter(f => f.estado_pago === "pendiente").length;
+      const pagadas = facturas.filter(f => f.estado_pago === "pagada").length;
+
+      $("#inicio-kpis").innerHTML = `<div class="kpis">
+        ${kpi("reportes", "tono-azul", facturas.length, "Total facturas")}
+        ${kpi("reloj", "tono-ambar", pendientes, "Pendientes de pago")}
+        ${kpi("check", "tono-verde", pagadas, "Pagadas")}
+        ${kpi("traza", "tono-violeta", `$${(total / 1000).toFixed(0)}K`, "Valor total")}</div>`;
+
+      const ultimas = facturas.slice(0, 5);
+      $("#inicio-cuerpo").innerHTML = `
+        <h3 class="seccion-titulo" style="margin-bottom:.9rem">Últimas facturas</h3>
+        <section class="tarjeta">${ultimas.length ? `<table><thead><tr>
+          <th>Fecha</th><th>Paciente</th><th>Servicio</th><th>Valor</th><th>Estado</th>
+        </tr></thead><tbody>${ultimas.map(f => `<tr>
+          <td class="num">${fechaHora(f.fecha)}</td>
+          <td>Paciente #${f.paciente_id}</td>
+          <td><span class="pildora est-neutro">${esc(f.servicio)}</span></td>
+          <td class="num">$${(f.valor || 0).toLocaleString("es-CO")}</td>
+          <td>${f.estado_pago === "pagada" ? `<span class="pildora est-aceptada">Pagada</span>`
+              : f.estado_pago === "anulada" ? `<span class="pildora est-rechazada">Anulada</span>`
+              : `<span class="pildora est-pendiente">Pendiente</span>`}</td>
+        </tr>`).join("")}</tbody></table>
+        <div style="padding:1rem"><button class="btn btn-primario" onclick="ir('contabilidad')">
+          Ver toda la contabilidad ›</button></div>` : `<div class="vacio">No hay facturas registradas.</div>`}</section>`;
+    } catch (e) {
+      $("#inicio-cuerpo").innerHTML = `<div class="tarjeta vacio">${esc(e.message)}</div>`;
+    }
     return;
   }
+
   let lista;
   try { lista = activas(await remisiones(true)); } catch (e) { $("#inicio-cuerpo").innerHTML = `<div class="tarjeta vacio">${esc(e.message)}</div>`; return; }
   actualizarNotificaciones();
@@ -564,7 +602,31 @@ function tabPaciente(cont, { r, p }) {
   ];
   if (r && r.motivo) filas.push(["Diagnóstico principal", diag], ["Motivo de remisión", motivo]);
   if (r && sesion.usuario.rol === "paciente") filas.push(["¿Qué significa?", EXPLICA_PACIENTE[r.estado] || "—"]);
-  cont.innerHTML = `<div class="panel"><dl class="datos">${filas.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join("")}</dl></div>`;
+
+  const puedeDescargar = p && ["admin", "medico", "especialista"].includes(sesion.usuario.rol);
+  const puedeSimularFHIR = p && ["admin", "medico"].includes(sesion.usuario.rol);
+
+  cont.innerHTML = `
+    <div class="panel">
+      <dl class="datos">${filas.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join("")}</dl>
+      ${puedeDescargar || puedeSimularFHIR ? `
+        <div style="margin-top:1rem;display:flex;gap:.5rem;flex-wrap:wrap">
+          ${puedeDescargar ? `
+            <button class="btn btn-secundario btn-sm" id="btn-historia-pdf">
+              ${icono("reportes")} Descargar historia clínica (PDF)
+            </button>` : ""}
+          ${puedeSimularFHIR ? `
+            <button class="btn btn-suave btn-sm" id="btn-simular-fhir" title="Envía una Observation de glucosa a HAPI FHIR; el webhook notifica al médico en vivo">
+              ${icono("trazo")} Simular Observation FHIR (R21)
+            </button>` : ""}
+        </div>` : ""}
+    </div>`;
+
+  const btnPDF = $("#btn-historia-pdf", cont);
+  if (btnPDF) btnPDF.addEventListener("click", () => descargarHistoriaPDF(p.id, btnPDF));
+
+  const btnFHIR = $("#btn-simular-fhir", cont);
+  if (btnFHIR) btnFHIR.addEventListener("click", () => simularObservacionFHIR(p, btnFHIR));
 }
 
 function tabClinica(cont, { r, obs, recargar }) {
@@ -1115,6 +1177,428 @@ function formularioUsuario() {
   });
 }
 
+// ==========================================================================
+// VISTA: NOTIFICACIONES (R18)
+// ==========================================================================
+async function vistaNotificaciones() {
+  const main = $("#contenido");
+  main.innerHTML = `<div class="pagina">
+    <div class="pagina-cabeza"><div><h2>Notificaciones</h2>
+      <p>Tu bandeja personal. Solo tú ves las tuyas; las ajenas no se pueden leer.</p></div>
+      <button class="btn btn-secundario" id="notif-ref">Actualizar</button></div>
+    <div id="notif-kpis"></div>
+    <section class="tarjeta">
+      <div class="filtros">
+        <label class="check"><input type="checkbox" id="notif-no-leidas"> Ver solo no leídas</label>
+        <span class="total" id="notif-total"></span>
+      </div>
+      <div id="notif-lista">${cargando("Cargando notificaciones…")}</div>
+    </section></div>`;
+
+  async function cargar() {
+    $("#notif-lista").innerHTML = cargando();
+    try {
+      const soloNoLeidas = $("#notif-no-leidas").checked;
+      const url = soloNoLeidas ? "/notificaciones?leidas=false" : "/notificaciones";
+      const [notifs, pend] = await Promise.all([API.get(url), API.get("/pendientes")]);
+      $("#notif-total").textContent = `${notifs.length} notificación${notifs.length === 1 ? "" : "es"}`;
+
+      $("#notif-kpis").innerHTML = `<div class="kpis">
+        ${kpi("reportes", "tono-azul", pend.reportes_por_revisar, "Reportes por revisar")}
+        ${kpi("remisiones", "tono-violeta", pend.remisiones_recibidas, "Remisiones recibidas")}
+        ${kpi("alerta", "tono-rojo", pend.alertas_activas, "Alertas activas")}</div>`;
+
+      if (!notifs.length) {
+        $("#notif-lista").innerHTML = `<div class="vacio">No tienes notificaciones${soloNoLeidas ? " sin leer" : ""}.</div>`;
+        return;
+      }
+
+      $("#notif-lista").innerHTML = `<ul class="notificaciones">${notifs.map(n => `
+        <li class="notif-item ${n.leida ? "" : "no-leida"}" data-id="${n.id}">
+          <div class="notif-icono">${icono(n.tipo?.includes("alerta") ? "alerta" : n.tipo === "observacion_fhir" ? "trazo" : n.tipo === "reporte_aprobado" ? "check" : "info")}</div>
+          <div class="notif-contenido">
+            <div class="notif-mensaje">${esc(n.mensaje)}</div>
+            <div class="notif-meta">
+              <span class="tenue">${fechaHora(n.fecha)}</span>
+              ${n.tipo ? `<span class="pildora est-neutro">${esc(n.tipo)}</span>` : ""}
+              ${n.paciente_id ? `<span class="tenue">Paciente #${n.paciente_id}</span>` : ""}
+            </div>
+          </div>
+          ${!n.leida ? `<button class="btn btn-suave btn-sm" data-leer="${n.id}">Marcar leída</button>` : ""}
+        </li>`).join("")}</ul>`;
+
+      $$("[data-leer]").forEach(b => b.addEventListener("click", async () => {
+        b.disabled = true; b.textContent = "…";
+        try {
+          await API.post(`/notificaciones/${b.dataset.leer}/leer`);
+          cargar();
+          actualizarNotificaciones();
+        } catch (e) { toast(e.message, "error"); b.disabled = false; b.textContent = "Marcar leída"; }
+      }));
+    } catch (e) {
+      $("#notif-lista").innerHTML = `<div class="vacio">${esc(e.message)}</div>`;
+    }
+  }
+
+  $("#notif-no-leidas").addEventListener("change", cargar);
+  $("#notif-ref").addEventListener("click", cargar);
+  cargar();
+}
+
+// ==========================================================================
+// VISTA: CONTABILIDAD (R09)
+// ==========================================================================
+async function vistaContabilidad() {
+  const u = sesion.usuario;
+  if (!["admin", "contable"].includes(u.rol)) {
+    $("#contenido").innerHTML = `<div class="pagina"><div class="tarjeta vacio">
+      Solo el rol contable o admin pueden ver la contabilidad.</div></div>`;
+    return;
+  }
+  $("#contenido").innerHTML = `<div class="pagina">
+    <div class="pagina-cabeza"><div><h2>Contabilidad</h2>
+      <p>Facturas de los servicios: consulta, análisis de IA y remisión.</p></div>
+      <button class="btn btn-primario" id="fac-nueva">+ Nueva factura</button></div>
+    <div id="fac-kpis"></div>
+    <section class="tarjeta">
+      <div class="filtros">
+        <select id="fac-servicio">
+          <option value="">Todos los servicios</option>
+          <option value="consulta">Consulta</option>
+          <option value="analisis_ia">Análisis de IA</option>
+          <option value="remision">Remisión</option>
+        </select>
+        <select id="fac-estado">
+          <option value="">Todos los estados</option>
+          <option value="pendiente">Pendiente</option>
+          <option value="pagada">Pagada</option>
+          <option value="anulada">Anulada</option>
+        </select>
+        <span class="total" id="fac-total"></span>
+      </div>
+      <div class="tabla-scroll" id="fac-tabla">${cargando("Cargando facturas…")}</div>
+    </section></div>`;
+
+  $("#fac-nueva").addEventListener("click", formularioFactura);
+
+  async function cargar() {
+    $("#fac-tabla").innerHTML = cargando();
+    try {
+      const servicio = $("#fac-servicio").value;
+      const estado = $("#fac-estado").value;
+      const params = new URLSearchParams();
+      if (servicio) params.set("servicio", servicio);
+      if (estado) params.set("estado_pago", estado);
+      const url = `/facturas${params.toString() ? `?${params}` : ""}`;
+      const facturas = await API.get(url);
+      const total = facturas.reduce((s, f) => s + (f.valor || 0), 0);
+      const pendientes = facturas.filter(f => f.estado_pago === "pendiente");
+      const pagadas = facturas.filter(f => f.estado_pago === "pagada");
+
+      $("#fac-total").textContent = `${facturas.length} factura${facturas.length === 1 ? "" : "s"}`;
+      $("#fac-kpis").innerHTML = `<div class="kpis">
+        ${kpi("reportes", "tono-azul", facturas.length, "Total facturas")}
+        ${kpi("reloj", "tono-ambar", pendientes.length, "Pendientes de pago")}
+        ${kpi("check", "tono-verde", pagadas.length, "Pagadas")}
+        ${kpi("trazo", "tono-violeta", `$${(total / 1000).toFixed(0)}K`, "Valor total")}</div>`;
+
+      if (!facturas.length) {
+        $("#fac-tabla").innerHTML = `<div class="vacio">No hay facturas registradas.</div>`;
+        return;
+      }
+
+      $("#fac-tabla").innerHTML = `<table><thead><tr>
+          <th>Fecha</th><th>Paciente</th><th>Servicio</th><th>Valor</th><th>Estado</th><th>Reporte IA</th><th></th>
+        </tr></thead>
+        <tbody>${facturas.map(f => `<tr>
+          <td class="num" style="white-space:nowrap">${fechaHora(f.fecha)}</td>
+          <td>Paciente #${f.paciente_id}</td>
+          <td><span class="pildora est-neutro">${esc(f.servicio)}</span></td>
+          <td class="num">$${(f.valor || 0).toLocaleString("es-CO")} ${esc(f.moneda || "COP")}</td>
+          <td>${f.estado_pago === "pagada" ? `<span class="pildora est-aceptada">Pagada</span>`
+              : f.estado_pago === "anulada" ? `<span class="pildora est-rechazada">Anulada</span>`
+              : `<span class="pildora est-pendiente">Pendiente</span>`}</td>
+          <td class="num">${f.reporte_id ? `#${f.reporte_id}` : "—"}</td>
+          <td>${f.estado_pago === "pendiente"
+              ? `<button class="btn btn-ok btn-sm" data-pagar="${f._id}">Marcar pagada</button>`
+              : ""}</td>
+        </tr>`).join("")}</tbody></table>`;
+
+      $$("[data-pagar]").forEach(b => b.addEventListener("click", async () => {
+        b.disabled = true; b.textContent = "…";
+        try {
+          await API.put(`/facturas/${b.dataset.pagar}/pagar`);
+          toast("Factura marcada como pagada", "ok");
+          cargar();
+        } catch (e) { toast(e.message, "error"); b.disabled = false; b.textContent = "Marcar pagada"; }
+      }));
+    } catch (e) {
+      $("#fac-tabla").innerHTML = `<div class="vacio">${esc(e.message)}</div>`;
+    }
+  }
+
+  $("#fac-servicio").addEventListener("change", cargar);
+  $("#fac-estado").addEventListener("change", cargar);
+  cargar();
+}
+
+async function formularioFactura() {
+  let lista;
+  try { lista = await pacientes(); } catch (e) { toast(e.message, "error"); return; }
+  const etq = p => `${p.documento} — ${p.nombre}`;
+
+  abrirFormulario({
+    titulo: "Nueva factura", textoBoton: "Crear factura",
+    campos: `<div class="campo"><label for="f-pac">Paciente</label>
+        <input id="f-pac" name="paciente" list="dl-fac-pac" required placeholder="Escribe para buscar…">
+        ${datalist("dl-fac-pac", lista.map(etq))}</div>
+      <div class="fila">
+        <div class="campo"><label for="f-ser">Servicio</label><select id="f-ser" name="servicio" required>
+          <option value="consulta">Consulta</option>
+          <option value="analisis_ia">Análisis de IA</option>
+          <option value="remision">Remisión</option></select></div>
+        <div class="campo"><label for="f-val">Valor (COP)</label>
+          <input id="f-val" name="valor" type="number" min="0" step="1000" required value="50000"></div>
+      </div>
+      <div class="campo"><label for="f-est">Estado de pago</label><select id="f-est" name="estado_pago">
+        <option value="pendiente">Pendiente</option>
+        <option value="pagada">Pagada</option>
+        <option value="anulada">Anulada</option></select></div>`,
+    async alGuardar(d) {
+      const p = lista.find(x => etq(x) === d.paciente) || lista.find(x => x.documento === d.paciente.trim());
+      if (!p) throw new Error("Escoge un paciente de la lista.");
+      if (d.valor === "" || isNaN(+d.valor)) throw new Error("Escribe un valor numérico.");
+      await API.post("/facturas", {
+        paciente_id: p.id,
+        servicio: d.servicio,
+        valor: +d.valor,
+        estado_pago: d.estado_pago,
+      });
+      toast("Factura creada", "ok");
+      vistaContabilidad();
+    },
+  });
+}
+
+// ==========================================================================
+// VISTA: REMISIÓN A ESPECIALISTA (R08) — flujo clínico
+// ==========================================================================
+async function vistaRemitir() {
+  const u = sesion.usuario;
+  const esMedico = ["admin", "medico"].includes(u.rol);
+  const esEspecialista = ["admin", "especialista"].includes(u.rol);
+
+  $("#contenido").innerHTML = `<div class="pagina">
+    <div class="pagina-cabeza"><div><h2>Remisión a especialista</h2>
+      <p>${esMedico && esEspecialista ? "Envía un paciente a un especialista o atiende los que te remiten."
+        : esMedico ? "Envía un paciente a un especialista del HUV."
+        : "Atiende las remisiones que te envían otros médicos."}</p></div>
+      ${esMedico ? `<button class="btn btn-primario" id="btn-nueva-rem">+ Remitir paciente</button>` : ""}</div>
+
+    <nav class="pestanas" role="tablist" style="margin-bottom:1rem">
+      ${esMedico ? `<button role="tab" data-tab="enviadas" class="activa">Enviadas</button>` : ""}
+      ${esEspecialista ? `<button role="tab" data-tab="bandeja" class="${esMedico ? "" : "activa"}">Bandeja</button>` : ""}
+    </nav>
+
+    <div id="remitir-contenido">${cargando()}</div>
+  </div>`;
+
+  if (esMedico) $("#btn-nueva-rem").addEventListener("click", formularioRemitir);
+
+  async function cargarEnviadas() {
+    $("#remitir-contenido").innerHTML = cargando("Cargando remisiones enviadas…");
+    try {
+      const lista = await API.get("/remitir/enviadas");
+      if (!lista.length) {
+        $("#remitir-contenido").innerHTML = `<div class="tarjeta vacio">No has enviado remisiones todavía.</div>`;
+        return;
+      }
+      $("#remitir-contenido").innerHTML = `<section class="tarjeta"><table><thead><tr>
+        <th>Fecha</th><th>Paciente</th><th>Especialista</th><th>Motivo</th><th>Estado</th>
+      </tr></thead><tbody>${lista.map(r => `<tr>
+        <td class="num">${fechaHora(r.created_at)}</td>
+        <td>${esc(r.paciente_nombre || `Paciente #${r.paciente_id}`)}<span class="sub">#${r.paciente_id}</span></td>
+        <td>${esc(r.especialista_nombre || "—")}<span class="sub">${esc(r.especialista_correo || "")}</span></td>
+        <td>${esc(r.motivo || "")}</td>
+        <td>${r.estado === "aceptada" ? `<span class="pildora est-aceptada">Aceptada</span>`
+            : r.estado === "rechazada" ? `<span class="pildora est-rechazada">Rechazada</span>`
+            : r.estado === "completada" ? `<span class="pildora est-activo">Completada</span>`
+            : `<span class="pildora est-pendiente">Pendiente</span>`}
+          ${r.aceptada_en ? `<span class="sub">${fechaHora(r.aceptada_en)}</span>` : ""}
+        </td>
+      </tr>`).join("")}</tbody></table></section>`;
+    } catch (e) {
+      $("#remitir-contenido").innerHTML = `<div class="tarjeta vacio">${esc(e.message)}</div>`;
+    }
+  }
+
+  async function cargarBandeja() {
+    $("#remitir-contenido").innerHTML = cargando("Cargando bandeja…");
+    try {
+      const lista = await API.get("/remitir/bandeja");
+      if (!lista.length) {
+        $("#remitir-contenido").innerHTML = `<div class="tarjeta vacio">No tienes remisiones pendientes.</div>`;
+        return;
+      }
+      $("#remitir-contenido").innerHTML = `<section class="tarjeta">${lista.map(r => `
+        <article class="panel" style="border-bottom:1px solid #eee;padding:1rem">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;flex-wrap:wrap">
+            <div>
+              <h4 style="margin:0 0 .3rem">${esc(r.paciente_nombre || `Paciente #${r.paciente_id}`)}
+                <span class="pildora est-${r.estado === "aceptada" ? "aceptada" : "pendiente"}">${esc(r.estado)}</span></h4>
+              <p class="tenue" style="margin:0">De: <strong>${esc(r.medico_nombre || "Médico")}</strong> · ${fechaHora(r.created_at)}</p>
+              <p style="margin:.5rem 0 0"><strong>Motivo:</strong> ${esc(r.motivo)}</p>
+              ${r.observaciones ? `<p style="margin:.3rem 0 0" class="tenue">${esc(r.observaciones)}</p>` : ""}
+            </div>
+            ${r.estado === "pendiente" ? `
+              <div style="display:flex;gap:.5rem;align-items:center">
+                <input type="text" placeholder="Observaciones (opcional)" id="obs-${r.id}" style="padding:.4rem .6rem;border:1px solid #ddd;border-radius:4px;min-width:220px">
+                <button class="btn btn-ok btn-sm" data-aceptar="${r.id}">Aceptar</button>
+              </div>` : `<span class="tenue">Aceptada ${r.aceptada_en ? `· ${fechaHora(r.aceptada_en)}` : ""}</span>`}
+          </div>
+        </article>`).join("")}</section>`;
+
+      $$("[data-aceptar]").forEach(b => b.addEventListener("click", async () => {
+        const id = b.dataset.aceptar;
+        const obs = $(`#obs-${id}`)?.value?.trim() || "";
+        b.disabled = true; b.textContent = "…";
+        try {
+          const url = `/remitir/${id}/aceptar${obs ? `?observaciones=${encodeURIComponent(obs)}` : ""}`;
+          await API.post(url);
+          toast("Remisión aceptada (se notificó al médico remitente)", "ok");
+          cargarBandeja();
+          actualizarNotificaciones();
+        } catch (e) { toast(e.message, "error"); b.disabled = false; b.textContent = "Aceptar"; }
+      }));
+    } catch (e) {
+      $("#remitir-contenido").innerHTML = `<div class="tarjeta vacio">${esc(e.message)}</div>`;
+    }
+  }
+
+  // Pestañas
+  const pestañas = $$(".pestanas button", $("#contenido"));
+  pestañas.forEach(b => b.addEventListener("click", () => {
+    pestañas.forEach(x => x.classList.remove("activa"));
+    b.classList.add("activa");
+    if (b.dataset.tab === "enviadas") cargarEnviadas();
+    else if (b.dataset.tab === "bandeja") cargarBandeja();
+  }));
+
+  // Cargar la primera pestaña disponible
+  if (esMedico) await cargarEnviadas();
+  else if (esEspecialista) await cargarBandeja();
+}
+
+async function formularioRemitir() {
+   let pacientesLista, especialistasLista;
+  try {
+    [pacientesLista, especialistasLista] = await Promise.all([
+      pacientes(),
+      API.get("/especialistas"),
+    ]);
+  } catch (e) { toast("No se pudieron cargar los especialistas: " + e.message, "error"); return; }
+
+  const etqPac = p => `${p.documento} — ${p.nombre}`;
+  const etqEsp = u => `${u.nombre} (${u.correo})`;
+
+  if (!especialistasLista.length) {
+    toast("No hay especialistas registrados. Crea uno primero.", "error");
+    return;
+  }
+
+  abrirFormulario({
+    titulo: "Remitir paciente a especialista", textoBoton: "Enviar remisión",
+    campos: `<div class="campo"><label for="r-pac">Paciente</label>
+        <input id="r-pac" name="paciente" list="dl-r-pac" required placeholder="Escribe para buscar…">
+        ${datalist("dl-r-pac", pacientesLista.map(etqPac))}</div>
+      <div class="campo"><label for="r-esp">Especialista</label>
+        <select id="r-esp" name="especialista" required>
+          ${especialistasLista.map(u => `<option value="${u.id}">${esc(etqEsp(u))}</option>`).join("")}
+        </select></div>
+      <div class="campo"><label for="r-mot">Motivo de la remisión</label>
+        <textarea id="r-mot" name="motivo" required placeholder="Paciente con dolor torácico en estudio; requiere valoración por cardiología"></textarea></div>
+      <div class="campo"><label for="r-obs">Observaciones adicionales (opcional)</label>
+        <textarea id="r-obs" name="observaciones" placeholder="Antecedentes, alergias, exámenes previos…"></textarea></div>`,
+    async alGuardar(d) {
+      const p = pacientesLista.find(x => etqPac(x) === d.paciente) || pacientesLista.find(x => x.documento === d.paciente.trim());
+      if (!p) throw new Error("Escoge un paciente de la lista.");
+      if (!d.motivo.trim()) throw new Error("El motivo es obligatorio.");
+
+      const resp = await API.post("/remitir", {
+        paciente_id: p.id,
+        especialista_id: +d.especialista,
+        motivo: d.motivo.trim(),
+        observaciones: d.observaciones?.trim() || null,
+      });
+      toast(`Remisión #${resp.id} enviada (el especialista fue notificado)`, "ok");
+      // Recargar la pestaña "Enviadas"
+      const tabActiva = $(".pestanas button.activa");
+      if (tabActiva && tabActiva.dataset.tab === "enviadas") {
+        vistaRemitir();
+      }
+      actualizarNotificaciones();
+    },
+  });
+}
+// ==========================================================================
+// R11 · Descargar historia clínica en PDF
+// ==========================================================================
+async function descargarHistoriaPDF(pacienteId, boton) {
+  if (boton) { boton.disabled = true; boton.textContent = "Generando PDF…"; }
+  try {
+    const blob = await API.blob(`/pacientes/${pacienteId}/historia.pdf`);
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `historia_${pacienteId}.pdf`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast("Historia clínica descargada", "ok");
+  } catch (e) {
+    toast(e.message || "No se pudo generar el PDF", "error");
+  } finally {
+    if (boton) { boton.disabled = false; boton.innerHTML = `${icono("reportes")} Descargar historia clínica (PDF)`; }
+  }
+}
+
+// ==========================================================================
+// R21 · Simular Observation FHIR
+// ==========================================================================
+async function simularObservacionFHIR(paciente, boton) {
+  const valor = prompt(
+    `Simular Observation de glucosa para ${paciente.nombre}\n\n` +
+    `Valor en mg/dL (ej: 250):`,
+    "250"
+  );
+  if (valor === null) return;
+  if (isNaN(+valor) || +valor <= 0) {
+    toast("Valor inválido. Debe ser un número positivo.", "error");
+    return;
+  }
+
+  if (boton) { boton.disabled = true; boton.textContent = "Enviando a FHIR…"; }
+  try {
+    const resp = await API.post("/fhir/observacion/simular", {
+      paciente_id: paciente.id,
+      valor: +valor,
+      unidad: "mg/dL",
+    });
+    toast(
+      `Observation ${resp.fhir_observation_id} enviada a FHIR. El médico recibirá el aviso en segundos.`,
+      "ok"
+    );
+    actualizarNotificaciones();
+  } catch (e) {
+    toast(e.message || "No se pudo enviar la Observation a FHIR", "error");
+  } finally {
+    if (boton) {
+      boton.disabled = false;
+      boton.innerHTML = `${icono("trazo")} Simular Observation FHIR (R21)`;
+    }
+  }
+}
 // ==========================================================================
 // ARRANQUE
 // ==========================================================================
