@@ -5,13 +5,14 @@ import joblib
 import numpy as np
 import pandas as pd
 import sklearn
+import xgboost
 from sklearn.compose import ColumnTransformer
 from sklearn.impute import SimpleImputer
-from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import confusion_matrix, f1_score, precision_score, roc_auc_score
 from sklearn.model_selection import StratifiedKFold, cross_val_score, train_test_split
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
+from xgboost import XGBClassifier
 
 BASE = Path(__file__).parent
 RUTA_CSV = BASE / "data" / "ktas.csv"
@@ -42,7 +43,12 @@ def entrenar(version):
                           ("escala", StandardScaler())]), COLS_NUM),
         ("cat", OneHotEncoder(handle_unknown="ignore"), COLS_CAT),
     ])
-    modelo = Pipeline([("pre", pre), ("clf", LogisticRegression(max_iter=1000))])
+    # Mismo algoritmo y parámetros que eligió la comparación del cuaderno
+    modelo = Pipeline([
+        ("pre", pre),
+        ("clf", XGBClassifier(n_estimators=200, max_depth=3,
+                              learning_rate=0.05, random_state=42)),
+    ])
 
     cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
     auc_cv = cross_val_score(modelo, X_train, y_train, cv=cv, scoring="roc_auc").mean()
@@ -54,6 +60,7 @@ def entrenar(version):
 
     paquete = {
         "modelo": modelo, "version": version,
+        "algoritmo": "XGBoost",
         "umbral": UMBRAL, "umbral_critico": UMBRAL_CRITICO,
         "columnas_num": COLS_NUM, "columnas_cat": COLS_CAT,
         "metricas": {
@@ -67,6 +74,7 @@ def entrenar(version):
         },
         "fecha": datetime.now().isoformat(timespec="seconds"),
         "sklearn": sklearn.__version__,
+        "xgboost": xgboost.__version__,
     }
     RUTA_MODELO.parent.mkdir(exist_ok=True)
     joblib.dump(paquete, RUTA_MODELO)

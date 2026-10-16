@@ -33,6 +33,9 @@ app = FastAPI(title="TrazaRed HUV · servicio de IA", version="0.1.0")
 RUTA_MODELO = Path(__file__).parent / "modelo" / "ktas_modelo.joblib"
 paquete = joblib.load(RUTA_MODELO) if RUTA_MODELO.exists() else None
 
+# 1.x fue la regresión logística; 2.x es XGBoost
+VERSION_MAYOR = 2
+
 
 class DatosClinicos(BaseModel):
     """Solo variables clínicas + id seudónimo: nada de nombre, documento, etc. (R12)."""
@@ -71,7 +74,10 @@ def health():
 def modelo():
     if paquete is None:
         raise HTTPException(503, "Modelo no cargado")
-    return {k: paquete[k] for k in ("version", "metricas", "umbral", "umbral_critico", "fecha", "sklearn")}
+    claves = ("version", "algoritmo", "metricas", "umbral", "umbral_critico",
+              "fecha", "sklearn", "xgboost")
+    # .get: un modelo guardado antes del cambio no tiene "algoritmo" ni "xgboost"
+    return {k: paquete.get(k) for k in claves}
 
 
 @app.post("/predecir")
@@ -101,15 +107,24 @@ def predecir(d: DatosClinicos):
         "nivel": "critico" if critico else ("urgente" if urgente else "no urgente"),
         "version_modelo": paquete["version"],
     }
-    
+
+
+def siguiente_version(actual):
+    """Primer reentrenamiento tras el cambio: 2.0; después 2.1, 2.2..."""
+    mayor, menor = (int(x) for x in actual.split("."))
+    if mayor < VERSION_MAYOR:
+        return f"{VERSION_MAYOR}.0"
+    return f"{mayor}.{menor + 1}"
+
+
 @app.post("/entrenar")
 def reentrenar():
     global paquete
-    version = f"1.{int(paquete['version'].split('.')[1]) + 1}" if paquete else "1.0"
+    version = siguiente_version(paquete["version"]) if paquete else f"{VERSION_MAYOR}.0"
     paquete = entrenar(version)
     return {"version": paquete["version"], "metricas": paquete["metricas"]}
-  
-  
+
+
 # R07: agrupamiento de pacientes reales y sintéticos
 RUTA_SINTETICOS = Path(__file__).parent / "data" / "pacientes_sinteticos.csv"
 
@@ -125,7 +140,6 @@ def obtener_clusters():
     # Leer y limpiar los datos reales como en el notebook de agrupamiento.
     df = pd.read_csv(RUTA_CSV, sep=";", encoding="latin-1")
     df = df.replace(["??", "#BOÞ!", "#BOÃž!"], np.nan)
-
 
     for col in COLS_NUM:
         df[col] = pd.to_numeric(df[col], errors="coerce")
