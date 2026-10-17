@@ -1,0 +1,76 @@
+# tester.yaml — Contrato de verificación automática · TrazaRed HUV
+equipo: "TrazaRed HUV"
+version: "Corte 2"
+fecha: "2026-10-17"
+url_publica: "https://graduation-florists-blowing-starting.trycloudflare.com"
+
+usuarios:
+  admin:
+    usuario: "admin@trazared.huv"
+    password: "clave_del_admin_de_prueba"
+  medico:
+    usuario: "medico@huv.gov.co"
+    password: "clave_del_medico_de_prueba"
+  especialista:
+    usuario: "especialista@huv.gov.co"
+    password: "clave_del_especialista_de_prueba"
+  contable:
+    usuario: "contable@huv.gov.co"
+    password: "clave_del_contable_de_prueba"
+  paciente:
+    usuario: "paciente@correo.com"
+    password: "clave_del_paciente_de_prueba"
+  eps:
+    usuario: "eps@coosalud.com"
+    password: "clave_de_la_eps_de_prueba"
+
+datos:
+  paciente_id_prueba: 1
+  paciente_id_fhir: "1000"
+  documento_paciente: "1175373460"
+  especialista_id: 3
+  paciente_critico:
+    sexo: 2
+    edad: 75
+    sbp: 85
+    dbp: 50
+    fc: 125
+    fr: 26
+    temperatura: 38.5
+    saturacion: 86
+    nrs_dolor: 8
+    mental: 1
+    dolor: 1
+    lesion: 1
+    modo_llegada: 3
+    pacientes_por_hora: 5
+  observacion_glucosa:
+    loinc: "2339-0"
+    valor: 250
+    unidad: "mg/dL"
+
+rutas:
+  yo: { metodo: GET, path: /me, campos: [rol] }
+  login: { metodo: POST, path: /login, content_type: application/x-www-form-urlencoded }
+  clusters: { metodo: GET, path: /clusters, campos: [cluster, descripcion, n_reales, n_sinteticos] }
+  remitir: { metodo: POST, path: /remitir, campos: [id] }
+  remisiones: { metodo: GET, path: /remitir/bandeja, campos: [paciente_id] }
+  remision_aceptar: { metodo: POST, path: /remitir/{id}/aceptar }
+  contable_listar: { metodo: GET, path: /facturas, campos: [paciente_id] }
+  ia_analizar: { metodo: POST, path: /ia_analizar, campos: [id, estado] }
+  ia_reporte: { metodo: GET, path: /ia_reporte/{id}, campos: [id, estado] }
+  ia_aprobar: { metodo: PUT, path: /ia_reporte/{id}/aprobar, campos: [id, estado] }
+  ia_payload: { metodo: GET, path: /ia_payload/{id} }
+  historia_pdf: { metodo: GET, path: /pacientes/{id}/historia.pdf, content_type: application/pdf }
+  auditoria_filtrada: { metodo: GET, path: /auditoria?accion=evento_fhir&limite=10 }
+  app_raiz: { metodo: GET, path: /app/, content_type: text/html }
+  tiempo_real: { metodo: GET, path: /eventos/stream?token={token}, tipo: sse, campos: [tipo, mensaje] }
+  notificaciones: { metodo: GET, path: /notificaciones, campos: [id, tipo, mensaje, leida, fecha] }
+  notif_leer: { metodo: POST, path: /notificaciones/{id}/leer }
+  pendientes: { metodo: GET, path: /pendientes, campos: [reportes_por_revisar, remisiones_recibidas, alertas_activas] }
+  alertas: { metodo: GET, path: /alertas, campos: [id, paciente_id, nivel, estado] }
+  alerta_reconocer: { metodo: POST, path: /alertas/{id}/reconocer }
+  fhir_observation: { metodo: POST, path_fhir: /Observation }
+  fhir_paciente_sync: { metodo: GET, path_fhir: /Patient }
+  ia_simular: { metodo: POST, path: /fhir/observacion/simular, campos: [fhir_observation_id] }
+  fhir_receptor: { metodo: POST, path: /fhir/observacion, campos: [recibido, paciente_id] }
