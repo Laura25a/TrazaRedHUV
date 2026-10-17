@@ -29,3 +29,13 @@ python/.env
 !.env.example
 
 datos_imagenes/
+docker/remitir_*.json
+docker/-w
+
+# Backups locales (no subir)
+*.backup
+*.backup2
+*.bak
+
+# Artefactos de entrenamiento (CatBoost)
+catboost_info/
