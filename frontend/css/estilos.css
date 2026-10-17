@@ -528,3 +528,15 @@ td .sub { display: block; font-size: .78rem; color: var(--texto-tenue); }
   vertical-align: -0.15em;
   flex-shrink: 0;
 }
+/* Arreglo para que los iconos SVG no se vean gigantes (R16, R18, R20) */
+.panel svg, 
+.tarjeta svg, 
+.notificaciones svg, 
+.notif-icono svg, 
+.btn svg {
+  width: 24px !important;
+  height: 24px !important;
+  max-width: 24px !important;
+  max-height: 24px !important;
+  flex-shrink: 0;
+}
