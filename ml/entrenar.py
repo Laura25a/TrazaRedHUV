@@ -23,31 +23,46 @@ COLS_NUM = ["Age", "Patients number per hour", "NRS_pain", "SBP", "DBP", "HR", "
 COLS_CAT = ["Sex", "Arrival mode", "Injury", "Mental", "Pain"]
 
 
-def entrenar(version):
-    # Limpieza (igual que en el cuaderno)
+def cargar_ktas():
+    """Lee y limpia ktas.csv. Es la ÚNICA copia de la limpieza (la usan el
+    entrenamiento supervisado y el agrupamiento), igual que en el cuaderno."""
     df = pd.read_csv(RUTA_CSV, sep=";", encoding="latin-1")
-    df = df.replace(["??", "#BOÞ!"], np.nan)
+    df = df.replace(["??", "#BOÞ!", "#BOÃž!"], np.nan)
     for c in ["NRS_pain", "SBP", "DBP", "HR", "RR", "BT", "Saturation"]:
         df[c] = pd.to_numeric(df[c], errors="coerce")
+    df["KTAS_expert"] = pd.to_numeric(df["KTAS_expert"], errors="coerce")
+    df = df.dropna(subset=["KTAS_expert"]).copy()
     df["urgente"] = (df["KTAS_expert"] <= 3).astype(int)
     df.loc[df["Pain"] == 0, "NRS_pain"] = 0
     df["Arrival mode"] = df["Arrival mode"].replace({6: 5, 7: 5})
+    return df
+
+
+def crear_preprocesador():
+    """Mediana + escala para las numéricas y one-hot para las categóricas."""
+    return ColumnTransformer([
+        ("num", Pipeline([("mediana", SimpleImputer(strategy="median")),
+                          ("escala", StandardScaler())]), COLS_NUM),
+        ("cat", OneHotEncoder(handle_unknown="ignore"), COLS_CAT),
+    ])
+
+
+def crear_clasificador():
+    # Mismo algoritmo y parámetros que eligió la comparación del cuaderno
+    return XGBClassifier(n_estimators=200, max_depth=3, learning_rate=0.05, random_state=42)
+
+
+def entrenar(version):
+    df = cargar_ktas()
 
     X, y = df[COLS_NUM + COLS_CAT], df["urgente"]
     X_train, X_test, y_train, y_test = train_test_split(
         X, y, test_size=0.2, stratify=y, random_state=42
     )
 
-    pre = ColumnTransformer([
-        ("num", Pipeline([("mediana", SimpleImputer(strategy="median")),
-                          ("escala", StandardScaler())]), COLS_NUM),
-        ("cat", OneHotEncoder(handle_unknown="ignore"), COLS_CAT),
-    ])
-    # Mismo algoritmo y parámetros que eligió la comparación del cuaderno
     modelo = Pipeline([
-        ("pre", pre),
-        ("clf", XGBClassifier(n_estimators=200, max_depth=3,
-                              learning_rate=0.05, random_state=42)),
+        ("pre", crear_preprocesador()),
+        ("clf", crear_clasificador()),
     ])
 
     cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)

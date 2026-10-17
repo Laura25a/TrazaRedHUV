@@ -6,7 +6,7 @@ R10: reportes pendientes de aprobación clínica (aprobar / rechazar).
 R20: alerta crítica al momento del análisis (vía publicar()).
 R19: evento de factura al aprobar un reporte (vía publicar()).
 R22: /modelo y /entrenar a través de la API.
-R07: ruta de clusters (pendiente).
+R07: ruta de clusters (/ia/clusters, la calcula el servicio ml).
 """
 import hashlib
 import hmac
@@ -18,7 +18,7 @@ from typing import Optional
 import httpx
 import psycopg2.extras
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from auth import SECRET_KEY, get_db, get_usuario_actual, registrar_auditoria, requiere_rol
 from eventos import ids_con_rol, publicar
@@ -38,21 +38,22 @@ CAMPOS_CLINICOS = (
 
 # ── Modelos de entrada ────────────────────────────────────────────────────
 class AnalisisIn(BaseModel):
+    # Mismos rangos que valida el servicio ml: así el error sale aquí, claro, y no como "IA caída"
     paciente_id: int
-    sexo: Optional[int] = None
-    edad: Optional[int] = None
-    pacientes_por_hora: Optional[int] = None
-    modo_llegada: int = 3
-    lesion: int = 1
-    mental: int = 1
-    dolor: int = 0
-    nrs_dolor: Optional[float] = None
-    sbp: Optional[float] = None
-    dbp: Optional[float] = None
-    fc: Optional[float] = None
-    fr: Optional[float] = None
-    temperatura: Optional[float] = None
-    saturacion: Optional[float] = None
+    sexo: Optional[int] = Field(None, ge=1, le=2)
+    edad: Optional[int] = Field(None, ge=0, le=120)
+    pacientes_por_hora: Optional[int] = Field(None, ge=0, le=200)
+    modo_llegada: int = Field(3, ge=1, le=7)
+    lesion: int = Field(1, ge=1, le=2)
+    mental: int = Field(1, ge=1, le=4)
+    dolor: int = Field(0, ge=0, le=1)
+    nrs_dolor: Optional[float] = Field(None, ge=0, le=10)
+    sbp: Optional[float] = Field(None, ge=40, le=300)
+    dbp: Optional[float] = Field(None, ge=20, le=200)
+    fc: Optional[float] = Field(None, ge=20, le=250)
+    fr: Optional[float] = Field(None, ge=4, le=80)
+    temperatura: Optional[float] = Field(None, ge=30, le=45)
+    saturacion: Optional[float] = Field(None, ge=30, le=100)
     remision_id: Optional[int] = None
 
 
@@ -102,6 +103,16 @@ def llamar_modelo(payload: dict) -> dict:
         )
         respuesta.raise_for_status()
         return respuesta.json()
+    except httpx.HTTPStatusError as e:
+        if e.response.status_code == 422:      # el modelo rechazó los datos: no es una caída
+            raise HTTPException(
+                status_code=422,
+                detail="Datos clínicos fuera de rango o con campos no permitidos",
+            )
+        raise HTTPException(
+            status_code=503,
+            detail="El servicio de IA no está disponible",
+        )
     except httpx.HTTPError:
         raise HTTPException(
             status_code=503,

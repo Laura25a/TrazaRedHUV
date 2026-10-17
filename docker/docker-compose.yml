@@ -116,6 +116,10 @@ services:
     restart: unless-stopped
     environment:
       TZ: America/Bogota
+    volumes:
+      # El modelo que reentrena POST /entrenar queda aquí y sobrevive a recrear el contenedor.
+      # La primera vez, Docker copia el .joblib que venga en la imagen.
+      - ml_modelo:/app/modelo
 
   # ── Servicio PACS: Orthanc guarda las imágenes médicas como DICOM ──
   # El navegador nunca le habla directo: todo pasa por la api (token + rol +
@@ -229,6 +233,7 @@ services:
       spring.jpa.properties.hibernate.dialect: ca.uhn.fhir.jpa.model.dialect.HapiFhirPostgresDialect
 
 volumes:
+  ml_modelo:
   orthanc_data:
   pgdata:
   mongodata:

@@ -15,17 +15,13 @@ la que quita los datos personales antes de llamarlo.
 """
 from pathlib import Path
 from typing import Optional
-from entrenar import entrenar, COLS_NUM, COLS_CAT, RUTA_CSV
-from sklearn.cluster import KMeans
-from sklearn.compose import ColumnTransformer
-from sklearn.impute import SimpleImputer
-from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import OneHotEncoder, StandardScaler
+from agrupacion import resumen_clusters
+from entrenar import entrenar, RUTA_CSV
 import joblib
 import numpy as np
 import pandas as pd
 from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, Field
 
 app = FastAPI(title="TrazaRed HUV · servicio de IA", version="0.1.0")
 
@@ -38,22 +34,29 @@ VERSION_MAYOR = 2
 
 
 class DatosClinicos(BaseModel):
-    """Solo variables clínicas + id seudónimo: nada de nombre, documento, etc. (R12)."""
-    id_seudonimo: str
-    sexo: Optional[int] = None
-    edad: Optional[int] = None
-    pacientes_por_hora: Optional[int] = None
-    modo_llegada: int
-    lesion: int
-    mental: int
-    dolor: int
-    nrs_dolor: Optional[float] = None
-    sbp: Optional[float] = None
-    dbp: Optional[float] = None
-    fc: Optional[float] = None
-    fr: Optional[float] = None
-    temperatura: Optional[float] = None
-    saturacion: Optional[float] = None
+    """Solo variables clínicas + id seudónimo: nada de nombre, documento, etc. (R12).
+
+    extra="forbid": si llega un campo que no está aquí (nombre, documento...), 422.
+    Los rangos son límites clínicamente plausibles: un valor imposible (saturación
+    500) responde 422 antes de llegar al modelo.
+    """
+    model_config = ConfigDict(extra="forbid")
+
+    id_seudonimo: str = Field(min_length=1, max_length=40)
+    sexo: Optional[int] = Field(None, ge=1, le=2)
+    edad: Optional[int] = Field(None, ge=0, le=120)
+    pacientes_por_hora: Optional[int] = Field(None, ge=0, le=200)
+    modo_llegada: int = Field(ge=1, le=7)
+    lesion: int = Field(ge=1, le=2)
+    mental: int = Field(ge=1, le=4)
+    dolor: int = Field(ge=0, le=1)
+    nrs_dolor: Optional[float] = Field(None, ge=0, le=10)
+    sbp: Optional[float] = Field(None, ge=40, le=300)
+    dbp: Optional[float] = Field(None, ge=20, le=200)
+    fc: Optional[float] = Field(None, ge=20, le=250)
+    fr: Optional[float] = Field(None, ge=4, le=80)
+    temperatura: Optional[float] = Field(None, ge=30, le=45)
+    saturacion: Optional[float] = Field(None, ge=30, le=100)
 
 
 # Nombre del contrato -> nombre de columna con el que se entrenó el modelo
@@ -87,7 +90,7 @@ def predecir(d: DatosClinicos):
 
     datos = d.model_dump()
     # Mismas reglas de limpieza que en el entrenamiento
-    if datos["dolor"] == 0 and datos["nrs_dolor"] is None:
+    if datos["dolor"] == 0:          # igual que en el entrenamiento: sin dolor, NRS = 0
         datos["nrs_dolor"] = 0
     if datos["modo_llegada"] in (6, 7):
         datos["modo_llegada"] = 5
@@ -125,112 +128,10 @@ def reentrenar():
     return {"version": paquete["version"], "metricas": paquete["metricas"]}
 
 
-# R07: agrupamiento de pacientes reales y sintéticos
-RUTA_SINTETICOS = Path(__file__).parent / "data" / "pacientes_sinteticos.csv"
-
-
+# R07: agrupamiento de pacientes reales y sintéticos (lógica en agrupacion.py)
 @app.get("/clusters")
 def obtener_clusters():
     if not RUTA_CSV.exists():
         raise HTTPException(503, "No se encuentra el dataset real de KTAS")
-
-    if not RUTA_SINTETICOS.exists():
-        raise HTTPException(503, "No se encuentra el dataset de pacientes sintéticos")
-
-    # Leer y limpiar los datos reales como en el notebook de agrupamiento.
-    df = pd.read_csv(RUTA_CSV, sep=";", encoding="latin-1")
-    df = df.replace(["??", "#BOÞ!", "#BOÃž!"], np.nan)
-
-    for col in COLS_NUM:
-        df[col] = pd.to_numeric(df[col], errors="coerce")
-
-    # Aplicar las mismas reglas de limpieza del entrenamiento
-    df.loc[df["Pain"] == 0, "NRS_pain"] = 0
-    df["Arrival mode"] = df["Arrival mode"].replace({6: 5, 7: 5})
-
-    df["KTAS_expert"] = pd.to_numeric(
-        df["KTAS_expert"], errors="coerce"
-    )
-
-    df = df.dropna(subset=["KTAS_expert"]).copy()
-
-    X = df[COLS_NUM + COLS_CAT]
-    urgente = (df["KTAS_expert"] <= 3).astype(int)
-
-    # Mismo preprocesamiento y configuración del notebook.
-    pre = ColumnTransformer([
-        ("num", Pipeline([
-            ("mediana", SimpleImputer(strategy="median")),
-            ("escala", StandardScaler()),
-        ]), COLS_NUM),
-        ("cat", OneHotEncoder(handle_unknown="ignore"), COLS_CAT),
-    ])
-
-    Z = pre.fit_transform(X)
-
-    if hasattr(Z, "toarray"):
-        Z = Z.toarray()
-
-    kmeans = KMeans(
-        n_clusters=4,
-        n_init=10,
-        random_state=42,
-    )
-    etiquetas = kmeans.fit_predict(Z)
-
-    reales = X.copy()
-    reales["cluster"] = etiquetas
-    reales["urgente"] = urgente.to_numpy()
-
-    # El archivo sintético ya contiene la etiqueta de cluster.
-    sinteticos = pd.read_csv(RUTA_SINTETICOS)
-
-    if "cluster" not in sinteticos.columns:
-        raise HTTPException(
-            503, "El CSV sintético no contiene la columna cluster"
-        )
-
-    sinteticos["cluster"] = pd.to_numeric(
-        sinteticos["cluster"], errors="coerce"
-    )
-
-    def mostrar_numero(valor, decimales=1):
-        if pd.isna(valor):
-            return "no disponible"
-        return f"{valor:.{decimales}f}"
-
-    resultado = []
-
-    for cluster in range(4):
-        grupo = reales[reales["cluster"] == cluster]
-        grupo_sintetico = sinteticos[
-            sinteticos["cluster"] == cluster
-        ]
-
-        edad = pd.to_numeric(
-            grupo["Age"], errors="coerce"
-        ).median()
-        dolor = pd.to_numeric(
-            grupo["NRS_pain"], errors="coerce"
-        ).median()
-        saturacion = pd.to_numeric(
-            grupo["Saturation"], errors="coerce"
-        ).median()
-        pct_urgente = grupo["urgente"].mean() * 100
-
-        descripcion = (
-            f"Edad mediana: {mostrar_numero(edad)} años; "
-            f"dolor NRS mediano: {mostrar_numero(dolor)}; "
-            f"saturación mediana: {mostrar_numero(saturacion)}; "
-            f"{mostrar_numero(pct_urgente)}% de los registros "
-            "históricos del grupo tienen KTAS ≤ 3."
-        )
-
-        resultado.append({
-            "cluster": cluster,
-            "descripcion": descripcion,
-            "n_reales": int(len(grupo)),
-            "n_sinteticos": int(len(grupo_sintetico)),
-        })
-
-    return {"clusters": resultado}
+    # La primera llamada entrena (unos segundos); las siguientes salen de memoria
+    return {"clusters": resumen_clusters()}
