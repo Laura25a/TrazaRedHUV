@@ -520,3 +520,11 @@ td .sub { display: block; font-size: .78rem; color: var(--texto-tenue); }
   *, *::before, *::after { animation: none !important; transition: none !important; }
   .pulso path { stroke-dashoffset: 0; }
 }
+
+/* Arreglo para los botones de la ficha (R11 y R21) */
+.btn svg {
+  width: 1.1em !important;
+  height: 1.1em !important;
+  vertical-align: -0.15em;
+  flex-shrink: 0;
+}
