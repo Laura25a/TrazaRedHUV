@@ -285,24 +285,3 @@ efímeras — cambian en cada arranque):
 con `cloudflared` instalado en el equipo. Desde el Corte 2 el túnel oficial es el
 servicio `cloudflared` del `docker-compose.yml`.
 
-## Entregables
-
-**Corte 1**
-- [x] Modelo relacional, servidor FHIR R4 e integración BD → FHIR
-- [x] Roles con JWT, soft delete, soft edit y restauración
-- [x] Documentación técnica: mapeo BD → FHIR y justificación de roles
-
-**Semana 8**
-- [x] Bloqueo al 3er intento fallido, con auditoría y desbloqueo por admin
-- [x] Dataset del proyecto, proyecto dockerizado, PACS con visor e interfaz por rol
-
-**Corte 2 — Persona 1 (seguridad e infraestructura)**
-- [x] API partida en módulos (`auth`, `remisiones`, `ia`, `contabilidad`, `eventos`), con `publicar()` lista para los flujos automáticos
-- [x] R01 · Cinco roles; solo el admin crea usuarios; `/me` devuelve el rol
-- [x] R02 · El bloqueo avisa al admin por `publicar()`
-- [x] R03 · Token, control por rol, CORS, cabeceras, límite 429, solo `.env.example`
-- [x] R04 · `cloudflared` como servicio del compose, con HTTPS público
-- [x] R05 · Nueve servicios con un solo `docker compose up`, incluido `ml`
-- [x] R13 · Auditoría con usuario, acción, recurso y fecha, con filtros
-- [x] R14 · Soft delete del médico y restauración solo del admin
-- [x] `tester.yaml` con la plantilla oficial del profesor y todas las rutas del Corte 2
