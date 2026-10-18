@@ -61,6 +61,7 @@ rutas:
   ia_reporte: { metodo: GET, path: /ia_reporte/{id}, campos: [id, estado] }
   ia_aprobar: { metodo: PUT, path: /ia_reporte/{id}/aprobar, campos: [id, estado] }
   ia_payload: { metodo: GET, path: /ia_payload/{id} }
+  historia: { metodo: GET, path: /pacientes/{id}/historia, campos: [paciente, observaciones, reportes_ia] }
   historia_pdf: { metodo: GET, path: /pacientes/{id}/historia.pdf, content_type: application/pdf }
   auditoria_filtrada: { metodo: GET, path: /auditoria?accion=evento_fhir&limite=10 }
   app_raiz: { metodo: GET, path: /app/, content_type: text/html }

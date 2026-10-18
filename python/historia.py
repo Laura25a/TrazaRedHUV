@@ -24,16 +24,21 @@ def _obtener_reportes_ia(db, paciente_id: int) -> list:
     try:
         cur = db.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
         cur.execute(
-            """SELECT id, estado, fecha, resultado, probabilidad
+            """SELECT id, estado,
+                      creado_en AS fecha,
+                      prediccion AS resultado,
+                      probabilidad_urgente AS probabilidad
                FROM reportes_ia
                WHERE paciente_id = %s AND estado = 'aprobado'
-               ORDER BY fecha DESC;""",
+               ORDER BY creado_en DESC;""",
             (paciente_id,),
         )
         reportes = cur.fetchall()
         cur.close()
         return reportes
     except psycopg2.Error:
+        # Mientras la tabla reportes_ia (Persona 2) no exista, la historia
+        # simplemente sale sin reportes de IA.
         db.rollback()
         return []
 
@@ -112,6 +117,40 @@ def _crear_pdf(paciente: dict, observaciones: list, reportes_ia: list) -> bytes:
     pdf_bytes = buffer.getvalue()
     buffer.close()
     return pdf_bytes
+
+
+@router.get("/pacientes/{paciente_id}/historia")
+def historia_json(paciente_id: int, db=Depends(get_db),
+                  usuario=Depends(requiere_rol(*ROLES_CLINICOS))):
+    """R11: la historia clínica en JSON. Mismos datos que el PDF: datos del
+    paciente, observaciones y SOLO los reportes de IA aprobados."""
+    cur = db.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    try:
+        cur.execute(
+            """SELECT id, nombre, documento, genero, eps, fecha_nacimiento,
+                      telefono, tipo_sangre, alergias
+               FROM pacientes WHERE id = %s;""", (paciente_id,))
+        paciente = cur.fetchone()
+        if paciente is None:
+            raise HTTPException(status_code=404, detail="Paciente no encontrado")
+
+        cur.execute(
+            """SELECT o.tipo, o.valor, o.unidad, o.fecha_observacion
+               FROM observaciones o
+               JOIN remisiones r ON r.id = o.remision_id
+               WHERE r.paciente_id = %s
+               ORDER BY o.fecha_observacion DESC;""", (paciente_id,))
+        observaciones = cur.fetchall()
+    finally:
+        cur.close()
+
+    reportes_ia = _obtener_reportes_ia(db, paciente_id)
+
+    registrar_auditoria(db, usuario["id"], "historia_consultada", "pacientes",
+                        paciente_id, f"historia clinica (JSON) de {paciente['nombre']}")
+
+    return {"paciente": paciente, "observaciones": observaciones,
+            "reportes_ia": reportes_ia}
 
 
 @router.get("/pacientes/{paciente_id}/historia.pdf")
