@@ -21,6 +21,7 @@ from typing import List, Optional
 import psycopg2
 import psycopg2.extras
 import os
+import threading
 
 from fastapi import Depends, FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
@@ -86,10 +87,26 @@ app.include_router(contabilidad.router)
 app.include_router(eventos.router)
 
 
+def _suscripcion_fhir_al_arrancar():
+    """R21: deja creada la Subscription rest-hook de HAPI FHIR (glucosa LOINC
+    2339-0). Sin ella, el servidor FHIR publica la Observation pero nadie
+    recibe el aviso. La función ya espera a que HAPI bootee, reintenta y es
+    idempotente (reemplaza la Subscription anterior)."""
+    try:
+        import fhir_sync
+        fhir_sync.crear_subscription_fhir()
+    except Exception as e:              # sin FHIR arriba, la API igual sirve
+        print(f"[FHIR] no se pudo crear la Subscription al arrancar: {e}")
+
+
 @app.on_event("startup")
 def al_arrancar():
     auth.migrar_base()               # db/schema.sql al día (roles nuevos, columnas nuevas...)
     auth.crear_usuarios_iniciales()  # un usuario de prueba por rol
+    # En un hilo aparte para no retrasar el arranque de la API mientras
+    # HAPI FHIR termina de bootear (puede tardar ~30 s la primera vez).
+    threading.Thread(target=_suscripcion_fhir_al_arrancar, daemon=True,
+                     name="suscripcion-fhir").start()
 
 
 @app.get("/")
