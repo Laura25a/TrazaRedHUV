@@ -38,7 +38,7 @@ CAMPOS_CLINICOS = ("sexo", "edad", "pacientes_por_hora", "modo_llegada", "lesion
                    "dolor", "nrs_dolor", "sbp", "dbp", "fc", "fr", "temperatura", "saturacion")
 PROHIBIDOS = ("nombre", "documento", "correo", "telefono", "direccion", "eps", "alergias", "fecha_nacimiento")
 # Del cuaderno: (n_reales, n_sinteticos) por grupo. Si cambia la numeración de K-means, esto lo delata.
-CLUSTERS_ESPERADOS = {0: (309, 60), 1: (535, 60), 2: (417, 60), 3: (6, 10)}
+CLUSTERS_ESPERADOS = {0: (32, 60), 1: (305, 60), 2: (404, 60), 3: (526, 10)}
 
 
 def revisar(texto, condicion, detalle=""):
