@@ -85,6 +85,10 @@ services:
     environment:
       # Estas PISAN las de .env: dentro de Docker la API usa los contenedores
       # db / mongo / hapi-fhir / orthanc / ml, no Neon ni Atlas.
+      # ACEPTACIÓN DOCUMENTADA (R03, hallazgo S-07): credencial interna del
+      # contenedor `db`, solo alcanzable dentro de la red aislada de Docker;
+      # no es un secreto externo (la BD real se configura por pass.env).
+      # Pendiente moverla a variable de entorno después de la entrega.
       PG_CONNECTION_STRING: postgresql://trazared:trazared_dev_2026@db:5432/trazared
       MONGO_CONNECTION_STRING: mongodb://mongo:27017/
       FHIR_BASE_URL: http://hapi-fhir:8080/fhir
@@ -224,6 +228,9 @@ services:
       springdoc.cache.disabled: true
       spring.datasource.url: jdbc:postgresql://fhir-db:5432/hapi
       spring.datasource.username: hapi
+        # ACEPTACIÓN DOCUMENTADA (R03, hallazgo S-07): credencial interna entre
+        # contenedores (solo red Docker, sin salida a internet). Pendiente
+        # moverla a variable de entorno después de la entrega.
       spring.datasource.password: hapi
       spring.datasource.driverClassName: org.postgresql.Driver
       spring.jpa.properties.hibernate.dialect: ca.uhn.fhir.jpa.model.dialect.HapiFhirPostgresDialect
