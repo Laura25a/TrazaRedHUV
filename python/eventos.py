@@ -460,10 +460,22 @@ def trabajo_pendiente(usuario=Depends(_usuario_actual), db=Depends(_db)):
         db.rollback()
     if usuario["rol"] == "especialista":
         try:
-            cur.execute("SELECT COUNT(*) FROM remisiones WHERE activo = TRUE AND estado = 'pendiente';")
+            # R08: la bandeja del especialista vive en remisiones_medicas
+            # (Persona 3); las que recibe él y siguen pendientes.
+            cur.execute(
+                """SELECT COUNT(*) FROM remisiones_medicas
+                   WHERE especialista_id = %s AND estado = 'pendiente';""",
+                (usuario["id"],))
             res["remisiones_recibidas"] += cur.fetchone()[0]
         except Exception:
+            # Respaldo por si la migración de la Persona 3 todavía no corrió:
+            # la tabla remisiones del Corte 1 (traslados), como antes.
             db.rollback()
+            try:
+                cur.execute("SELECT COUNT(*) FROM remisiones WHERE activo = TRUE AND estado = 'pendiente';")
+                res["remisiones_recibidas"] += cur.fetchone()[0]
+            except Exception:
+                db.rollback()
     cur.close()
     return res
 
