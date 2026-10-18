@@ -101,11 +101,21 @@ def migrar_base():
         cur = conn.cursor()
         cur.execute(ruta.read_text(encoding="utf-8"))
         conn.commit()
-        cur.close()
         print("[arranque] esquema de la base al día (db/schema.sql)")
+
+        # Migraciones adicionales del Corte 2 (idempotentes, igual que schema.sql).
+        # Van aquí y no en el entrypoint de Postgres porque ese solo corre la
+        # PRIMERA vez que se crea el volumen: en una base que ya existía,
+        # remisiones_medicas (R08) nunca llegaría y /remitir respondería 500.
+        migracion = ruta.with_name("migracion_persona3.sql")
+        if migracion.exists():
+            cur.execute(migracion.read_text(encoding="utf-8"))
+            conn.commit()
+            print("[arranque] migración de la Persona 3 al día (db/migracion_persona3.sql)")
+        cur.close()
     except psycopg2.Error as e:
         conn.rollback()
-        print(f"[arranque] error aplicando db/schema.sql: {e}")
+        print(f"[arranque] error aplicando la migración de la base: {e}")
     finally:
         conn.close()
 
