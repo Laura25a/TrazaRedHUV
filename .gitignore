@@ -27,6 +27,8 @@ Thumbs.db
 python/.env
 *.env
 !.env.example
+
+datos_imagenes/
 docker/remitir_*.json
 docker/-w
 
@@ -34,3 +36,6 @@ docker/-w
 *.backup
 *.backup2
 *.bak
+
+# Artefactos de entrenamiento (CatBoost)
+catboost_info/

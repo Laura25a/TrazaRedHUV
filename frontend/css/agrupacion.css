@@ -1,0 +1,29 @@
+/* TrazaRed HUV — tablero de agrupación clínica (R07, Persona 2).
+   Usa las variables de estilos.css; solo agrega lo que no existía. */
+.agr-panel { padding: 1.2rem 1.4rem 1.4rem; display: grid; gap: 1.1rem; }
+.agr-panel > * { min-width: 0; }
+.agr-nota { display: flex; gap: .9rem; align-items: flex-start; padding: 1rem 1.2rem; border-radius: 12px;
+  background: var(--azul-suave); border: 1px solid var(--azul-borde); color: var(--texto-suave); font-size: .88rem; }
+.agr-nota svg { width: 24px; height: 24px; fill: none; stroke: var(--azul); stroke-width: 1.8; flex: 0 0 auto; margin-top: 1px; }
+.agr-subtitulo { font-size: .98rem; color: var(--navy); margin-top: .4rem; }
+.agr-desc { min-width: 260px; }
+.agr-desc .sub { margin-top: .2rem; }
+.agr-punto { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: .5rem; vertical-align: 0; }
+.agr-controles { display: flex; flex-wrap: wrap; gap: .8rem 1.4rem; align-items: center; }
+.agr-controles label { margin: 0; display: inline-flex; align-items: center; gap: .5rem; }
+.agr-controles select { width: auto; }
+.agr-hueco { background: none !important; border: 1.5px solid var(--texto-suave); }
+.agr-calor td { text-align: right; }
+.agr-calor td:first-child { text-align: left; }
+.agr-cohorte td { background: var(--superficie-2); border-top: 1px solid var(--borde); }
+.pildora svg { flex: 0 0 auto; }
+.agr-global { font-size: .95rem; color: var(--texto-suave); }
+.pred-form { display: grid; gap: 1rem; }
+.pred-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: .9rem 1.1rem; }
+.pred-grid label { display: grid; gap: .3rem; font-size: .88rem; }
+.pred-acciones { display: flex; gap: .7rem; flex-wrap: wrap; }
+.pred-resultado { display: grid; gap: .7rem; padding: 1.1rem 1.3rem; border: 1px solid var(--borde); border-radius: 12px; }
+.pred-prob { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; }
+.pred-valor { font-size: 2rem; font-weight: 700; color: var(--navy); }
+.pred-barra { height: 10px; border-radius: 6px; background: var(--superficie-2); overflow: hidden; }
+.pred-barra i { display: block; height: 100%; background: var(--azul); }

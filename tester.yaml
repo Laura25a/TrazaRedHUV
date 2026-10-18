@@ -1,9 +1,21 @@
+# =============================================================================
 # tester.yaml — Contrato de verificación automática · TrazaRed HUV
+# Corte 2 · Salud Digital 2026-2
+# =============================================================================
+# Este archivo declara la URL pública, los usuarios de prueba y las rutas
+# de la API para el tester automático del profesor. Una ruta que no se
+# declara aquí cuenta como "no cumple".
+
 equipo: "TrazaRed HUV"
 version: "Corte 2"
-fecha: "2026-10-17"
+fecha: "2026-10-18"
+
+# URL pública del túnel de Cloudflare (HTTPS, no localhost)
 url_publica: "https://graduation-florists-blowing-starting.trycloudflare.com"
 
+# =============================================================================
+# Usuarios de prueba (uno por rol)
+# =============================================================================
 usuarios:
   admin:
     usuario: "admin@trazared.huv"
@@ -24,6 +36,9 @@ usuarios:
     usuario: "eps@coosalud.com"
     password: "clave_de_la_eps_de_prueba"
 
+# =============================================================================
+# Datos de prueba que el tester puede usar
+# =============================================================================
 datos:
   paciente_id_prueba: 1
   paciente_id_fhir: "1000"
@@ -49,29 +64,280 @@ datos:
     valor: 250
     unidad: "mg/dL"
 
+# =============================================================================
+# Rutas de la API (Corte 2)
+# =============================================================================
+# Los campos son los que el tester verifica en la respuesta.
 rutas:
-  yo: { metodo: GET, path: /me, campos: [rol] }
-  login: { metodo: POST, path: /login, content_type: application/x-www-form-urlencoded }
-  clusters: { metodo: GET, path: /clusters, campos: [cluster, descripcion, n_reales, n_sinteticos] }
-  remitir: { metodo: POST, path: /remitir, campos: [id] }
-  remisiones: { metodo: GET, path: /remitir/bandeja, campos: [paciente_id] }
-  remision_aceptar: { metodo: POST, path: /remitir/{id}/aceptar }
-  contable_listar: { metodo: GET, path: /facturas, campos: [paciente_id] }
-  ia_analizar: { metodo: POST, path: /ia_analizar, campos: [id, estado] }
-  ia_reporte: { metodo: GET, path: /ia_reporte/{id}, campos: [id, estado] }
-  ia_aprobar: { metodo: PUT, path: /ia_reporte/{id}/aprobar, campos: [id, estado] }
-  ia_payload: { metodo: GET, path: /ia_payload/{id} }
-  historia: { metodo: GET, path: /pacientes/{id}/historia, campos: [paciente, observaciones, reportes_ia] }
-  historia_pdf: { metodo: GET, path: /pacientes/{id}/historia.pdf, content_type: application/pdf }
-  auditoria_filtrada: { metodo: GET, path: /auditoria?accion=evento_fhir&limite=10 }
-  app_raiz: { metodo: GET, path: /app/, content_type: text/html }
-  tiempo_real: { metodo: GET, path: /eventos/stream?token={token}, tipo: sse, campos: [tipo, mensaje] }
-  notificaciones: { metodo: GET, path: /notificaciones, campos: [id, tipo, mensaje, leida, fecha] }
-  notif_leer: { metodo: POST, path: /notificaciones/{id}/leer }
-  pendientes: { metodo: GET, path: /pendientes, campos: [reportes_por_revisar, remisiones_recibidas, alertas_activas] }
-  alertas: { metodo: GET, path: /alertas, campos: [id, paciente_id, nivel, estado] }
-  alerta_reconocer: { metodo: POST, path: /alertas/{id}/reconocer }
-  fhir_observation: { metodo: POST, path_fhir: /Observation }
-  fhir_paciente_sync: { metodo: GET, path_fhir: /Patient }
-  ia_simular: { metodo: POST, path: /fhir/observacion/simular, campos: [fhir_observation_id] }
-  fhir_receptor: { metodo: POST, path: /fhir/observacion, campos: [recibido, paciente_id] }
+
+  # ── R01 · Roles ────────────────────────────────────────────────────────────
+  yo:
+    metodo: GET
+    path: /me
+    rol_requerido: ["admin", "medico", "especialista", "contable", "paciente"]
+    campos: ["rol"]
+
+  # ── R02 · Bloqueo por intentos fallidos ────────────────────────────────────
+  # (El tester intenta 3 veces con contraseña mala y verifica 423)
+  login:
+    metodo: POST
+    path: /login
+    content_type: application/x-www-form-urlencoded
+
+  desbloquear_usuario:
+    metodo: POST
+    path: /usuarios/{id}/desbloquear
+    rol_requerido: ["admin"]
+
+  # ── R03 · Seguridad (el tester prueba sin token, con rol equivocado) ───────
+  auditoria:
+    metodo: GET
+    path: /auditoria
+    rol_requerido: ["admin"]
+
+  # ── R07 · Clusters ─────────────────────────────────────────────────────────
+  clusters:
+    metodo: GET
+    path: /ia/clusters
+    rol_requerido: ["admin", "medico", "especialista"]
+    campos: ["cluster", "descripcion", "n_reales", "n_sinteticos"]
+
+  clusters_detalle:
+    metodo: GET
+    path: /ia/clusters/detalle
+    rol_requerido: ["admin", "medico", "especialista"]
+
+  # ── R08 · Remisión entre médicos ───────────────────────────────────────────
+  remitir:
+    metodo: POST
+    path: /remitir
+    rol_requerido: ["medico", "admin"]
+    body: 
+      paciente_id: "{paciente_id_prueba}"
+      especialista_id: 3
+      motivo: "Prueba automática de remisión"
+    campos: ["id"]
+
+  remisiones:
+    metodo: GET
+    path: /remitir/bandeja
+    rol_requerido: ["especialista", "admin"]
+    campos: ["paciente_id"]
+
+  remision_aceptar:
+    metodo: POST
+    path: /remitir/{id}/aceptar
+    rol_requerido: ["especialista", "admin"]
+
+  # ── R09 · Contabilidad ─────────────────────────────────────────────────────
+  contable_listar:
+    metodo: GET
+    path: /facturas
+    rol_requerido: ["admin", "contable"]
+    campos: ["paciente_id"]
+
+  # ── R10 · IA con aprobación ────────────────────────────────────────────────
+  ia_analizar:
+    metodo: POST
+    path: /ia/analizar
+    rol_requerido: ["medico", "especialista", "admin"]
+    body:
+      paciente_id: "{paciente_id_prueba}"
+      sexo: 2
+      edad: 75
+      sbp: 85
+      dbp: 50
+      fc: 125
+      fr: 26
+      temperatura: 38.5
+      saturacion: 86
+      nrs_dolor: 8
+      mental: 1
+      dolor: 1
+      lesion: 1
+      modo_llegada: 3
+      pacientes_por_hora: 5
+    campos: ["id", "estado"]
+
+  ia_reportes:
+    metodo: GET
+    path: /ia/reportes
+    rol_requerido: ["admin", "medico", "especialista"]
+    campos: ["id", "estado"]
+
+  ia_reporte:
+    metodo: GET
+    path: /ia/reportes/{id}
+    rol_requerido: ["admin", "medico", "especialista"]
+    campos: ["id", "estado"]
+
+  ia_aprobar:
+    metodo: POST
+    path: /ia/reportes/{id}/aprobar
+    rol_requerido: ["medico", "especialista", "admin"]
+    body: {observaciones: "Aprobado por tester", aprobado: true}
+    campos: ["id", "estado"]
+
+  ia_rechazar:
+    metodo: POST
+    path: /ia/reportes/{id}/rechazar
+    rol_requerido: ["medico", "especialista", "admin"]
+    body: {observaciones: "Rechazado por tester"}
+    campos: ["id", "estado"]
+
+  ia_payload:
+    metodo: GET
+    path: /ia/reportes/{id}/payload
+    rol_requerido: ["admin", "medico", "especialista"]
+
+  ia_predecir:
+    metodo: POST
+    path: /ia/predecir
+    rol_requerido: ["admin", "medico", "especialista"]
+    campos: ["probabilidad", "nivel", "version_modelo"]
+
+  modelo:
+    metodo: GET
+    path: /modelo
+    rol_requerido: ["admin", "medico", "especialista"]
+
+  entrenar:
+    metodo: POST
+    path: /entrenar
+    rol_requerido: ["admin"]
+
+  # ── R11 · Historia clínica (JSON y PDF) ────────────────────────────────────
+  historia:
+    metodo: GET
+    path: /pacientes/{id}/historia
+    rol_requerido: ["admin", "medico", "especialista"]
+    campos: ["paciente", "observaciones", "reportes_ia"]
+
+  historia_pdf:
+    metodo: GET
+    path: /pacientes/{id}/historia.pdf
+    rol_requerido: ["admin", "medico", "especialista"]
+    content_type: application/pdf
+
+  # ── R06 · Imágenes del paciente (PACS) ─────────────────────────────────────
+  imagenes_paciente:
+    metodo: GET
+    path: /pacientes/{id}/imagenes
+    rol_requerido: ["admin", "medico", "especialista"]
+    campos: ["imagenes"]
+
+  # ── R12 · Seudonimización (verificado con ia_payload) ─────────────────────
+  # (usa el mismo endpoint de ia_payload; el tester busca que no aparezcan
+  #  datos personales "canario" en el payload)
+
+  # ── R13 · Auditoría ────────────────────────────────────────────────────────
+  auditoria_filtrada:
+    metodo: GET
+    path: /auditoria?accion=evento_fhir&limite=10
+    rol_requerido: ["admin"]
+
+  # ── R15 · FHIR heredado ────────────────────────────────────────────────────
+  # (el tester crea un paciente y busca en FHIR)
+
+  # ── R16 · Frontend SPA ─────────────────────────────────────────────────────
+  app_raiz:
+    metodo: GET
+    path: /app/
+    content_type: text/html
+
+  # ── R17 · Canal SSE ────────────────────────────────────────────────────────
+  tiempo_real:
+    metodo: GET
+    path: /eventos/stream?token={token}
+    tipo: sse
+    content_type: text/event-stream
+    timeout_segundos: 8
+    campos: ["tipo", "mensaje"]
+
+  # ── R18 · Notificaciones ───────────────────────────────────────────────────
+  notificaciones:
+    metodo: GET
+    path: /notificaciones
+    rol_requerido: ["admin", "medico", "especialista", "contable", "eps", "paciente"]
+    campos: ["id", "tipo", "mensaje", "leida", "fecha"]
+
+  notif_leer:
+    metodo: POST
+    path: /notificaciones/{id}/leer
+    rol_requerido: ["admin", "medico", "especialista", "contable", "eps", "paciente"]
+
+  pendientes:
+    metodo: GET
+    path: /pendientes
+    rol_requerido: ["admin", "medico", "especialista"]
+    campos: ["reportes_por_revisar", "remisiones_recibidas", "alertas_activas"]
+
+  # ── R19 · Flujos automáticos ───────────────────────────────────────────────
+  # (se verifican indirectamente con R08, R10 y R02)
+
+  # ── R20 · Alertas críticas ─────────────────────────────────────────────────
+  alertas:
+    metodo: GET
+    path: /alertas
+    rol_requerido: ["admin", "medico", "especialista"]
+    campos: ["id", "paciente_id", "nivel", "estado"]
+
+  alerta_reconocer:
+    metodo: POST
+    path: /alertas/{id}/reconocer
+    rol_requerido: ["medico", "especialista", "admin"]
+    body: {nota: "Revisada por el tester"}
+
+  # ── R21 · FHIR reactivo ────────────────────────────────────────────────────
+  fhir_observation:
+    metodo: POST
+    path_fhir: /Observation
+    body:
+      resourceType: "Observation"
+      status: "final"
+      code:
+        coding:
+          - system: "http://loinc.org"
+            code: "2339-0"
+            display: "Glucose"
+      subject:
+        reference: "Patient/{fhir_patient_id}"
+      valueQuantity:
+        value: 250
+        unit: "mg/dL"
+        system: "http://unitsofmeasure.org"
+
+  fhir_paciente_sync:
+    metodo: GET
+    path_fhir: /Patient
+    query: {identifier: "urn:trazared:documento|{documento_paciente}"}
+    campos: ["resourceType", "id", "identifier"]
+
+  # ── R10 · Alias para simular análisis de IA desde el frontend ──────────────
+  ia_simular:
+    metodo: POST
+    path: /fhir/observacion/simular
+    rol_requerido: ["admin", "medico"]
+    body:
+      paciente_id: "{paciente_id_prueba}"
+      valor: 250
+      unidad: "mg/dL"
+    campos: ["fhir_observation_id"]
+
+  # ── R21 · Endpoint receptor del rest-hook (por si el tester lo llama) ──────
+  fhir_receptor:
+    metodo: POST
+    path: /fhir/observacion
+    body:
+      resourceType: "Observation"
+      status: "final"
+      code:
+        coding:
+          - system: "http://loinc.org"
+            code: "2339-0"
+      subject:
+        reference: "Patient/{fhir_patient_id}"
+      valueQuantity:
+        value: 250
+        unit: "mg/dL"
+    campos: ["recibido", "paciente_id"]

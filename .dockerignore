@@ -16,3 +16,9 @@ plan/
 .env
 **/.env
 **/pass.env
+datos_imagenes/
+__pycache__/
+*.pyc
+.venv/
+.ipynb_checkpoints/
+*.ipynb

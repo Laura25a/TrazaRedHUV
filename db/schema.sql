@@ -123,6 +123,24 @@ ALTER TABLE usuarios ADD CONSTRAINT usuarios_rol_check
 -- R13: consultas rápidas de la auditoría por recurso (p. ej. "todo lo del paciente 12")
 CREATE INDEX IF NOT EXISTS idx_auditoria_recurso ON auditoria (tabla, registro_id);
 
+-- CORTE 2 — R10/R12 (Persona 2): reportes de IA con aprobación clínica
+CREATE TABLE IF NOT EXISTS reportes_ia (
+    id SERIAL PRIMARY KEY,
+    remision_id INTEGER REFERENCES remisiones(id),
+    paciente_id INTEGER NOT NULL REFERENCES pacientes(id),
+    creado_por INTEGER REFERENCES usuarios(id),
+    modelo TEXT,
+    probabilidad_urgente NUMERIC NOT NULL,
+    prediccion TEXT NOT NULL,
+    critico_segun_umbral BOOLEAN NOT NULL DEFAULT FALSE,
+    payload_seudonimizado JSONB NOT NULL,
+    estado TEXT NOT NULL DEFAULT 'pendiente' CHECK (estado IN ('pendiente','aprobado','rechazado')),
+    observacion_revision TEXT,
+    revisado_por INTEGER REFERENCES usuarios(id),
+    revisado_en TIMESTAMP,
+    creado_en TIMESTAMP NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_reportes_ia_paciente ON reportes_ia (paciente_id, estado);
 -- ============================================================================
 -- CORTE 2 — R18/R20: notificaciones y alertas críticas (Persona 4, sistema reactivo)
 -- ============================================================================
