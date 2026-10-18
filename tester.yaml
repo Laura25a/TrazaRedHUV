@@ -11,7 +11,7 @@ version: "Corte 2"
 fecha: "2026-10-18"
 
 # URL pública del túnel de Cloudflare (HTTPS, no localhost)
-url_publica: "https://graduation-florists-blowing-starting.trycloudflare.com"
+url_publica: "https://monthly-munich-attach-adapters.trycloudflare.com"
 
 # =============================================================================
 # Usuarios de prueba (uno por rol)
