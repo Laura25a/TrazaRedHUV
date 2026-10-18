@@ -8,7 +8,7 @@
 
 equipo: "TrazaRed HUV"
 version: "Corte 2"
-fecha: "2026-10-13"
+fecha: "2026-10-18"
 
 # URL pública del túnel de Cloudflare (HTTPS, no localhost)
 url_publica: "https://graduation-florists-blowing-starting.trycloudflare.com"
@@ -98,13 +98,14 @@ rutas:
   # ── R07 · Clusters ─────────────────────────────────────────────────────────
   clusters:
     metodo: GET
-<<<<<<< HEAD
-    path: /clusters
-=======
     path: /ia/clusters
->>>>>>> ae4d934 (Actualiza modelos de IA)
     rol_requerido: ["admin", "medico", "especialista"]
     campos: ["cluster", "descripcion", "n_reales", "n_sinteticos"]
+
+  clusters_detalle:
+    metodo: GET
+    path: /ia/clusters/detalle
+    rol_requerido: ["admin", "medico", "especialista"]
 
   # ── R08 · Remisión entre médicos ───────────────────────────────────────────
   remitir:
@@ -138,11 +139,7 @@ rutas:
   # ── R10 · IA con aprobación ────────────────────────────────────────────────
   ia_analizar:
     metodo: POST
-<<<<<<< HEAD
-    path: /ia_analizar
-=======
     path: /ia/analizar
->>>>>>> ae4d934 (Actualiza modelos de IA)
     rol_requerido: ["medico", "especialista", "admin"]
     body:
       paciente_id: "{paciente_id_prueba}"
@@ -162,37 +159,42 @@ rutas:
       pacientes_por_hora: 5
     campos: ["id", "estado"]
 
+  ia_reportes:
+    metodo: GET
+    path: /ia/reportes
+    rol_requerido: ["admin", "medico", "especialista"]
+    campos: ["id", "estado"]
+
   ia_reporte:
     metodo: GET
-<<<<<<< HEAD
-    path: /ia_reporte/{id}
-=======
     path: /ia/reportes/{id}
->>>>>>> ae4d934 (Actualiza modelos de IA)
     rol_requerido: ["admin", "medico", "especialista"]
     campos: ["id", "estado"]
 
   ia_aprobar:
-<<<<<<< HEAD
-    metodo: PUT
-    path: /ia_reporte/{id}/aprobar
-=======
     metodo: POST
     path: /ia/reportes/{id}/aprobar
->>>>>>> ae4d934 (Actualiza modelos de IA)
     rol_requerido: ["medico", "especialista", "admin"]
     body: {observaciones: "Aprobado por tester", aprobado: true}
     campos: ["id", "estado"]
 
+  ia_rechazar:
+    metodo: POST
+    path: /ia/reportes/{id}/rechazar
+    rol_requerido: ["medico", "especialista", "admin"]
+    body: {observaciones: "Rechazado por tester"}
+    campos: ["id", "estado"]
+
   ia_payload:
     metodo: GET
-<<<<<<< HEAD
-    path: /ia_payload/{id}
-    rol_requerido: ["admin", "medico", "especialista"]
-
-=======
     path: /ia/reportes/{id}/payload
     rol_requerido: ["admin", "medico", "especialista"]
+
+  ia_predecir:
+    metodo: POST
+    path: /ia/predecir
+    rol_requerido: ["admin", "medico", "especialista"]
+    campos: ["probabilidad", "nivel", "version_modelo"]
 
   modelo:
     metodo: GET
@@ -204,13 +206,25 @@ rutas:
     path: /entrenar
     rol_requerido: ["admin"]
 
->>>>>>> ae4d934 (Actualiza modelos de IA)
-  # ── R11 · Historia clínica PDF ─────────────────────────────────────────────
+  # ── R11 · Historia clínica (JSON y PDF) ────────────────────────────────────
+  historia:
+    metodo: GET
+    path: /pacientes/{id}/historia
+    rol_requerido: ["admin", "medico", "especialista"]
+    campos: ["paciente", "observaciones", "reportes_ia"]
+
   historia_pdf:
     metodo: GET
     path: /pacientes/{id}/historia.pdf
     rol_requerido: ["admin", "medico", "especialista"]
     content_type: application/pdf
+
+  # ── R06 · Imágenes del paciente (PACS) ─────────────────────────────────────
+  imagenes_paciente:
+    metodo: GET
+    path: /pacientes/{id}/imagenes
+    rol_requerido: ["admin", "medico", "especialista"]
+    campos: ["imagenes"]
 
   # ── R12 · Seudonimización (verificado con ia_payload) ─────────────────────
   # (usa el mismo endpoint de ia_payload; el tester busca que no aparezcan
@@ -292,7 +306,7 @@ rutas:
         value: 250
         unit: "mg/dL"
         system: "http://unitsofmeasure.org"
-          # ── R15 · FHIR heredado (paciente sincronizado) ────────────────────────────
+
   fhir_paciente_sync:
     metodo: GET
     path_fhir: /Patient
