@@ -53,7 +53,7 @@ class AnalisisIn(BaseModel):
     fc: Optional[float] = Field(None, ge=20, le=250)
     fr: Optional[float] = Field(None, ge=4, le=80)
     temperatura: Optional[float] = Field(None, ge=30, le=45)
-    saturacion: Optional[float] = Field(None, ge=30, le=100)
+    saturacion: Optional[float] = Field(None, ge=0, le=100)
     remision_id: Optional[int] = None
 
 
@@ -432,3 +432,42 @@ def listar_clusters(
     usuario=Depends(requiere_rol("admin", "medico", "especialista")),
 ):
     return _pedir_a_ml("GET", "/clusters", espera=60)["clusters"]
+
+@router.get("/ia/clusters/detalle")
+def detalle_clusters(
+      usuario=Depends(requiere_rol("admin", "medico", "especialista")),
+):
+      return _pedir_a_ml("GET", "/clusters/detalle", espera=120)
+  
+
+class PrediccionIn(BaseModel):
+    """Mismos campos y rangos que AnalisisIn, pero sin paciente ni remisión: es una consulta suelta."""
+    sexo: Optional[int] = Field(None, ge=1, le=2)
+    edad: Optional[int] = Field(None, ge=0, le=120)
+    pacientes_por_hora: Optional[int] = Field(None, ge=0, le=200)
+    modo_llegada: int = Field(3, ge=1, le=7)
+    lesion: int = Field(1, ge=1, le=2)
+    mental: int = Field(1, ge=1, le=4)
+    dolor: int = Field(0, ge=0, le=1)
+    nrs_dolor: Optional[float] = Field(None, ge=0, le=10)
+    sbp: Optional[float] = Field(None, ge=40, le=300)
+    dbp: Optional[float] = Field(None, ge=20, le=200)
+    fc: Optional[float] = Field(None, ge=20, le=250)
+    fr: Optional[float] = Field(None, ge=4, le=80)
+    temperatura: Optional[float] = Field(None, ge=30, le=45)
+    saturacion: Optional[float] = Field(None, ge=0, le=100)
+
+
+@router.post("/ia/predecir")
+def predecir_sin_guardar(
+    datos: PrediccionIn,
+    db=Depends(get_db),
+    usuario=Depends(requiere_rol("admin", "medico", "especialista")),
+):
+    """Calcula la probabilidad con el modelo SIN guardar reporte ni asociarlo a un paciente."""
+    d = datos.model_dump()
+    payload = {"id_seudonimo": "consulta-sin-paciente"}   # no hay paciente: nada que seudonimizar
+    payload.update({campo: d[campo] for campo in CAMPOS_CLINICOS})
+    resultado = llamar_modelo(payload)
+    registrar_auditoria(db, usuario["id"], "prediccion_ia", "modelo", None, "consulta sin paciente")
+    return resultado

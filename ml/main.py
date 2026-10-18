@@ -15,7 +15,7 @@ la que quita los datos personales antes de llamarlo.
 """
 from pathlib import Path
 from typing import Optional
-from agrupacion import resumen_clusters
+from agrupacion import detalle_clusters, resumen_clusters
 from entrenar import entrenar, RUTA_CSV
 import joblib
 import numpy as np
@@ -56,7 +56,7 @@ class DatosClinicos(BaseModel):
     fc: Optional[float] = Field(None, ge=20, le=250)
     fr: Optional[float] = Field(None, ge=4, le=80)
     temperatura: Optional[float] = Field(None, ge=30, le=45)
-    saturacion: Optional[float] = Field(None, ge=30, le=100)
+    saturacion: Optional[float] = Field(None, ge=0, le=100)
 
 
 # Nombre del contrato -> nombre de columna con el que se entrenó el modelo
@@ -135,3 +135,10 @@ def obtener_clusters():
         raise HTTPException(503, "No se encuentra el dataset real de KTAS")
     # La primera llamada entrena (unos segundos); las siguientes salen de memoria
     return {"clusters": resumen_clusters()}
+
+@app.get("/clusters/detalle")
+def obtener_detalle_clusters():
+    """Perfiles por grupo, mapa PCA y calidad del agrupamiento (para el tablero)."""
+    if not RUTA_CSV.exists():
+        raise HTTPException(503, "No se encuentra el dataset real de KTAS")
+    return detalle_clusters()

@@ -98,7 +98,11 @@ rutas:
   # ── R07 · Clusters ─────────────────────────────────────────────────────────
   clusters:
     metodo: GET
+<<<<<<< HEAD
     path: /clusters
+=======
+    path: /ia/clusters
+>>>>>>> ae4d934 (Actualiza modelos de IA)
     rol_requerido: ["admin", "medico", "especialista"]
     campos: ["cluster", "descripcion", "n_reales", "n_sinteticos"]
 
@@ -134,7 +138,11 @@ rutas:
   # ── R10 · IA con aprobación ────────────────────────────────────────────────
   ia_analizar:
     metodo: POST
+<<<<<<< HEAD
     path: /ia_analizar
+=======
+    path: /ia/analizar
+>>>>>>> ae4d934 (Actualiza modelos de IA)
     rol_requerido: ["medico", "especialista", "admin"]
     body:
       paciente_id: "{paciente_id_prueba}"
@@ -156,22 +164,47 @@ rutas:
 
   ia_reporte:
     metodo: GET
+<<<<<<< HEAD
     path: /ia_reporte/{id}
+=======
+    path: /ia/reportes/{id}
+>>>>>>> ae4d934 (Actualiza modelos de IA)
     rol_requerido: ["admin", "medico", "especialista"]
     campos: ["id", "estado"]
 
   ia_aprobar:
+<<<<<<< HEAD
     metodo: PUT
     path: /ia_reporte/{id}/aprobar
+=======
+    metodo: POST
+    path: /ia/reportes/{id}/aprobar
+>>>>>>> ae4d934 (Actualiza modelos de IA)
     rol_requerido: ["medico", "especialista", "admin"]
     body: {observaciones: "Aprobado por tester", aprobado: true}
     campos: ["id", "estado"]
 
   ia_payload:
     metodo: GET
+<<<<<<< HEAD
     path: /ia_payload/{id}
     rol_requerido: ["admin", "medico", "especialista"]
 
+=======
+    path: /ia/reportes/{id}/payload
+    rol_requerido: ["admin", "medico", "especialista"]
+
+  modelo:
+    metodo: GET
+    path: /modelo
+    rol_requerido: ["admin", "medico", "especialista"]
+
+  entrenar:
+    metodo: POST
+    path: /entrenar
+    rol_requerido: ["admin"]
+
+>>>>>>> ae4d934 (Actualiza modelos de IA)
   # ── R11 · Historia clínica PDF ─────────────────────────────────────────────
   historia_pdf:
     metodo: GET
