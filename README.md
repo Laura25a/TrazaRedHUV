@@ -1,141 +1,68 @@
-
 # TrazaRed HUV
 
-Sistema de trazabilidad para la remisión y el traslado de pacientes del Hospital
-Universitario del Valle "Evaristo García" (HUV), desarrollado para la asignatura de
-Salud Digital (2026-2). El proyecto se construyó por etapas: en el **Corte 1** se dejó
-cada remisión registrada e interoperable; en la **semana 8** el sistema se empaquetó en
-Docker y recibió un dataset con sentido clínico; y en el **Corte 2** se puso en
-internet de forma segura, con inteligencia artificial que el médico revisa y con
-reacciones automáticas en tiempo real. Este README describe el sistema completo tal
-como está hoy.
+**Trazabilidad de remisiones de pacientes para el Hospital Universitario del Valle
+"Evaristo García".**
+
+TrazaRed HUV registra cada remisión de un paciente de principio a fin: a qué instituciones
+se contactó, qué respondieron, si había convenio con la EPS y qué tan urgente estaba el
+paciente mientras esperaba. Además estima esa urgencia con un modelo de inteligencia
+artificial que el médico revisa, guarda la información clínica en un estándar
+interoperable (HL7 FHIR) y avisa en tiempo real a quien tiene que actuar.
 
 **En línea:** https://trazared.kogcake.com
 
+Proyecto de la asignatura Salud Digital, Universidad Autónoma de Occidente (2026-2).
 **Equipo:** Luz Ángela Carabalí Mulato, Laura Daniela Astudillo Ortega, Nicolás Zapata
-Obando, David Ortega Quintero.
+Obando y David Ortega Quintero.
+
+---
 
 ## El problema
 
 El HUV es el hospital público de alta complejidad de referencia del suroccidente
-colombiano. Cuando un paciente necesita un servicio que no está disponible, hay que
-remitirlo a otra institución con cupo y con convenio con su EPS. Hoy esa gestión se hace
-caso a caso, llamada por llamada, sin un registro único que confirme qué instituciones
-fueron contactadas, qué respondieron, si existía convenio vigente ni qué tan urgente era
-el paciente; es un vacío documentado en la Sentencia T-573 de 2023 de la Corte
-Constitucional.
+colombiano. Cuando un paciente necesita un servicio que el hospital no tiene disponible,
+hay que remitirlo a otra institución con cupo y con convenio con su EPS. Hoy esa gestión
+se hace caso a caso, llamada por llamada, sin un registro único: después nadie puede
+demostrar qué instituciones fueron contactadas, qué respondieron ni cuánto tiempo pasó.
+La Corte Constitucional documentó ese vacío en la Sentencia T-573 de 2023.
 
-TrazaRed HUV registra cada remisión de principio a fin, estima la urgencia de cada
-paciente con un modelo de IA que el médico revisa, y avisa en tiempo real a quien tiene
-que actuar.
+TrazaRed HUV convierte esa gestión en un proceso con rastro: cada remisión, cada intento de
+contacto, cada cambio y cada decisión queda registrado, y nada se borra de verdad.
 
-## Recorrido del proyecto
+## Qué hace el sistema
 
-### Corte 1 · La remisión queda registrada e interoperable
-
-El primer objetivo fue que ninguna remisión se perdiera. Se diseñó un modelo de datos
-en dos bases que se complementan:
-
-- **PostgreSQL** guarda lo estructurado: `pacientes`, `usuarios`, `remisiones` (institución
-  de origen y destino, fecha, motivo, estado y convenio vigente), `observaciones` (signos
-  vitales con código LOINC y unidad UCUM), `remisiones_historial` y `auditoria`.
-- **MongoDB** guarda la colección `gestiones_contacto`: la bitácora de intentos de contacto
-  de cada remisión (a quién se llamó, qué respondió, cuándo), como lista anidada dentro de
-  un documento por remisión.
-
-Encima se construyó una **API en FastAPI con JWT** y cuatro roles pensados desde el
-hospital: **admin** (Oficina de Referencia y Contrarreferencia), **médico**, **EPS** (sigue
-las remisiones de sus afiliados) y **paciente** (solo ve a dónde y en cuánto tiempo será
-remitido). Desde este corte la historia no se destruye: el médico edita con historial
-(`soft_edit`, la versión anterior queda en `remisiones_historial`) y "borra" con
-**soft delete**; solo el admin restaura, y cada acción queda en la auditoría.
-
-Para la interoperabilidad se montó un servidor **HAPI FHIR R4** y se hizo el mapeo campo
-por campo: `pacientes` → `Patient`, `remisiones` → `Encounter`, `observaciones` →
-`Observation` (LOINC). El mapeo, sus desviaciones del plan y la justificación de los roles
-están en [`documentacion_mapeo_roles.md`](documentacion_mapeo_roles.md). La demo de ese
-corte (bases en Neon y Atlas, HAPI en Docker y túneles rápidos de Cloudflare) se levanta
-con `python levantar_demo.py`, y el recorrido está en `notebooks/proyecto_trazared_huv.ipynb`.
-
-### Semana 8 · Docker, bloqueo y un dataset con sentido
-
-El sistema se **dockerizó** para levantarse con un solo comando, sin depender de bases en
-la nube ni de pasos manuales. Se agregó el **bloqueo de cuenta al tercer intento fallido**
-y un servidor de imágenes médicas **Orthanc (PACS)**, primero con imágenes de prueba.
-
-Se generó el **dataset del proyecto: 600 remisiones sintéticas** (semilla fija) alrededor
-de tres grupos definidos por cómo terminó la remisión, con distribuciones que se traslapan
-a propósito para que el agrupamiento tuviera algo real que encontrar:
-
-| Grupo | n | Cómo terminó | Contactos | Convenio vigente | Signos del paciente |
-|---|---|---|---|---|---|
-| `efectiva` | 200 | aceptada / completada | 1–2 | ~85 % | casi normales |
-| `borderline` | 200 | pendiente / en gestión | 3–4 | ~50 % | intermedios |
-| `fallida` | 200 | rechazada | 4–7 | ~15 % | alterados (taquicardia, hipotensión, SpO2 y Glasgow bajos) |
-
-Los CSV están en `data/` y su descripción en [`docs/README.md`](docs/README.md). El cuaderno
-de esa semana es `notebooks/semana8_docker_bloqueo_dataset.ipynb`.
-
-### Corte 2 · Seguro, en línea, con IA y reactivo
-
-Sobre esa base, el Corte 2 cubrió los 22 requisitos de la rúbrica en cuatro frentes:
-
-- **Acceso y seguridad:** cinco roles (se suman especialista y contable; la EPS se
-  conserva), bloqueo con aviso al admin, token y control por rol en todas las rutas,
-  CORS cerrado, cabeceras de seguridad, límite de peticiones, ningún secreto en el
-  repositorio, nueve servicios en Docker y el sistema publicado en
-  **trazared.kogcake.com** con un túnel de Cloudflare.
-- **Datos e IA:** 600 radiografías de tórax reales (NIH ChestX-ray14) reemplazan las de
-  prueba, coherentes con el grupo de cada remisión; el dataset real de urgencias KTAS
-  (1 267 pacientes) para entrenar; 11 modelos comparados y **XGBoost** como ganador; 4
-  perfiles con K-means y 190 pacientes sintéticos; y una capa que quita los datos
-  personales antes de llamar al modelo.
-- **Flujo clínico:** remisión de médico a especialista, reportes de IA que el médico
-  aprueba o rechaza, historia clínica en PDF, facturación en MongoDB y FHIR que avisa al
-  médico cuando llega un dato nuevo.
-- **Sistema reactivo:** canal en vivo, bandeja de notificaciones, flujos automáticos y
-  alertas críticas que escalan al admin si nadie las reconoce.
-
-El detalle requisito por requisito está en la tabla siguiente.
-
-## Qué se hizo en el Corte 2, requisito por requisito
-
-| Bloque | Requisito | Qué quedó funcionando | Dónde |
-|---|---|---|---|
-| Acceso y seguridad | R01 | Cinco roles (admin, médico, especialista, paciente, contable); solo el admin crea usuarios; `GET /me` devuelve el rol | `python/auth.py` |
-| | R02 | Bloqueo al 3er intento fallido (423), solo el admin desbloquea, aviso al admin | `python/auth.py`, `python/eventos.py` |
-| | R03 | Token en todas las rutas, control por rol, bcrypt, CORS cerrado, cabeceras de seguridad, límite 429, solo `.env.example` en el repo | `python/main.py`, `docker/nginx.conf` |
-| | R04 | Túnel de Cloudflare como servicio del compose, con dominio propio | `docker/docker-compose.yml` |
-| | R05 | Un solo `docker compose up -d` levanta todo, incluido el servicio `ml` | `docker/docker-compose.yml`, `ml/Dockerfile` |
-| Datos | R06 | 600 radiografías reales de tórax (NIH ChestX-ray14) en el PACS | `python/sembrar_imagenes_reales.py`, `docs/DATASETS.md` |
-| | R07 | Dataset real KTAS, 4 perfiles con K-means y 190 pacientes sintéticos dentro de cada perfil | `ml/agrupacion.py`, `docs/DATASETS.md` |
-| Flujo clínico | R08 | Remisión de médico a especialista, bandeja y aceptación | `python/remisiones.py` (`/remitir`) |
-| | R09 | Facturación en MongoDB (colección `facturas`) | `python/contabilidad.py`, `docs/CONTABILIDAD.md` |
-| | R10 | Reporte de IA en estado `pendiente`, que el médico o especialista aprueba o rechaza | `python/ia.py` |
-| | R11 | Historia clínica en JSON y en PDF, solo con reportes aprobados | `python/historia.py` |
-| | R12 | Capa que quita los datos personales antes de llamar al modelo; payload consultable | `python/ia.py` |
-| | R13 | Auditoría con usuario, acción, recurso y fecha | `python/auth.py` |
-| | R14 | Soft delete del médico y restauración solo del admin | `python/remisiones.py` |
-| | R15 | Pacientes en HAPI FHIR con LOINC y SNOMED | `python/fhir_sync.py` |
-| | R16 | Interfaz de una sola página, sin recargas, con canal en vivo | `frontend/` |
-| Sistema reactivo | R17 | Canal en tiempo real por Server-Sent Events | `python/eventos.py` |
-| | R18 | Bandeja de notificaciones y contadores de pendientes | `python/eventos.py` |
-| | R19 | Cuatro flujos automáticos (remitir, aceptar, aprobar reporte, bloqueo) | `python/eventos.py`, `docs/EVENTOS.md` |
-| | R20 | Alertas críticas con reconocimiento y escalamiento | `python/eventos.py`, `frontend/js/alertas.js` |
-| | R21 | Subscription `rest-hook` de HAPI FHIR que avisa al médico | `python/fhir_sync.py`, `python/main.py` |
-| Documentación | R22 | Este README, `docs/DATASETS.md`, `docs/EVENTOS.md`, `docs/CONTABILIDAD.md` y el mapa de leyes de abajo | `README.md`, `docs/` |
+- **Registra las remisiones completas:** paciente, institución de origen y destino,
+  motivo, estado, convenio vigente, signos vitales y la bitácora de cada intento de
+  contacto.
+- **Cuida la historia clínica:** nada se elimina; las ediciones guardan la versión anterior,
+  el "borrado" es lógico y solo el administrador restaura.
+- **Separa lo que ve cada persona** según su rol, desde el administrador hasta el paciente.
+- **Muestra imágenes médicas reales** (radiografías de tórax) desde la ficha del paciente,
+  con un visor de brillo, contraste, negativo y zoom.
+- **Estima la urgencia del paciente con IA** y deja la decisión al médico: el reporte queda
+  pendiente hasta que lo aprueba o lo rechaza.
+- **Protege los datos personales:** al modelo de IA nunca le llegan nombre, documento ni
+  datos de contacto.
+- **Remite entre médicos:** del médico tratante al especialista, con bandeja y aceptación.
+- **Genera la historia clínica en PDF** solo con lo que el médico aprobó.
+- **Lleva la facturación** de consultas, análisis de IA y remisiones.
+- **Habla FHIR:** pacientes, remisiones y observaciones viven también en un servidor HL7
+  FHIR R4 con códigos LOINC y SNOMED.
+- **Reacciona solo:** avisos en vivo, bandeja de notificaciones, flujos automáticos y
+  alertas críticas que escalan si nadie las atiende.
+- **Deja auditoría** de quién hizo qué, sobre qué y cuándo.
 
 ## Arquitectura
 
-Un solo `docker compose up -d` levanta los nueve servicios (R05). Desde internet solo se
-entra por el túnel de Cloudflare, que llega a nginx: ahí se aplican las cabeceras de
-seguridad y el límite de peticiones (R03). Las bases, el PACS y el servicio de IA no
-están expuestos hacia afuera.
+Todo el sistema son nueve servicios en Docker que se levantan con un solo comando. Desde
+internet solo se entra por un túnel de Cloudflare que llega a nginx, la única puerta: ahí
+se aplican las protecciones. Las bases de datos, el servidor de imágenes y el servicio de
+IA no se ven desde afuera.
 
 ```mermaid
 flowchart LR
     internet((Internet)) -->|HTTPS trazared.kogcake.com| cf[cloudflared<br/>túnel]
-    cf --> front[front · nginx<br/>interfaz + cabeceras + 429]
+    cf --> front[front · nginx<br/>interfaz + protecciones]
     front -->|/api| api[api · FastAPI]
     front -->|/fhir| hapi[hapi-fhir · FHIR R4]
     hapi --> fhirdb[(fhir-db · Postgres)]
@@ -144,268 +71,245 @@ flowchart LR
     api --> orthanc[orthanc · PACS DICOM]
     api -->|solo datos clínicos + seudónimo| ml[ml · XGBoost + K-means]
     hapi -.->|Subscription rest-hook| api
-    api -.->|SSE /api/eventos/stream| front
+    api -.->|eventos en vivo| front
 ```
 
-| Servicio | Imagen | Puerto en tu equipo | Qué hace |
-|---|---|---|---|
-| `front` | nginx:alpine | **8080** | Interfaz (SPA) y puerta única: `/api` → api, `/fhir` → hapi-fhir, SSE sin buffer |
-| `cloudflared` / `cloudflared-fijo` | cloudflare/cloudflared | 127.0.0.1:2000 (métricas) | Túnel HTTPS público hacia `front` (R04) |
-| `api` | propia (`python/Dockerfile`) | 127.0.0.1:8000 | FastAPI: roles, pacientes, remisiones, IA, contabilidad, historia, eventos |
-| `ml` | propia (`ml/Dockerfile`) | — (solo interno) | Modelo de urgencia y agrupamiento; solo la api le habla (`http://ml:8001`) |
-| `db` | postgres:16 | 127.0.0.1:5434 | Base relacional (`db/schema.sql`, `db/migracion_persona3.sql`) |
-| `mongo` | mongo:7 | 127.0.0.1:27017 | Gestiones de contacto y facturas |
-| `orthanc` | orthancteam/orthanc | 127.0.0.1:8042 | PACS: imágenes médicas DICOM |
-| `hapi-fhir` / `fhir-db` | hapiproject/hapi · postgres:15 | 127.0.0.1:8081 / 5433 | Servidor FHIR R4 y su base |
+| Servicio | Tecnología | Qué hace |
+|---|---|---|
+| `front` | nginx | Sirve la interfaz web y es la puerta única hacia la API y FHIR |
+| `cloudflared` | Cloudflare Tunnel | Publica el sistema en internet con HTTPS, sin abrir puertos |
+| `api` | Python · FastAPI | Usuarios y roles, pacientes, remisiones, IA, facturación, historia, eventos |
+| `ml` | Python · XGBoost, scikit-learn | Modelo de urgencia y perfiles de pacientes; solo la API le habla |
+| `db` | PostgreSQL | Pacientes, usuarios, remisiones, observaciones, reportes, alertas, auditoría |
+| `mongo` | MongoDB | Bitácora de contactos de cada remisión y facturas |
+| `orthanc` | Orthanc | Servidor de imágenes médicas (PACS) en formato DICOM |
+| `hapi-fhir` y `fhir-db` | HAPI FHIR R4 · PostgreSQL | Servidor de interoperabilidad y su base |
 
-nginx busca la dirección de `api` y `hapi-fhir` en el DNS interno de Docker en cada
-petición, así que reconstruir la API no deja a la interfaz con un 502.
+**Por qué dos bases:** PostgreSQL guarda lo estructurado y relacionado (un paciente tiene
+remisiones, una remisión tiene observaciones). MongoDB guarda lo que cambia de forma: los
+intentos de contacto de cada remisión van como lista dentro de un solo documento, y las
+facturas tienen campos distintos según el servicio.
 
-### Diagrama de eventos
+## Roles
 
-El módulo que detecta un hecho llama a `publicar()` (en `python/eventos.py`), y de ahí
-salen la bandeja, el canal en vivo y las reacciones automáticas. El catálogo completo
-está en [`docs/EVENTOS.md`](docs/EVENTOS.md).
+No hay registro público: solo el administrador crea cuentas y asigna roles.
+
+| Rol | Qué ve y qué hace |
+|---|---|
+| **Admin** (Oficina de Referencia y Contrarreferencia) | Crea usuarios, desbloquea cuentas, restaura registros, consulta la auditoría y la contabilidad |
+| **Médico** | Sus pacientes y remisiones, pide análisis de IA, aprueba o rechaza reportes, remite al especialista |
+| **Especialista** | Las remisiones que le llegan, las acepta y también revisa reportes de IA |
+| **Paciente** | Solo su propia información: a dónde y en cuánto tiempo será remitido |
+| **EPS** | Las remisiones de sus afiliados, solo lectura |
+| **Contable** | Crea, consulta y marca como pagadas las facturas; nunca ve datos clínicos |
+
+## Seguridad
+
+- **Bloqueo de cuenta** al tercer intento fallido: no entra ni con la contraseña correcta
+  hasta que el administrador la desbloquea, y el administrador recibe el aviso en vivo.
+- **Sesión obligatoria** en todas las rutas de datos (token JWT) y control de acceso por
+  rol: lo que no le corresponde a un rol, se niega.
+- **Contraseñas cifradas** con bcrypt.
+- **Protecciones web:** CORS cerrado al dominio propio, cabeceras de seguridad y límite de
+  peticiones por visitante.
+- **Ningún secreto en el repositorio:** solo se publica `.env.example`; las claves reales
+  se comparten por un canal privado.
+- **Superficie mínima:** bases, PACS, FHIR y API solo escuchan dentro del equipo; el
+  servicio de IA no se publica.
+- **Datos hacia la IA seudonimizados:** antes de llamar al modelo se quitan nombre,
+  documento, correo, teléfono y dirección; viajan solo las variables clínicas y un código
+  que no permite volver al paciente. El mensaje exacto que se envió queda guardado y se
+  puede consultar.
+- **Auditoría** de inicios de sesión fallidos, bloqueos, creación de usuarios y pacientes,
+  ediciones, borrados y restauraciones, análisis y aprobaciones de IA, remisiones,
+  facturas, alertas y eventos FHIR.
+
+## Datos
+
+| Conjunto | Origen | Para qué |
+|---|---|---|
+| **600 remisiones** | Sintéticas, generadas con semilla fija | Poblar el sistema con casos en tres grupos según cómo terminó la remisión: efectiva, borderline y fallida |
+| **600 radiografías de tórax** | Reales, NIH ChestX-ray14 (Wang et al., 2017) | Una por paciente, en el PACS; las remisiones fallidas tienen radiografía con hallazgo y las efectivas, sin hallazgo |
+| **1 267 pacientes de urgencias** | Reales, dataset KTAS (Moon et al., PLOS ONE 2019, CC BY 4.0) | Entrenar y evaluar el modelo de urgencia |
+| **190 pacientes sintéticos** | Generados dentro de 4 perfiles de pacientes reales | Poblar el sistema sin exponer pacientes reales; marcados como sintéticos y nunca usados para entrenar |
+
+Fuentes, licencias y el detalle de cada conjunto: [`docs/DATASETS.md`](docs/DATASETS.md) y
+[`docs/README.md`](docs/README.md).
+
+## Inteligencia artificial
+
+**Perfiles de pacientes.** Con K-means se encontraron cuatro perfiles en los pacientes de
+urgencias: hipoxemia severa, presión arterial alta, sin dolor y jóvenes con dolor. Se
+compararon cuatro algoritmos de agrupamiento y se identificaron las zonas donde el modelo
+más se confunde.
+
+**Modelo de urgencia.** Se compararon 11 modelos con el mismo preprocesamiento y la misma
+validación cruzada; ganó **XGBoost**. Para cada paciente entrega una probabilidad de ser
+urgente:
+
+- Desde **0,4** lo considera urgente: en 254 pacientes que nunca vio detectó 130 de 147
+  urgentes (sensibilidad 88 %, especificidad 51 %, precisión 71 %, F1 0,79).
+- Desde **0,9** enciende una **alerta crítica**: en la prueba saltó en 31 pacientes y 28
+  eran urgentes.
+- **Sesgo conocido:** casi todos los urgentes que se le escapan son menores de 65 años.
+
+**La IA sugiere, el médico decide.** Cada análisis crea un reporte pendiente. Solo el
+médico o el especialista lo aprueba o lo rechaza, con sus observaciones; lo aprobado entra
+a la historia clínica y lo rechazado se conserva como evidencia.
+
+El entrenamiento completo está en `notebooks/semana9_final.ipynb` y el modelo se puede
+reentrenar desde la API.
+
+## Flujo clínico
+
+1. El médico abre la ficha del paciente: datos, signos vitales, radiografía y remisiones.
+2. Pide el análisis de IA; el reporte queda pendiente y, si la probabilidad es muy alta,
+   salta la alerta crítica.
+3. Revisa el reporte y lo aprueba o lo rechaza. Al aprobarlo se genera la factura del
+   análisis.
+4. Si hace falta, remite al especialista con un motivo; el especialista recibe el aviso, la
+   ve en su bandeja y la acepta.
+5. La historia clínica se descarga en PDF con todo lo aprobado.
+6. Cuando llega un resultado nuevo al servidor FHIR (por ejemplo, una glucosa de
+   laboratorio), el médico responsable recibe el aviso.
+
+## Sistema reactivo
+
+La información llega sola a quien la necesita, sin recargar la página:
+
+- **Canal en vivo** que respeta los roles: el paciente y el contable no reciben eventos
+  clínicos.
+- **Bandeja de notificaciones** y contadores de pendientes (reportes por revisar,
+  remisiones recibidas, alertas activas).
+- **Flujos automáticos:** remitir avisa al especialista, aceptar avisa al médico, aprobar
+  un reporte crea la factura y un bloqueo avisa al administrador.
+- **Alertas críticas** que se quedan en pantalla hasta que un médico las reconoce; si nadie
+  lo hace en 10 minutos, se escalan al administrador.
+
+El catálogo de eventos está en [`docs/EVENTOS.md`](docs/EVENTOS.md).
 
 ```mermaid
 flowchart TD
-    A[auth.py · 3er intento fallido] -->|usuario_bloqueado| P{{publicar}}
-    R1[remisiones.py · remisión creada] -->|remision_creada| P
-    R2[remisiones.py · remisión aceptada] -->|remision_aceptada| P
-    I1[ia.py · reporte aprobado] -->|reporte_aprobado| P
-    I2[ia.py · probabilidad ≥ 0.9] -->|alerta_critica| P
-    F[FHIR · Observation recibida] -->|observacion_fhir| P
-    T[hilo de escalamiento] -->|alerta_escalada| P
-    P --> B[(bandeja: notificaciones)]
-    P --> S[canal SSE]
-    P --> FA[(factura automática en MongoDB)]
-    P --> AL[(alerta activa → reconocida)]
+    A[3er intento fallido] -->|usuario_bloqueado| P{{publicar evento}}
+    R1[remisión creada] -->|remision_creada| P
+    R2[remisión aceptada] -->|remision_aceptada| P
+    I1[reporte aprobado] -->|reporte_aprobado| P
+    I2[probabilidad ≥ 0,9] -->|alerta_critica| P
+    F[resultado nuevo en FHIR] -->|observacion_fhir| P
+    T[alerta sin reconocer] -->|alerta_escalada| P
+    P --> B[(bandeja de notificaciones)]
+    P --> S[canal en vivo]
+    P --> FA[(factura automática)]
+    P --> AL[(alerta activa)]
     P --> AU[(auditoría)]
 ```
+
+## Interoperabilidad
+
+| Dato en TrazaRed | Recurso HL7 FHIR R4 | Codificación |
+|---|---|---|
+| Paciente | `Patient` | Documento como identificador |
+| Remisión entre instituciones | `Encounter` | Origen, destino y estado |
+| Signo vital u observación | `Observation` | LOINC y unidades UCUM |
+| Remisión de médico a especialista | `ServiceRequest` | SNOMED CT (306206005, remisión a servicio) |
+
+Al arrancar, la API crea una suscripción en el servidor FHIR para enterarse cuando llega
+una observación nueva. El mapeo campo por campo está en
+[`documentacion_mapeo_roles.md`](documentacion_mapeo_roles.md).
+
+## Marco normativo
+
+| Norma | Qué exige | Cómo lo cumple TrazaRed |
+|---|---|---|
+| Ley 1581 de 2012 (protección de datos) | Finalidad, circulación restringida y seguridad de los datos personales | Seudonimización hacia la IA, acceso por rol, contable sin datos clínicos, auditoría |
+| Ley 2015 de 2020 (historia clínica electrónica interoperable) | Historia clínica que se pueda intercambiar entre prestadores | Servidor FHIR R4 con LOINC y SNOMED, historia clínica en PDF |
+| Resolución 866 de 2021 | Datos clínicos mínimos para la interoperabilidad | Recursos `Patient`, `Encounter`, `Observation` y `ServiceRequest` codificados |
+| Resolución 1995 de 1999 (historia clínica) | Confidencialidad, integridad y custodia; los registros no se destruyen | Borrado lógico con restauración, historial de ediciones, reportes rechazados conservados |
+| Resolución 3100 de 2019 (habilitación) | Registros y procesos de atención trazables | Remisión entre médicos trazable y registro de quién hizo qué y cuándo |
 
 ## Estructura del repositorio
 
 ```
 TrazaRedHUV/
-├── .env.example                  # Plantilla de variables (el .env / pass.env real NUNCA se sube)
-├── tester.yaml                   # Contrato de verificación para el tester del profesor
-├── db/
-│   ├── schema.sql                # Esquema de PostgreSQL (idempotente; la API lo aplica al arrancar)
-│   └── migracion_persona3.sql    # Remisiones médicas y PDF (también se aplica al arrancar)
-├── docker/
-│   ├── docker-compose.yml        # Los 9 servicios, más el túnel con nombre (perfil tunel-fijo)
-│   └── nginx.conf                # Puerta única: cabeceras, límite 429, /api, /fhir, SSE
-├── python/                       # API (FastAPI)
-│   ├── main.py                   # Arma la app: CORS, cabeceras, routers, pacientes, imágenes, receptor FHIR
-│   ├── auth.py                   # Conexiones, login con bloqueo, roles, /me, usuarios, auditoría
-│   ├── remisiones.py             # Remisiones, soft delete, observaciones, contactos y /remitir (R08)
-│   ├── ia.py                     # Análisis de IA, seudonimización, aprobación, clusters (R07, R10, R12)
-│   ├── historia.py               # Historia clínica en JSON y PDF (R11)
-│   ├── contabilidad.py           # Facturación en MongoDB (R09)
-│   ├── eventos.py                # publicar(), SSE, notificaciones, pendientes, alertas (R17–R20)
-│   ├── fhir_sync.py              # PostgreSQL → FHIR y Subscription rest-hook (R15, R21)
-│   ├── pacs.py                   # Cliente de Orthanc
-│   ├── cargar_dataset.py         # Dataset de remisiones del proyecto
-│   ├── sembrar_imagenes.py       # Imágenes sintéticas (semana 8)
-│   ├── sembrar_imagenes_reales.py# Radiografías reales NIH ChestX-ray14 (R06)
-│   └── Dockerfile
-├── ml/                           # Servicio de IA
-│   ├── main.py                   # /health, /modelo, /predecir, /entrenar, /clusters
-│   ├── entrenar.py               # Entrenamiento reproducible del modelo (POST /entrenar)
-│   ├── agrupacion.py             # Perfiles K-means y pacientes sintéticos
-│   ├── modelo/ktas_modelo.joblib # Modelo XGBoost entrenado
-│   └── Dockerfile
-├── frontend/                     # Interfaz (HTML + CSS + JS, una sola página)
-├── data/                         # Dataset de remisiones del proyecto (CSV)
-├── docs/                         # DATASETS.md, EVENTOS.md, CONTABILIDAD.md, README del dataset
-├── notebooks/                    # Corte 1, semana 8 y semana9_final.ipynb (modelos y agrupamiento)
-├── pruebas/                      # probar_persona1.py, probar_persona2.py, probar_persona4.py
-├── evidencia_endpoints/          # Capturas: soft delete del médico y restauración del admin (R14)
-├── levantar_demo.py              # Demo del Corte 1 sin Docker
-└── documentacion_mapeo_roles.md  # Mapeo BD → FHIR y justificación de roles (copia en docs/)
+├── .env.example              # Plantilla de variables (las claves reales nunca se suben)
+├── tester.yaml               # Datos para la verificación automática del sistema
+├── db/                       # Esquema de PostgreSQL (se aplica solo al arrancar)
+├── docker/                   # docker-compose.yml (9 servicios) y nginx.conf
+├── python/                   # API: auth, remisiones, ia, historia, contabilidad,
+│                             # eventos, fhir_sync, pacs y scripts de carga de datos
+├── ml/                       # Servicio de IA: modelo XGBoost, perfiles y entrenamiento
+├── frontend/                 # Interfaz web de una sola página (HTML, CSS, JS)
+├── data/                     # Dataset de las 600 remisiones (CSV)
+├── docs/                     # Datasets, eventos, contabilidad y documentos del proyecto
+├── notebooks/                # Cuadernos: proyecto, dataset y modelos
+├── pruebas/                  # Pruebas automáticas del sistema
+├── evidencia_endpoints/      # Capturas de funcionamiento
+├── levantar_demo.py          # Demo ligera sin Docker (bases en la nube)
+└── documentacion_mapeo_roles.md  # Mapeo a FHIR y justificación de roles
 ```
 
-## Despliegue paso a paso
+## Cómo ejecutarlo
 
-Requisitos: **Docker Desktop** corriendo (Docker Compose 2.24 o más nuevo) y Python 3.10+
-para las pruebas y los cuadernos.
+Requisitos: Docker Desktop (con Docker Compose 2.24 o más nuevo) y Python 3.10+ para las
+pruebas y los cuadernos.
 
-**1. Variables de entorno.** En la raíz del proyecto, copia la plantilla y llénala con
-los valores que el equipo comparte por el canal privado:
+**1. Configurar las variables.** En la raíz del proyecto copia la plantilla y llénala con
+las claves que comparte el equipo por el canal privado:
 
 ```powershell
 copy .env.example pass.env
 ```
 
-La API y el compose leen `.env` y, si no existe, `pass.env`. Ninguno se sube nunca al
-repositorio. Además de las variables de la plantilla, el sistema acepta:
+`pass.env` (o `.env`) nunca se sube al repositorio. Variables opcionales: `TUNNEL_TOKEN`
+para el dominio fijo, `ESCALAMIENTO_SEGUNDOS` (600 por defecto) y `VALOR_ANALISIS_IA`
+(80 000 COP por defecto).
 
-| Variable | Para qué | Por defecto |
-|---|---|---|
-| `TUNNEL_TOKEN` | Túnel con nombre de Cloudflare (dominio fijo) | — |
-| `ESCALAMIENTO_SEGUNDOS` | Tiempo para escalar una alerta crítica no reconocida | 600 (10 min) |
-| `VALOR_ANALISIS_IA` | Valor de la factura automática del análisis de IA | 80000 COP |
-
-**2. Levantar todo:**
+**2. Levantar el sistema:**
 
 ```powershell
 cd docker
 docker compose up -d --build
-docker compose ps                                   # 9 servicios en "running"
+docker compose ps
 ```
 
-Al arrancar, la API aplica `db/schema.sql` y `db/migracion_persona3.sql`, crea un
-usuario de prueba por rol con las contraseñas `DEMO_*` y crea la Subscription de FHIR.
+Al arrancar, la API crea las tablas, un usuario de prueba por rol y la suscripción FHIR.
 
 **3. Cargar los datos** (solo la primera vez):
 
 ```powershell
 docker compose exec api python cargar_dataset.py
-# Radiografías reales: descargar images_001 y Data_Entry_2017_v2020.csv del NIH en una carpeta
 docker compose run --rm -v RUTA\datos_imagenes:/datos_imagenes:ro api python sembrar_imagenes_reales.py --max 600
 ```
 
-**4. Publicar en el dominio.** Con `TUNNEL_TOKEN` en el `.env`, se usa el túnel con
-nombre en lugar del túnel rápido:
+`RUTA\datos_imagenes` es la carpeta donde descargaste las imágenes del NIH (`images_001`) y
+`Data_Entry_2017_v2020.csv`.
+
+**4. Publicarlo en internet.** Con `TUNNEL_TOKEN` en el archivo de variables:
 
 ```powershell
 docker compose --profile tunel-fijo up -d
 docker compose stop cloudflared
 ```
 
-Sin token, el servicio `cloudflared` da una URL temporal
-(`docker compose logs cloudflared | findstr trycloudflare`).
+Sin token, `docker compose logs cloudflared` muestra una URL temporal de `trycloudflare.com`.
 
-**5. Verificar** (desde la raíz, con el entorno de Python activo):
+**5. Verificar:**
 
 ```powershell
 pip install -r requirements.txt
-python pruebas\probar_persona1.py      # roles, bloqueo, seguridad, Docker, túnel, auditoría
-python pruebas\probar_persona2.py      # modelo, clusters, seudonimización, reportes, factura
-python pruebas\probar_persona4.py      # canal en vivo, bandeja, pendientes, alertas
+python pruebas\probar_persona1.py      # acceso, seguridad, Docker, túnel y auditoría
+python pruebas\probar_persona2.py      # IA, perfiles, seudonimización, reportes y facturas
+python pruebas\probar_persona4.py      # canal en vivo, notificaciones y alertas
 ```
 
-Local: interfaz en **http://localhost:8080** y documentación de la API en
+En tu equipo, la interfaz queda en **http://localhost:8080** y la documentación de la API en
 http://localhost:8000/docs.
 
-## Roles y permisos (R01)
+## Usuarios de demostración
 
-Solo el `admin` crea usuarios y asigna roles; no existe registro público.
+Todos los datos de pacientes son sintéticos o de datasets públicos.
 
-| Rol | Ve y hace | No puede |
-|---|---|---|
-| `admin` | Usuarios, desbloqueos, restauración, auditoría, contabilidad | Aprobar reportes de IA |
-| `medico` | Pacientes, IA, aprobar o rechazar reportes, remitir, soft delete de lo suyo | Ver la auditoría, restaurar, crear usuarios |
-| `especialista` | Remisiones recibidas, aceptarlas, aprobar reportes | Ver la auditoría, crear usuarios |
-| `paciente` | Solo su propia información | Ver a otros pacientes (404), remitir, aprobar reportes |
-| `contable` | Crear, listar y marcar como pagadas las facturas | Ver datos clínicos ni la historia (403) |
-| `eps` | (Corte 1) Seguir las remisiones de sus afiliados, solo lectura | Modificar |
-
-## Seguridad (R02, R03, R12)
-
-- **Bloqueo:** al 3er intento fallido la cuenta queda bloqueada (423) y no entra ni con la
-  clave correcta. Solo el admin desbloquea, y el admin recibe el aviso en vivo.
-- **Token en todas las rutas de datos:** sin token, 401. **Control por rol:** 403.
-- **Contraseñas** con hash bcrypt, nunca en texto plano.
-- **CORS restringido** a `CORS_ORIGINS`, sin `*` y sin reflejar orígenes desconocidos.
-- **Cabeceras:** `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY` y
-  `Referrer-Policy: no-referrer`; nginx no anuncia su versión.
-- **Límite de peticiones:** 10 por segundo (ráfagas de 20) por IP real del visitante; si
-  se pasa, 429.
-- **Secretos:** en el repositorio solo está `.env.example`.
-- **Superficie mínima:** bases, PACS, FHIR y API solo en `127.0.0.1`; `ml` no se publica.
-- **Datos hacia la IA (R12):** antes de llamar al modelo, la API quita nombre, documento,
-  correo, teléfono y dirección. Al modelo solo le llegan las variables clínicas y un
-  seudónimo (HMAC del id del paciente, no reversible). El payload exacto queda guardado
-  en `GET /ia/reportes/{id}/payload`.
-
-## Datos (R06, R07)
-
-- **Imágenes:** 600 radiografías de tórax reales del NIH ChestX-ray14, una por paciente,
-  guardadas como DICOM en Orthanc y visibles desde la ficha con un visor de brillo,
-  contraste, negativo, zoom y desplazamiento.
-- **Tabular:** dataset real KTAS (Moon et al., PLOS ONE 2019, CC BY 4.0), 1 267
-  pacientes de dos urgencias de Corea.
-- **Perfiles:** K-means con k = 4 (comparado con jerárquico, GMM y DBSCAN): hipoxemia
-  severa, presión arterial alta, sin dolor y general. Zonas de confusión: "general" por
-  urgentes perdidos y "sin dolor" por falsas alarmas.
-- **Sintéticos:** 190, generados dentro de cada perfil y marcados con `origen = sintetico`;
-  el 96.8 % se reconoce en su perfil. No se usan para entrenar ni evaluar.
-
-El detalle completo, con fuentes, licencias y la justificación del número de grupos,
-está en [`docs/DATASETS.md`](docs/DATASETS.md).
-
-## Modelo de IA (R10, R20, R22)
-
-- Se compararon **11 modelos** con el mismo preprocesamiento y las mismas 5 particiones
-  de validación cruzada. Ganó **XGBoost** (AUC 0.833 ± 0.007).
-- Prueba con 254 pacientes nunca vistos: AUC 0.765, sensibilidad 0.884, especificidad
-  0.514, precisión 0.714, F1 0.790.
-- **Umbral de decisión 0.4:** detecta casi 9 de cada 10 urgentes. **Umbral crítico 0.9:**
-  dispara la alerta; en la prueba saltó en 31 de 254 pacientes y el 90 % eran urgentes.
-- **Sesgo:** de los 17 urgentes perdidos, 15 son menores de 65 años.
-- Cada análisis crea un reporte `pendiente`; solo los aprobados llegan a la historia
-  clínica y al PDF, y los rechazados se conservan como evidencia.
-- El modelo se puede reentrenar desde la API (`POST /entrenar`, solo admin) y cada
-  reentrenamiento sube la versión.
-
-Métricas, umbrales, sesgo y limitaciones: [`docs/DATASETS.md`](docs/DATASETS.md) y
-`notebooks/semana9_final.ipynb`.
-
-## Flujo clínico (R08, R09, R11, R15, R21)
-
-- **Remisión entre médicos:** `POST /remitir` (médico → especialista con motivo),
-  `GET /remitir/bandeja` y `POST /remitir/{id}/aceptar`.
-- **Contabilidad:** facturas en MongoDB con paciente, servicio, valor, fecha y estado de
-  pago; las del análisis de IA se crean solas al aprobar el reporte
-  ([`docs/CONTABILIDAD.md`](docs/CONTABILIDAD.md)).
-- **Historia clínica:** `GET /pacientes/{id}/historia` y `/historia.pdf`, solo con
-  reportes aprobados.
-- **FHIR:** `fhir_sync.py` publica `Patient`, `Encounter` y `Observation` con LOINC y
-  SNOMED. Al arrancar, la API crea una `Subscription` rest-hook; cuando llega una
-  `Observation` nueva (por ejemplo glucosa, LOINC 2339-0), el médico responsable recibe el
-  aviso y el evento queda auditado con origen FHIR.
-
-| Tabla PostgreSQL | Recurso FHIR |
-|---|---|
-| `pacientes` | `Patient` |
-| `remisiones` | `Encounter` |
-| `observaciones` | `Observation` |
-
-## Sistema reactivo (R16–R20)
-
-- **Canal en vivo:** `GET /api/eventos/stream?token=…` (Server-Sent Events). Llega en
-  menos de 8 s y solo a quien le corresponde; el paciente y el contable no reciben eventos
-  clínicos.
-- **Bandeja y pendientes:** `GET /notificaciones`, `POST /notificaciones/{id}/leer` y
-  `GET /pendientes` (reportes por revisar, remisiones recibidas, alertas activas).
-- **Flujos automáticos:** remitir avisa al especialista; aceptar avisa al médico; aprobar
-  un reporte crea la factura; un bloqueo avisa al admin.
-- **Alertas críticas:** barra persistente hasta que un médico o especialista la reconoce
-  con una nota (`POST /alertas/{id}/reconocer`). Si nadie la reconoce en 10 minutos, se
-  escala al admin.
-
-## Auditoría (R13)
-
-Solo el admin consulta `GET /auditoria`. Cada fila trae usuario, acción, recurso y fecha,
-con filtros por acción, usuario y recurso. Se registran, entre otras: login fallido,
-bloqueo y desbloqueo, creación de usuario y de paciente, análisis de IA, aprobación o
-rechazo, remisión, factura, alerta crítica y su reconocimiento, evento FHIR, soft delete
-y restauración.
-
-## Mapa de requisitos a leyes
-
-| Norma | Qué exige | Control técnico en TrazaRed |
-|---|---|---|
-| Ley 1581 de 2012 (habeas data) | Finalidad, circulación restringida y seguridad de los datos personales | Seudonimización hacia la IA (R12), control por rol (R01, R03), contable sin datos clínicos, auditoría (R13) |
-| Ley 2015 de 2020 (historia clínica electrónica interoperable) | Historia clínica electrónica que se pueda intercambiar entre prestadores | Servidor FHIR R4 con LOINC y SNOMED (R15), FHIR reactivo (R21), historia en PDF (R11) |
-| Resolución 866 de 2021 | Elementos de datos clínicos relevantes para la interoperabilidad | Recursos `Patient`, `Encounter` y `Observation` codificados en FHIR |
-| Resolución 1995 de 1999 (manejo de la historia clínica) | Confidencialidad, integridad y custodia; los registros no se borran | Soft delete y restauración (R14), reportes rechazados conservados (R10), acceso por rol y auditoría |
-| Resolución 3100 de 2019 (habilitación) | Estándares de historia clínica, registros y procesos de atención | Remisión trazable entre médicos (R08), registro de quién hizo qué y cuándo (R13) |
-
-## Credenciales de demostración (datos sintéticos)
-
-| Rol | Usuario | Clave (variable en `.env` / `pass.env`) |
+| Rol | Usuario | Contraseña |
 |---|---|---|
 | Admin | `admin@trazared.huv` | `DEMO_ADMIN_PASSWORD` |
 | Médico | `medico@huv.gov.co` | `DEMO_MEDICO_PASSWORD` |
@@ -414,5 +318,15 @@ y restauración.
 | Paciente | `paciente@correo.com` | `DEMO_PACIENTE_PASSWORD` |
 | EPS (Coosalud) | `eps@coosalud.com` | `DEMO_EPS_PASSWORD` |
 
-Las contraseñas reales no están en el repositorio: se comparten por el canal privado y
-se rotan antes de la sustentación.
+Las contraseñas son las de las variables indicadas en el archivo de variables; no están en
+el repositorio.
+
+## Documentación
+
+- [`docs/DATASETS.md`](docs/DATASETS.md): datos, perfiles, modelo, umbrales, sesgo y
+  limitaciones.
+- [`docs/EVENTOS.md`](docs/EVENTOS.md): eventos, flujos automáticos y alertas.
+- [`docs/CONTABILIDAD.md`](docs/CONTABILIDAD.md): estructura de las facturas.
+- [`docs/README.md`](docs/README.md): dataset de las 600 remisiones.
+- [`documentacion_mapeo_roles.md`](documentacion_mapeo_roles.md): mapeo a FHIR y roles.
+- `docs/TrazaRed_HUV.pdf`: documento del proyecto.
