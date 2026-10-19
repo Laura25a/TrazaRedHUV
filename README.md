@@ -271,17 +271,6 @@ La API crea estos usuarios al arrancar; el paciente lo crea `cargar_dataset.py`.
 Las contraseñas **no están en el repositorio**: se comparten por el canal privado y se
 rotan antes de la sustentación.
 
-## Demo del Corte 1 sin Docker (`levantar_demo.py`)
-
-<!-- URLS-DEMO:ini -->
-URLs públicas generadas el **2026-09-08 08:30** con `levantar_demo` (Quick Tunnel:
-efímeras — cambian en cada arranque):
-
-- **API (FastAPI):** https://collar-september-finals-warming.trycloudflare.com — `/docs` verificado
-- **Servidor FHIR (HAPI):** https://housewives-privacy-colour-ipod.trycloudflare.com — `/fhir/metadata` verificado
-<!-- URLS-DEMO:fin -->
-
-`python levantar_demo.py` levanta la API local contra Neon y Atlas, HAPI y dos túneles
-con `cloudflared` instalado en el equipo. Desde el Corte 2 el túnel oficial es el
-servicio `cloudflared` del `docker-compose.yml`.
+## URL 
+https://trazared.kogcake.com/
 
