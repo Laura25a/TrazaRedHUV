@@ -371,12 +371,22 @@ def cargar(con_mongo=True):
             continue
         paciente_id = fila[0]
         r = remisiones[p["ref"]]
+        # Libro de radicación: la hora de radicación es la del triage (primer
+        # signo vital); el cierre, el último contacto si la remisión terminó.
+        obs_r = observaciones[r["ref"]]
+        cs_r = contactos[r["ref"]]
+        radicada_en = min(datetime.fromisoformat(o["fecha_observacion"]) for o in obs_r)
+        cerrada_en = (datetime.fromisoformat(cs_r[-1]["fecha"])
+                      if r["estado"] in ("rechazada", "completada") and cs_r else None)
+        acepta = next((c["institucion_contactada"] for c in cs_r if "acepta" in c["respuesta"].lower()), None)
         cur.execute(
             """INSERT INTO remisiones (paciente_id, institucion_origen, institucion_destino,
-                   fecha_solicitud, motivo, estado, convenio_vigente, creado_por)
-               VALUES (%s, %s, %s, %s, %s, %s, %s, %s) RETURNING id;""",
+                   fecha_solicitud, motivo, estado, convenio_vigente, creado_por,
+                   radicada_en, cerrada_en, institucion_acepta)
+               VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id;""",
             (paciente_id, r["institucion_origen"], r["institucion_destino"], r["fecha_solicitud"],
-             r["motivo"], r["estado"], r["convenio_vigente"] == "True", medico_id),
+             r["motivo"], r["estado"], r["convenio_vigente"] == "True", medico_id,
+             radicada_en, cerrada_en, acepta),
         )
         remision_id = cur.fetchone()[0]
         for o in observaciones[r["ref"]]:

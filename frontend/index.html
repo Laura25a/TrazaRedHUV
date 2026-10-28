@@ -4,12 +4,17 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>TrazaRed HUV</title>
-  <meta name="description" content="Trazabilidad de remisiones y traslados de pacientes del Hospital Universitario del Valle">
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%231f63c6'/%3E%3Cpath d='M13 6h6v7h7v6h-7v7h-6v-7H6v-6h7z' fill='white'/%3E%3C/svg%3E">
+  <meta name="description" content="Registro y trazabilidad de las remisiones y traslados de pacientes del Hospital Universitario del Valle">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230e6b68'/%3E%3Cpath d='M13 6h6v7h7v6h-7v7h-6v-7H6v-6h7z' fill='white'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="css/estilos.css">
   <link rel="stylesheet" href="css/visor.css">
   <link rel="stylesheet" href="css/reactivo.css">
   <link rel="stylesheet" href="css/agrupacion.css">
+  <!-- Rediseño "libro de radicación": tipografías del registro (si no cargan, quedan Georgia y Consolas) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&display=swap">
+  <link rel="stylesheet" href="css/registro.css">
 </head>
 <body>
   <noscript>Esta aplicación necesita JavaScript para funcionar.</noscript>
@@ -43,7 +48,7 @@
           <span class="arte-flecha"></span>
           <svg class="arte-hospital"><use href="#hospital"/></svg>
         </div>
-        <p class="arte-texto">Cada remisión, trazable de principio a fin: quién contactó, a quién, cuándo y con qué respuesta.</p>
+        <p class="arte-texto">Cada remisión, asentada en el libro de principio a fin: quién contactó, a quién, cuándo y con qué respuesta. Nada se borra.</p>
       </div>
     </aside>
 
@@ -58,7 +63,7 @@
         </div>
 
         <h1 class="login-titulo">Bienvenido</h1>
-        <p class="login-sub">Ingresa a tu cuenta para gestionar las remisiones de pacientes.</p>
+        <p class="login-sub">Ingresa al libro de radicación de remisiones del HUV.</p>
 
         <form id="form-login" autocomplete="on" novalidate>
           <label class="campo-icono">
@@ -197,5 +202,7 @@
   <script src="js/agrupacion.js"></script>
   <script src="js/agrupacion_rendimiento.js"></script>
   <script src="js/prediccion.js"></script>
+  <!-- Rediseño "libro de radicación" (va de último: registra la sección de pronósticos junto a las de IA) -->
+  <script src="js/registro.js"></script>
 </body>
 </html>

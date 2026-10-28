@@ -1,0 +1,44 @@
+{
+  "nota": "Estructura simplificada inspirada en RIPS; no validada contra el esquema oficial.",
+  "prestador": "Hospital Universitario del Valle «Evaristo García» E.S.E.",
+  "generado": "2026-10-28T12:15:30-05:00",
+  "facturas": [
+    {
+      "numFactura": "FV-10001",
+      "radicado": "REM-2026-000598",
+      "pagador": "SOS",
+      "estado": "pagada",
+      "usuario": {
+        "numDocumentoIdentificacion": "1145571818",
+        "nombre": "María Angulo Viveros"
+      },
+      "servicios": [
+        {
+          "codigo": "EST-URG",
+          "descripcion": "Estancia en urgencias en espera de traslado (tope 72 h)",
+          "cantidad": 72.0,
+          "unidad": "h",
+          "vrUnitario": 38000,
+          "vrServicio": 2736000
+        },
+        {
+          "codigo": "GES-REF",
+          "descripcion": "Gestión de referencia (contactos registrados)",
+          "cantidad": 5,
+          "unidad": "contactos",
+          "vrUnitario": 12000,
+          "vrServicio": 60000
+        },
+        {
+          "codigo": "TRA-MED",
+          "descripcion": "Traslado en ambulancia medicalizada",
+          "cantidad": 1,
+          "unidad": "traslado",
+          "vrUnitario": 980000,
+          "vrServicio": 980000
+        }
+      ],
+      "vrTotal": 3776000.0
+    }
+  ]
+}

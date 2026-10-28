@@ -142,3 +142,109 @@ def obtener_detalle_clusters():
     if not RUTA_CSV.exists():
         raise HTTPException(503, "No se encuentra el dataset real de KTAS")
     return detalle_clusters()
+
+# ═════════════════════════════════════════════════════════════════════════════
+# IA DEL REGISTRO DE REMISIONES (rediseño "libro de radicación")
+# ═════════════════════════════════════════════════════════════════════════════
+# La lógica vive en remisiones_modelo.py. Aquí solo van las rutas. Igual que
+# /predecir, NADA de esto recibe nombre ni documento (R12): la API manda un id
+# seudónimo, las variables clínicas/administrativas y la bitácora de contactos.
+from typing import List
+import warnings
+
+import remisiones_modelo as rem
+
+warnings.filterwarnings("ignore", category=UserWarning)
+
+
+def _cargar_o_entrenar_remisiones():
+    """El volumen ml_modelo puede venir de antes del rediseño (sin este .joblib),
+    o el .joblib puede venir de otra versión de Python: en ambos casos se entrena
+    de nuevo al arrancar (tarda unos segundos)."""
+    try:
+        p = rem.cargar_paquete()
+        if p is not None:
+            return p
+    except Exception as e:          # pickle de otra versión
+        print(f"[ml] no se pudo cargar el modelo de remisiones ({e}); se reentrena")
+    try:
+        return rem.entrenar_remisiones()
+    except Exception as e:
+        print(f"[ml] no se pudo entrenar el modelo de remisiones: {e}")
+        return None
+
+
+paquete_rem = _cargar_o_entrenar_remisiones()
+
+
+def _rem():
+    if paquete_rem is None:
+        raise HTTPException(503, "Modelo de remisiones no cargado")
+    return paquete_rem
+
+
+class ContactoBitacora(BaseModel):
+    model_config = ConfigDict(extra="ignore")       # contactado_por, medio... se ignoran
+    fecha: Optional[str] = None
+    institucion_contactada: str = Field(max_length=200)
+    respuesta: str = Field(max_length=500)
+
+
+class DatosRemision(BaseModel):
+    """Variables de la remisión. extra="forbid": un nombre o documento que se
+    cuele responde 422 (R12), igual que en /predecir."""
+    model_config = ConfigDict(extra="forbid")
+
+    id_seudonimo: str = Field(min_length=1, max_length=40)
+    edad: Optional[int] = Field(None, ge=0, le=120)
+    genero: Optional[str] = Field(None, pattern="^[FM]$")
+    eps: Optional[str] = Field(None, max_length=80)
+    sale_del_huv: bool = True
+    convenio_vigente: bool = False
+    motivo_grave: bool = False
+    motivo: Optional[str] = Field(None, max_length=500)   # diagnóstico, sin datos personales
+    fc: Optional[float] = Field(None, ge=20, le=250)
+    pas: Optional[float] = Field(None, ge=40, le=300)
+    pad: Optional[float] = Field(None, ge=20, le=200)
+    fr: Optional[float] = Field(None, ge=4, le=80)
+    spo2: Optional[float] = Field(None, ge=0, le=100)
+    temp: Optional[float] = Field(None, ge=30, le=45)
+    glasgow: Optional[float] = Field(None, ge=3, le=15)
+    contactos: List[ContactoBitacora] = []
+
+
+class TextoRespuesta(BaseModel):
+    texto: str = Field(min_length=1, max_length=500)
+
+
+@app.get("/remisiones/modelo")
+def modelo_remisiones():
+    p = _rem()
+    return {k: p[k] for k in ("version", "entrenado_en", "metricas", "importancias",
+                              "abiertas", "datos", "librerias")}
+
+
+@app.post("/remisiones/pronostico")
+def pronostico_remision(d: DatosRemision):
+    datos = d.model_dump()
+    contactos = datos.pop("contactos")
+    salida = rem.pronosticar(_rem(), datos, contactos)
+    salida["id_seudonimo"] = d.id_seudonimo
+    return salida
+
+
+@app.post("/remisiones/clasificar")
+def clasificar_respuesta(t: TextoRespuesta):
+    return rem.clasificar(_rem(), t.texto)
+
+
+@app.get("/remisiones/causas")
+def causas():
+    return rem.CAUSAS
+
+
+@app.post("/remisiones/entrenar")
+def reentrenar_remisiones():
+    global paquete_rem
+    paquete_rem = rem.entrenar_remisiones()
+    return {"version": paquete_rem["version"], "metricas": paquete_rem["metricas"]}

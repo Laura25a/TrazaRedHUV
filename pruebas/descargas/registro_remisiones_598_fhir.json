@@ -1,0 +1,450 @@
+{
+  "resourceType": "Bundle",
+  "type": "collection",
+  "identifier": {
+    "system": "https://trazared.huv/radicado",
+    "value": "REM-2026-000598"
+  },
+  "timestamp": "2026-10-28T12:15:28-05:00",
+  "entry": [
+    {
+      "fullUrl": "urn:uuid:paciente-598",
+      "resource": {
+        "resourceType": "Patient",
+        "identifier": [
+          {
+            "system": "https://www.registraduria.gov.co/cc",
+            "value": "1145571818"
+          }
+        ],
+        "name": [
+          {
+            "text": "María Angulo Viveros"
+          }
+        ],
+        "gender": "female",
+        "birthDate": "1969-07-15"
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:remision-598",
+      "resource": {
+        "resourceType": "ServiceRequest",
+        "identifier": [
+          {
+            "system": "https://trazared.huv/radicado",
+            "value": "REM-2026-000598"
+          }
+        ],
+        "status": "completed",
+        "intent": "order",
+        "category": [
+          {
+            "text": "Referencia y contrarreferencia"
+          }
+        ],
+        "code": {
+          "text": "Requiere manejo por medicina interna"
+        },
+        "reasonCode": [
+          {
+            "text": "Diabetes descompensada"
+          }
+        ],
+        "subject": {
+          "reference": "urn:uuid:paciente-598",
+          "display": "María Angulo Viveros"
+        },
+        "authoredOn": "2026-08-13T11:26:00-05:00",
+        "requester": {
+          "display": "Hospital Universitario del Valle"
+        },
+        "performer": [
+          {
+            "display": "Fundación Valle del Lili"
+          }
+        ],
+        "insurance": [
+          {
+            "display": "SOS"
+          }
+        ],
+        "note": [
+          {
+            "text": "Convenio vigente con destino: no"
+          }
+        ]
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:contacto-598-1",
+      "resource": {
+        "resourceType": "Communication",
+        "status": "completed",
+        "basedOn": [
+          {
+            "reference": "urn:uuid:remision-598"
+          }
+        ],
+        "subject": {
+          "reference": "urn:uuid:paciente-598"
+        },
+        "sent": "2026-08-13T16:36:00+00:00",
+        "medium": [
+          {
+            "text": "correo"
+          }
+        ],
+        "recipient": [
+          {
+            "display": "Clínica Imbanaco"
+          }
+        ],
+        "sender": {
+          "display": "Enf. Luz Mery Rivas"
+        },
+        "reasonCode": [
+          {
+            "text": "Sin cama / servicio"
+          }
+        ],
+        "payload": [
+          {
+            "contentString": "Servicio de hemodinamia sin disponibilidad"
+          }
+        ]
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:contacto-598-2",
+      "resource": {
+        "resourceType": "Communication",
+        "status": "completed",
+        "basedOn": [
+          {
+            "reference": "urn:uuid:remision-598"
+          }
+        ],
+        "subject": {
+          "reference": "urn:uuid:paciente-598"
+        },
+        "sent": "2026-08-13T21:43:00+00:00",
+        "medium": [
+          {
+            "text": "telefono"
+          }
+        ],
+        "recipient": [
+          {
+            "display": "Clínica Nuestra Señora de los Remedios"
+          }
+        ],
+        "sender": {
+          "display": "Dr. Julián Mosquera"
+        },
+        "reasonCode": [
+          {
+            "text": "Convenio / autorización EPS"
+          }
+        ],
+        "payload": [
+          {
+            "contentString": "No hay convenio con la EPS del paciente"
+          }
+        ]
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:contacto-598-3",
+      "resource": {
+        "resourceType": "Communication",
+        "status": "completed",
+        "basedOn": [
+          {
+            "reference": "urn:uuid:remision-598"
+          }
+        ],
+        "subject": {
+          "reference": "urn:uuid:paciente-598"
+        },
+        "sent": "2026-08-13T23:28:00+00:00",
+        "medium": [
+          {
+            "text": "correo"
+          }
+        ],
+        "recipient": [
+          {
+            "display": "Clínica Sebastián de Belalcázar"
+          }
+        ],
+        "sender": {
+          "display": "Enf. Jhon Fredy Balanta"
+        },
+        "reasonCode": [
+          {
+            "text": "Pide documentos"
+          }
+        ],
+        "payload": [
+          {
+            "contentString": "En estudio, solicitan enviar historia clínica"
+          }
+        ]
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:contacto-598-4",
+      "resource": {
+        "resourceType": "Communication",
+        "status": "completed",
+        "basedOn": [
+          {
+            "reference": "urn:uuid:remision-598"
+          }
+        ],
+        "subject": {
+          "reference": "urn:uuid:paciente-598"
+        },
+        "sent": "2026-10-28T17:15:26.192000+00:00",
+        "medium": [
+          {
+            "text": "telefono"
+          }
+        ],
+        "recipient": [
+          {
+            "display": "Clínica Imbanaco"
+          }
+        ],
+        "sender": {
+          "display": "Médico HUV"
+        },
+        "reasonCode": [
+          {
+            "text": "Sin cama / servicio"
+          }
+        ],
+        "payload": [
+          {
+            "contentString": "No hay camas en la UCI ahora"
+          }
+        ]
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:contacto-598-5",
+      "resource": {
+        "resourceType": "Communication",
+        "status": "completed",
+        "basedOn": [
+          {
+            "reference": "urn:uuid:remision-598"
+          }
+        ],
+        "subject": {
+          "reference": "urn:uuid:paciente-598"
+        },
+        "sent": "2026-10-28T17:15:26.308000+00:00",
+        "medium": [
+          {
+            "text": "telefono"
+          }
+        ],
+        "recipient": [
+          {
+            "display": "Fundación Valle del Lili"
+          }
+        ],
+        "sender": {
+          "display": "Médico HUV"
+        },
+        "reasonCode": [
+          {
+            "text": "Acepta"
+          }
+        ],
+        "payload": [
+          {
+            "contentString": "Aceptan al paciente, enviar en ambulancia medicalizada"
+          }
+        ]
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:obs-598-1",
+      "resource": {
+        "resourceType": "Observation",
+        "status": "final",
+        "code": {
+          "coding": [
+            {
+              "system": "http://loinc.org",
+              "code": "59408-5",
+              "display": "Saturación de oxígeno"
+            }
+          ]
+        },
+        "subject": {
+          "reference": "urn:uuid:paciente-598"
+        },
+        "effectiveDateTime": "2026-08-13T16:26:00",
+        "valueQuantity": {
+          "value": 92.0,
+          "unit": "%",
+          "system": "http://unitsofmeasure.org"
+        }
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:obs-598-2",
+      "resource": {
+        "resourceType": "Observation",
+        "status": "final",
+        "code": {
+          "coding": [
+            {
+              "system": "http://loinc.org",
+              "code": "8310-5",
+              "display": "Temperatura corporal"
+            }
+          ]
+        },
+        "subject": {
+          "reference": "urn:uuid:paciente-598"
+        },
+        "effectiveDateTime": "2026-08-13T16:26:00",
+        "valueQuantity": {
+          "value": 38.1,
+          "unit": "Cel",
+          "system": "http://unitsofmeasure.org"
+        }
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:obs-598-3",
+      "resource": {
+        "resourceType": "Observation",
+        "status": "final",
+        "code": {
+          "coding": [
+            {
+              "system": "http://loinc.org",
+              "code": "8462-4",
+              "display": "Presión arterial diastólica"
+            }
+          ]
+        },
+        "subject": {
+          "reference": "urn:uuid:paciente-598"
+        },
+        "effectiveDateTime": "2026-08-13T16:26:00",
+        "valueQuantity": {
+          "value": 65.0,
+          "unit": "mm[Hg]",
+          "system": "http://unitsofmeasure.org"
+        }
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:obs-598-4",
+      "resource": {
+        "resourceType": "Observation",
+        "status": "final",
+        "code": {
+          "coding": [
+            {
+              "system": "http://loinc.org",
+              "code": "8480-6",
+              "display": "Presión arterial sistólica"
+            }
+          ]
+        },
+        "subject": {
+          "reference": "urn:uuid:paciente-598"
+        },
+        "effectiveDateTime": "2026-08-13T16:26:00",
+        "valueQuantity": {
+          "value": 109.0,
+          "unit": "mm[Hg]",
+          "system": "http://unitsofmeasure.org"
+        }
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:obs-598-5",
+      "resource": {
+        "resourceType": "Observation",
+        "status": "final",
+        "code": {
+          "coding": [
+            {
+              "system": "http://loinc.org",
+              "code": "8867-4",
+              "display": "Frecuencia cardiaca"
+            }
+          ]
+        },
+        "subject": {
+          "reference": "urn:uuid:paciente-598"
+        },
+        "effectiveDateTime": "2026-08-13T16:26:00",
+        "valueQuantity": {
+          "value": 98.0,
+          "unit": "/min",
+          "system": "http://unitsofmeasure.org"
+        }
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:obs-598-6",
+      "resource": {
+        "resourceType": "Observation",
+        "status": "final",
+        "code": {
+          "coding": [
+            {
+              "system": "http://loinc.org",
+              "code": "9269-2",
+              "display": "Escala de Glasgow"
+            }
+          ]
+        },
+        "subject": {
+          "reference": "urn:uuid:paciente-598"
+        },
+        "effectiveDateTime": "2026-08-13T16:26:00",
+        "valueQuantity": {
+          "value": 15.0,
+          "unit": "{score}",
+          "system": "http://unitsofmeasure.org"
+        }
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:obs-598-7",
+      "resource": {
+        "resourceType": "Observation",
+        "status": "final",
+        "code": {
+          "coding": [
+            {
+              "system": "http://loinc.org",
+              "code": "9279-1",
+              "display": "Frecuencia respiratoria"
+            }
+          ]
+        },
+        "subject": {
+          "reference": "urn:uuid:paciente-598"
+        },
+        "effectiveDateTime": "2026-08-13T16:26:00",
+        "valueQuantity": {
+          "value": 19.0,
+          "unit": "/min",
+          "system": "http://unitsofmeasure.org"
+        }
+      }
+    }
+  ]
+}

@@ -182,3 +182,41 @@ CREATE TABLE IF NOT EXISTS notificaciones (
     datos JSONB
 );
 CREATE INDEX IF NOT EXISTS idx_notificaciones_usuario ON notificaciones (usuario_id, fecha);
+
+-- ============================================================================
+-- REDISEÑO "LIBRO DE RADICACIÓN" — el sistema como registro de remisiones
+-- ============================================================================
+-- Igual que todo lo anterior: solo AGREGA y se puede correr las veces que sea.
+--
+-- radicada_en: fecha Y HORA en que se asentó la remisión en el libro (antes
+-- solo había fecha_solicitud, sin hora). Las remisiones viejas quedan con la
+-- fecha de solicitud a las 00:00; las nuevas, con la hora real (DEFAULT now()).
+-- El número de radicado (REM-AAAA-NNNNNN) y el folio se calculan del id: no
+-- se guardan, así nunca se desincronizan.
+ALTER TABLE remisiones ADD COLUMN IF NOT EXISTS radicada_en TIMESTAMP;
+UPDATE remisiones SET radicada_en = fecha_solicitud::timestamp WHERE radicada_en IS NULL;
+ALTER TABLE remisiones ALTER COLUMN radicada_en SET DEFAULT now();
+
+-- cerrada_en: cuándo se cerró el asiento (trasladado o rechazada). Con esto el
+-- libro sabe cuánto duró cada remisión y la contabilidad sabe cuándo facturar.
+ALTER TABLE remisiones ADD COLUMN IF NOT EXISTS cerrada_en TIMESTAMP;
+-- institución que finalmente aceptó (puede ser distinta a la destino inicial)
+ALTER TABLE remisiones ADD COLUMN IF NOT EXISTS institucion_acepta TEXT;
+
+-- Pronósticos de la IA sobre cada remisión. Es un registro más: cada vez que
+-- se anota una gestión, la IA vuelve a pronosticar y queda escrito qué dijo y
+-- cuándo, para poder ver al cierre si acertó. Nunca se edita ni se borra.
+CREATE TABLE IF NOT EXISTS pronosticos_remision (
+    id SERIAL PRIMARY KEY,
+    remision_id INTEGER NOT NULL REFERENCES remisiones(id),
+    probabilidad_efectiva NUMERIC NOT NULL,
+    probabilidad_al_radicar NUMERIC,
+    riesgo TEXT NOT NULL,
+    momento TEXT NOT NULL,                 -- radicacion | gestion | resuelta
+    contactos INTEGER NOT NULL DEFAULT 0,
+    version_modelo TEXT,
+    detalle JSONB,                         -- sugerencias, tiempo estimado, causas
+    creado_por INTEGER REFERENCES usuarios(id),
+    creado_en TIMESTAMP NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_pronosticos_remision ON pronosticos_remision (remision_id, id);

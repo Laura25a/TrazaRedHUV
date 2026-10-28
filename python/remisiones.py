@@ -370,11 +370,22 @@ def actualizar_gestion(gestion_id: str, gestion: GestionContactoCreate):
         oid = ObjectId(gestion_id)
     except Exception:
         raise HTTPException(status_code=400, detail="id inválido")
-    datos = gestion.model_dump()
-    datos["actualizado_en"] = datetime.utcnow()
-    resultado = coleccion_gestiones.update_one({"_id": oid}, {"$set": datos})
-    if resultado.matched_count == 0:
+    actual = coleccion_gestiones.find_one({"_id": oid})
+    if actual is None:
         raise HTTPException(status_code=404, detail="Gestión de contacto no encontrada")
+    # Libro de radicación: la bitácora NO se edita. Se acepta el PUT solo si
+    # conserva intactos los contactos que ya estaban y agrega nuevos al final.
+    previos = actual.get("contactos") or []
+    nuevos = gestion.model_dump()["contactos"]
+    clave = lambda c: (str(c.get("institucion_contactada")), str(c.get("respuesta")), str(c.get("medio")))
+    if len(nuevos) < len(previos) or [clave(c) for c in nuevos[:len(previos)]] != [clave(c) for c in previos]:
+        raise HTTPException(status_code=409,
+                            detail="La bitácora no se edita ni se borra: solo se agregan contactos al final "
+                                   "(usa POST /registro/remisiones/{id}/gestiones)")
+    datos = {"remision_id": gestion.remision_id,
+             "contactos": previos + nuevos[len(previos):],
+             "actualizado_en": datetime.utcnow()}
+    coleccion_gestiones.update_one({"_id": oid}, {"$set": datos})
     nuevo = coleccion_gestiones.find_one({"_id": oid})
     return documento_a_dict(nuevo)
 

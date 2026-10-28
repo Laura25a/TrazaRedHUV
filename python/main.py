@@ -7,7 +7,10 @@ trabaje en su archivo sin pisar el de los demás:
   auth.py          configuración, conexiones, login con bloqueo, roles, /me, usuarios, auditoría
   remisiones.py    remisiones, soft delete, observaciones, gestiones de contacto
   ia.py            análisis de IA con aprobación y seudonimización (Persona 2)
-  contabilidad.py  facturación en MongoDB (Persona 3)
+  contabilidad.py  libro contable por radicado + facturas en MongoDB
+  registro.py      libro de radicación, formato de la remisión, descargas e IA de remisiones
+  libro.py         (sin rutas) cómo se arma un asiento del libro; lo usan registro y contabilidad
+  exportes.py      (sin rutas) archivos descargables: CSV, Excel, PDF
   eventos.py       publicar(): avisos, tiempo real y flujos automáticos (Persona 4)
   main.py          (este) crea la app, incluye los routers, pacientes e imágenes del PACS
 
@@ -32,6 +35,7 @@ import contabilidad
 import eventos
 import historia
 import ia
+import registro
 import remisiones
 from auth import (PG_CONNECTION_STRING, ROLES_CLINICOS, get_db, get_usuario_actual,
                   mongo_client, registrar_auditoria, requiere_rol)
@@ -84,6 +88,7 @@ app.include_router(remisiones.router)
 app.include_router(historia.router)
 app.include_router(ia.router)
 app.include_router(contabilidad.router)
+app.include_router(registro.router)
 app.include_router(eventos.router)
 
 
@@ -107,6 +112,9 @@ def al_arrancar():
     # HAPI FHIR termina de bootear (puede tardar ~30 s la primera vez).
     threading.Thread(target=_suscripcion_fhir_al_arrancar, daemon=True,
                      name="suscripcion-fhir").start()
+    # IA del libro de radicación: pronostica sola las remisiones abiertas al
+    # arrancar y luego cada PRONOSTICO_CADA_MIN minutos (por defecto 30)
+    registro.iniciar_pronosticos_automaticos()
 
 
 @app.get("/")

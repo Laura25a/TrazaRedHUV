@@ -38,4 +38,4 @@ docker/-w
 *.bak
 
 # Artefactos de entrenamiento (CatBoost)
-catboost_info/
+catboost_info/pruebas/descargas/

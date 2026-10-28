@@ -1,3 +1,5 @@
+> **Rediseño "libro de radicación"** (libro, formato TR-FR-01, IA de remisiones, contabilidad por radicado y descargas): ver [docs/REDISENO_REGISTRO.md](docs/REDISENO_REGISTRO.md).
+
 # TrazaRed HUV
 
 **Trazabilidad de remisiones de pacientes para el Hospital Universitario del Valle

@@ -1,33 +1,40 @@
 /* ==========================================================================
-   TrazaRed HUV — estilos de la interfaz (diseño tipo "tarjetas claras":
-   login dividido, menú lateral blanco, ficha con pestañas y línea de estado)
+   TrazaRed HUV — estilos de la interfaz.
+   Rediseño "libro de radicación": paleta verde petróleo + papel marfil, con
+   acentos coral (acción de anotar) y mostaza (marca). Los nombres de las
+   variables se conservaron (--azul, --navy...) para que los módulos que ya
+   existían cambien de color solos; las piezas nuevas están en registro.css.
    Todo el color y el espaciado sale de las variables de :root.
    ========================================================================== */
 
 :root {
-  --navy: #0d2b5b;            /* títulos y texto fuerte */
-  --azul: #1f63c6;            /* acción principal */
-  --azul-oscuro: #174ea0;
-  --azul-claro: #2bb3e6;      /* acento (flecha del logo) */
-  --azul-suave: #eaf2fd;      /* ítem activo, fondos suaves */
-  --azul-borde: #cfe0f7;
-  --fondo: #f4f7fb;
+  --navy: #18302f;            /* títulos y texto fuerte (tinta) */
+  --azul: #0e6b68;            /* acción principal (verde petróleo) */
+  --azul-oscuro: #0a4f4d;
+  --azul-claro: #f2c14e;      /* acento (flecha del logo, mostaza) */
+  --azul-suave: #dcefec;      /* ítem activo, fondos suaves */
+  --azul-borde: #a9c7c2;
+  --fondo: #e7efec;
   --superficie: #ffffff;
-  --superficie-2: #f8fafd;
-  --texto: #1d2b3f;
-  --texto-suave: #55657b;
-  --texto-tenue: #8594a8;
-  --borde: #e2e8f1;
+  --superficie-2: #f6faf8;
+  --texto: #18302f;
+  --texto-suave: #3d5654;
+  --texto-tenue: #5a7270;
+  --borde: #d3e2de;
 
-  --ok: #1a9660;         --ok-fondo: #e4f6ed;
-  --alerta: #d98a09;     --alerta-fondo: #fff4e0;
-  --error: #c83a2e;      --error-fondo: #fdecea;
-  --violeta: #5b4bb7;    --violeta-fondo: #efecfb;
+  --ok: #1f8a5b;         --ok-fondo: #ddf3e8;
+  --alerta: #b07a10;     --alerta-fondo: #fbf0d9;
+  --error: #c4432c;      --error-fondo: #fdebe6;
+  --violeta: #2f6fb3;    --violeta-fondo: #e3eefa;   /* azul de la IA */
+  --coral: #e0634a;      --coral-oscuro: #c44f37;     /* anotar en el registro */
+  --papel: #fffdf8;      --margen: #f1b3a5;           /* hoja del libro y su margen */
+  --serif: "Source Serif 4", Georgia, "Times New Roman", serif;
+  --mono: "IBM Plex Mono", ui-monospace, Consolas, monospace;
 
   --radio: 14px;
   --radio-sm: 10px;
-  --sombra: 0 1px 2px rgba(13, 43, 91, .05), 0 8px 24px rgba(13, 43, 91, .06);
-  --sombra-alta: 0 16px 40px rgba(13, 43, 91, .16);
+  --sombra: 0 1px 2px rgba(10, 79, 77, .05), 0 8px 24px rgba(10, 79, 77, .06);
+  --sombra-alta: 0 16px 40px rgba(10, 79, 77, .16);
   --fuente: "Segoe UI", system-ui, -apple-system, Roboto, "Helvetica Neue", Arial, sans-serif;
   --t: 160ms ease;
 }
@@ -55,12 +62,12 @@ svg { flex: 0 0 auto; }
 }
 .btn:active { transform: translateY(1px); }
 .btn:disabled { opacity: .55; cursor: not-allowed; }
-.btn-primario { background: var(--azul); color: #fff; box-shadow: 0 4px 12px rgba(31, 99, 198, .25); }
+.btn-primario { background: var(--azul); color: #fff; box-shadow: 0 4px 12px rgba(14, 107, 104, .25); }
 .btn-primario:hover { background: var(--azul-oscuro); }
 .btn-secundario { background: var(--superficie); color: var(--azul); border-color: var(--azul-borde); }
 .btn-secundario:hover { background: var(--azul-suave); }
 .btn-suave { background: var(--azul-suave); color: var(--azul-oscuro); }
-.btn-suave:hover { background: #dbe8fb; }
+.btn-suave:hover { background: #c9e4df; }
 .btn-peligro { background: var(--error); color: #fff; }
 .btn-peligro:hover { background: #a82f25; }
 .btn-ok { background: var(--ok); color: #fff; }
@@ -82,7 +89,7 @@ input, select, textarea {
   width: 100%; padding: .62rem .8rem; border: 1px solid var(--borde); border-radius: var(--radio-sm);
   background: var(--superficie); font-size: .92rem; transition: border-color var(--t), box-shadow var(--t);
 }
-input:focus, select:focus, textarea:focus { outline: none; border-color: var(--azul); box-shadow: 0 0 0 3px rgba(31, 99, 198, .14); }
+input:focus, select:focus, textarea:focus { outline: none; border-color: var(--azul); box-shadow: 0 0 0 3px rgba(14, 107, 104, .14); }
 input[type="checkbox"], input[type="range"] { width: auto; padding: 0; box-shadow: none; }
 textarea { resize: vertical; min-height: 72px; }
 .campo { margin-bottom: .95rem; }
@@ -103,7 +110,7 @@ textarea { resize: vertical; min-height: 72px; }
 
 .login-arte {
   position: relative; overflow: hidden;
-  background: linear-gradient(160deg, #dcebfb 0%, #bcd8f6 45%, #8fbcec 100%);
+  background: linear-gradient(160deg, #dcefec 0%, #b9dcd8 45%, #7fb8b2 100%);
   border-radius: 0 0 0 0;
 }
 .login-arte::before, .login-arte::after {
@@ -121,7 +128,7 @@ textarea { resize: vertical; min-height: 72px; }
 .pulso path {
   fill: none; stroke: #fff; stroke-width: 3; stroke-linejoin: round; stroke-linecap: round;
   stroke-dasharray: 900; stroke-dashoffset: 900; animation: latido 3.4s linear infinite;
-  filter: drop-shadow(0 2px 6px rgba(13, 43, 91, .25));
+  filter: drop-shadow(0 2px 6px rgba(10, 79, 77, .25));
 }
 @keyframes latido { 0% { stroke-dashoffset: 900; opacity: 1; } 75% { stroke-dashoffset: 0; opacity: 1; } 100% { stroke-dashoffset: 0; opacity: 0; } }
 .arte-ruta { display: flex; align-items: center; gap: 1.5rem; color: var(--navy); }
@@ -144,7 +151,7 @@ textarea { resize: vertical; min-height: 72px; }
   border: 1px solid var(--borde); border-radius: var(--radio-sm); background: var(--superficie);
   transition: border-color var(--t), box-shadow var(--t);
 }
-.campo-icono:focus-within { border-color: var(--azul); box-shadow: 0 0 0 3px rgba(31, 99, 198, .14); }
+.campo-icono:focus-within { border-color: var(--azul); box-shadow: 0 0 0 3px rgba(14, 107, 104, .14); }
 .campo-icono > svg { margin: 0 .75rem 0 .9rem; color: var(--texto-tenue); }
 .campo-icono input { font-weight: 400; color: var(--texto); border: none; border-left: 1px solid var(--borde); border-radius: 0 var(--radio-sm) var(--radio-sm) 0; padding: .78rem .9rem; box-shadow: none !important; }
 .ojo { border: none; background: none; padding: .5rem .8rem; cursor: pointer; color: var(--texto-tenue); display: grid; place-items: center; }
@@ -256,7 +263,7 @@ main { padding: 1.6rem clamp(1rem, 2.5vw, 2.2rem) 3rem; min-width: 0; outline: n
 /* Banner de bienvenida */
 .bienvenida {
   position: relative; overflow: hidden; padding: 1.6rem 1.8rem;
-  background: linear-gradient(100deg, #fbfdff 0%, #eef5fe 55%, #e2eefc 100%);
+  background: linear-gradient(100deg, #fffdf8 0%, #f1f7f5 55%, #dcefec 100%);
   display: flex; align-items: center; justify-content: space-between; gap: 1rem; min-height: 132px;
 }
 .bienvenida h2 { font-size: 1.55rem; color: var(--navy); }
@@ -298,7 +305,7 @@ main { padding: 1.6rem clamp(1rem, 2.5vw, 2.2rem) 3rem; min-width: 0; outline: n
 
 /* ---------- Ficha del paciente / remisión ---------- */
 .ficha-cabeza { display: flex; align-items: center; gap: 1.1rem; padding: 1.3rem 1.4rem 0; flex-wrap: wrap; }
-.ficha-cabeza .avatar { width: 64px; height: 64px; font-size: 1.2rem; background: #dbe8fb; }
+.ficha-cabeza .avatar { width: 64px; height: 64px; font-size: 1.2rem; background: #dcefec; }
 .ficha-cabeza .avatar svg { width: 36px; height: 36px; fill: none; stroke: var(--azul); stroke-width: 1.8; }
 .ficha-cabeza h3 { font-size: 1.2rem; color: var(--navy); }
 .ficha-cabeza .meta { color: var(--texto-suave); font-size: .9rem; margin-top: .25rem; display: flex; gap: .55rem; flex-wrap: wrap; }
@@ -386,7 +393,7 @@ main { padding: 1.6rem clamp(1rem, 2.5vw, 2.2rem) 3rem; min-width: 0; outline: n
 .miniatura-info { padding: .6rem .7rem; }
 .miniatura-info strong { display: block; font-size: .84rem; color: var(--navy); }
 .miniatura-info small { display: block; font-size: .74rem; color: var(--texto-tenue); }
-.esqueleto { background: linear-gradient(90deg, #eef2f7 25%, #f7f9fc 50%, #eef2f7 75%); background-size: 200% 100%; animation: brillo 1.2s infinite; border-radius: 12px; }
+.esqueleto { background: linear-gradient(90deg, #e3ebe8 25%, #f6faf8 50%, #e3ebe8 75%); background-size: 200% 100%; animation: brillo 1.2s infinite; border-radius: 12px; }
 @keyframes brillo { to { background-position: -200% 0; } }
 
 /* ---------- Tablas y filtros ---------- */
@@ -400,10 +407,10 @@ main { padding: 1.6rem clamp(1rem, 2.5vw, 2.2rem) 3rem; min-width: 0; outline: n
 .tabla-scroll { overflow-x: auto; }
 table { width: 100%; border-collapse: collapse; font-size: .88rem; }
 th { text-align: left; font-size: .72rem; text-transform: uppercase; letter-spacing: .05em; color: var(--texto-tenue); font-weight: 700; padding: .75rem 1.2rem; border-bottom: 1px solid var(--borde); background: var(--superficie-2); white-space: nowrap; }
-td { padding: .75rem 1.2rem; border-bottom: 1px solid #eef2f7; vertical-align: middle; }
+td { padding: .75rem 1.2rem; border-bottom: 1px solid #e3ebe8; vertical-align: middle; }
 tr:last-child td { border-bottom: none; }
 tr.clic { cursor: pointer; }
-tr.clic:hover td { background: #f5f9ff; }
+tr.clic:hover td { background: #f1f7f5; }
 tr.inactiva td { color: var(--texto-tenue); }
 td .sub { display: block; font-size: .78rem; color: var(--texto-tenue); }
 .persona { display: flex; align-items: center; gap: .7rem; }
@@ -443,7 +450,7 @@ td .sub { display: block; font-size: .78rem; color: var(--texto-tenue); }
 /* Hospitales */
 .hospitales { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(290px, 100%), 1fr)); gap: 1rem; }
 .hospital-tarjeta { padding: 1.1rem 1.2rem; display: grid; gap: .9rem; }
-.hospital-tarjeta.resaltado { border-color: var(--azul); box-shadow: 0 0 0 3px rgba(31, 99, 198, .15); }
+.hospital-tarjeta.resaltado { border-color: var(--azul); box-shadow: 0 0 0 3px rgba(14, 107, 104, .15); }
 .barra-dist { display: flex; height: 8px; border-radius: 4px; overflow: hidden; gap: 2px; background: var(--fondo); }
 .barra-dist span { display: block; height: 100%; }
 .mini-datos { display: grid; grid-template-columns: repeat(3, 1fr); gap: .5rem; text-align: center; }
@@ -465,7 +472,7 @@ td .sub { display: block; font-size: .78rem; color: var(--texto-tenue); }
 .tooltip { position: fixed; z-index: 80; pointer-events: none; background: var(--navy); color: #fff; font-size: .8rem; padding: .45rem .65rem; border-radius: 8px; box-shadow: var(--sombra-alta); max-width: 260px; }
 
 /* Modal de formularios */
-.fondo-modal { position: fixed; inset: 0; z-index: 50; background: rgba(13, 43, 91, .32); display: flex; justify-content: center; align-items: flex-start; padding: 6vh 1rem; overflow-y: auto; animation: aparecer .15s ease-out; }
+.fondo-modal { position: fixed; inset: 0; z-index: 50; background: rgba(10, 79, 77, .32); display: flex; justify-content: center; align-items: flex-start; padding: 6vh 1rem; overflow-y: auto; animation: aparecer .15s ease-out; }
 @keyframes aparecer { from { opacity: 0; } }
 .modal { width: min(560px, 100%); background: var(--superficie); border-radius: var(--radio); box-shadow: var(--sombra-alta); overflow: hidden; animation: entrar .18s ease-out; }
 .modal-cabeza { padding: 1rem 1.3rem; border-bottom: 1px solid var(--borde); display: flex; justify-content: space-between; align-items: center; }
@@ -542,4 +549,4 @@ td .sub { display: block; font-size: .78rem; color: var(--texto-tenue); }
 }
 /* R08 · Vista de remisión a especialista (desde persona3-remisiones) */
 .pestanas button { border: 1px solid #ddd; background: white; padding: .5rem 1rem; cursor: pointer; border-radius: 4px 4px 0 0; font-size: .9rem; margin-right: .3rem; }
-.pestanas button.activa { background: var(--azul, #1f63c6); color: white; border-color: var(--azul, #1f63c6); }
+.pestanas button.activa { background: var(--azul, #0e6b68); color: white; border-color: var(--azul, #0e6b68); }
