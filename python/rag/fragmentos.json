@@ -1,0 +1,362 @@
+[
+ {
+  "chunk_id": "G01-0",
+  "doc_id": "G01",
+  "tipo": "guia",
+  "estado": "vigente",
+  "paciente": null,
+  "fuente": "Historia clínica · Resolución 1995 de 1999 (guía docente TrazaRed)",
+  "texto": "Historia clínica. La Resolución 1995 de 1999 define la historia clínica como el registro único, obligatorio y confidencial de toda la atención de un paciente. Es un documento médico-legal y su titular es el paciente. Ningún dato de la historia clínica puede borrarse: la información se conserva de manera íntegra y segura durante al menos diez años. Por eso los sistemas de salud no implementan borrado físico: usan borrado lógico (soft delete), que marca el registro con una fecha de eliminación y permite al administrador restaurarlo, dejando siempre trazabilidad de quién eliminó y quién restauró."
+ },
+ {
+  "chunk_id": "G01-1",
+  "doc_id": "G01",
+  "tipo": "guia",
+  "estado": "vigente",
+  "paciente": null,
+  "fuente": "Historia clínica · Resolución 1995 de 1999 (guía docente TrazaRed)",
+  "texto": "Modificaciones y auditoría. Toda modificación debe quedar identificada con el profesional responsable, la fecha y la hora, conservando los valores anteriores y nuevos. La historia clínica debe estar disponible para el paciente, quien puede solicitar copia autorizada de ella."
+ },
+ {
+  "chunk_id": "G02-0",
+  "doc_id": "G02",
+  "tipo": "guia",
+  "estado": "vigente",
+  "paciente": null,
+  "fuente": "Remisión y contrarreferencia (guía docente TrazaRed)",
+  "texto": "Remisión o referencia. Es el acto por el cual un prestador envía un paciente a otro prestador de mayor complejidad o de especialidad distinta. La remisión debe contener: identificación del paciente y del médico remitente, institución de origen y de destino, motivo de la remisión, resumen clínico, diagnóstico principal, nivel de complejidad requerido y urgencia de la atención."
+ },
+ {
+  "chunk_id": "G02-1",
+  "doc_id": "G02",
+  "tipo": "guia",
+  "estado": "vigente",
+  "paciente": null,
+  "fuente": "Remisión y contrarreferencia (guía docente TrazaRed)",
+  "texto": "Contrarreferencia. Es la respuesta del especialista o del prestador receptor: confirma la atención, entrega el diagnóstico y las recomendaciones de seguimiento, y devuelve al paciente al prestador de origen para su control. Sin contrarreferencia el ciclo de atención queda incompleto y el paciente pierde continuidad de cuidado."
+ },
+ {
+  "chunk_id": "G03-0",
+  "doc_id": "G03",
+  "tipo": "guia",
+  "estado": "vigente",
+  "paciente": null,
+  "fuente": "Traslados interinstitucionales y CRU (guía docente TrazaRed)",
+  "texto": "Traslado interinstitucional. En Colombia el traslado entre prestadores se coordina con el centro regulador de urgencias (CRU) de la red. El proceso exige: contacto de la institución de origen con la de destino o con el CRU si se rechaza, registro de la hora del contacto, identificación de quién acepta o rechaza, motivo del rechazo, estabilización previa del paciente y tipo de ambulancia requerida (básica, medicalizada o de soporte avanzado)."
+ },
+ {
+  "chunk_id": "G03-1",
+  "doc_id": "G03",
+  "tipo": "guia",
+  "estado": "vigente",
+  "paciente": null,
+  "fuente": "Traslados interinstitucionales y CRU (guía docente TrazaRed)",
+  "texto": "Registro de cada gestión. Cada intento de contacto debe quedar en bitácora: a quién se llamó, a qué hora, qué respondieron y si había convenio o capacidad. Esa bitácora es la evidencia de trazabilidad cuando surge una disputa sobre quién atendió la solicitud."
+ },
+ {
+  "chunk_id": "G04-0",
+  "doc_id": "G04",
+  "tipo": "guia",
+  "estado": "vigente",
+  "paciente": null,
+  "fuente": "EPS e IPS en la remisión (guía docente TrazaRed)",
+  "texto": "EPS e IPS. La EPS es el asegurador: afilia al paciente, autoriza servicios y paga al prestador. La IPS es el prestador: entrega el servicio de salud. En una remisión interinstitucional la EPS del paciente debe conocer el evento para autorizar y reconocer los costos; por eso los sistemas registran la EPS de cada paciente y relacionan cada factura con la remisión que la generó."
+ },
+ {
+  "chunk_id": "G04-1",
+  "doc_id": "G04",
+  "tipo": "guia",
+  "estado": "vigente",
+  "paciente": null,
+  "fuente": "EPS e IPS en la remisión (guía docente TrazaRed)",
+  "texto": "Facturación. Los servicios prestados se reportan por paciente y por encuentro; la factura agrupa esos servicios y debe poder rastrearse hasta la remisión y hasta el paciente que la originó."
+ },
+ {
+  "chunk_id": "G05-0",
+  "doc_id": "G05",
+  "tipo": "guia",
+  "estado": "vigente",
+  "paciente": null,
+  "fuente": "Estados y trazabilidad de la remisión (guía docente TrazaRed)",
+  "texto": "Estados de una remisión. Una remisión se gestiona por estados dentro de un catálogo cerrado: creada, enviada, en gestión, aceptada, rechazada, atendida y cancelada. Los estados no son texto libre: viven en una tabla de catálogo para evitar errores de escritura, mayúsculas o tildes. Cada cambio de estado registra fecha, hora y usuario responsable."
+ },
+ {
+  "chunk_id": "G05-1",
+  "doc_id": "G05",
+  "tipo": "guia",
+  "estado": "vigente",
+  "paciente": null,
+  "fuente": "Estados y trazabilidad de la remisión (guía docente TrazaRed)",
+  "texto": "Trazabilidad y notificación. El historial de la remisión conserva quién hizo cada cambio y cuándo. El sistema notifica los cambios en tiempo real al médico remitente y al especialista receptor mediante eventos (SSE), sin que tengan que refrescar la pantalla."
+ },
+ {
+  "chunk_id": "G06-0",
+  "doc_id": "G06",
+  "tipo": "guia",
+  "estado": "vigente",
+  "paciente": null,
+  "fuente": "Urgencias saturadas y remisión oportuna (guía docente TrazaRed)",
+  "texto": "Saturación de urgencias. Los hospitales de referencia como el Hospital Universitario del Valle reciben pacientes de todo el suroccidente colombiano; cuando urgencias opera sobre su capacidad real, la remisión oportuna a la institución adecuada es la herramienta para descongestionar. La priorización se basa en la gravedad según el triage y en la disponibilidad real de camas y servicios del receptor."
+ },
+ {
+  "chunk_id": "G06-1",
+  "doc_id": "G06",
+  "tipo": "guia",
+  "estado": "vigente",
+  "paciente": null,
+  "fuente": "Urgencias saturadas y remisión oportuna (guía docente TrazaRed)",
+  "texto": "Demora y riesgo. Una remisión sin registro del contacto deja al paciente esperando sin respuesta y a las dos instituciones sin evidencia del intercambio; por eso el sistema convierte cada remisión en un objeto trazable desde su creación hasta la atención final."
+ },
+ {
+  "chunk_id": "G07-0",
+  "doc_id": "G07",
+  "tipo": "guia",
+  "estado": "vigente",
+  "paciente": null,
+  "fuente": "Seguridad del acceso y del transporte de datos (guía docente TrazaRed)",
+  "texto": "Seguridad del acceso. El ingreso se hace con usuario y contraseña y un token JWT firmado que vence en un tiempo definido. Tras tres intentos fallidos de contraseña la cuenta se bloquea y solo el administrador la desbloquea con motivo registrado. Las contraseñas se almacenan cifradas con hash, nunca en texto claro."
+ },
+ {
+  "chunk_id": "G07-1",
+  "doc_id": "G07",
+  "tipo": "guia",
+  "estado": "vigente",
+  "paciente": null,
+  "fuente": "Seguridad del acceso y del transporte de datos (guía docente TrazaRed)",
+  "texto": "Transporte e interoperabilidad. La información viaja cifrada por HTTPS a través de un túnel saliente hacia el borde, sin puertos abiertos en el servidor. La interoperabilidad con otros sistemas se hace con HL7 FHIR R4, que exige nomenclatura estándar en los recursos Patient, Encounter y Observation."
+ },
+ {
+  "chunk_id": "G08-0",
+  "doc_id": "G08",
+  "tipo": "guia",
+  "estado": "vigente",
+  "paciente": null,
+  "fuente": "Portal del paciente y Ley 1581 de 2012 (guía docente TrazaRed)",
+  "texto": "Portal del paciente. El paciente puede consultar en lenguaje claro el estado de su remisión, a qué institución fue referido y las instrucciones de seguimiento; no ve la información operativa interna ni los datos de otros pacientes."
+ },
+ {
+  "chunk_id": "G08-1",
+  "doc_id": "G08",
+  "tipo": "guia",
+  "estado": "vigente",
+  "paciente": null,
+  "fuente": "Portal del paciente y Ley 1581 de 2012 (guía docente TrazaRed)",
+  "texto": "Datos personales. El tratamiento de datos de salud exige autorización del titular según la Ley 1581 de 2012, y cada consulta del personal a la información de un paciente queda registrada en la auditoría con usuario, fecha y hora."
+ },
+ {
+  "chunk_id": "G09-0",
+  "doc_id": "G09",
+  "tipo": "guia",
+  "estado": "vigente",
+  "paciente": null,
+  "fuente": "Triage de urgencias en cinco niveles (guía docente TrazaRed)",
+  "texto": "Triage. En urgencias el triage clasifica al paciente en cinco niveles de prioridad: nivel 1 o resucitación, atención inmediata; nivel 2 o emergencia, atención en menos de 10 minutos; nivel 3 o urgencia, menos de 60 minutos; nivel 4 o urgencia menor, menos de 120 minutos; y nivel 5 o no urgente. La clasificación la hace enfermería con criterios objetivos y se reevalúa si el paciente empeora."
+ },
+ {
+  "chunk_id": "G09-1",
+  "doc_id": "G09",
+  "tipo": "guia",
+  "estado": "vigente",
+  "paciente": null,
+  "fuente": "Triage de urgencias en cinco niveles (guía docente TrazaRed)",
+  "texto": "Remisión por nivel. Los niveles 1 y 2 son candidatos a remisión inmediata cuando la institución no cuenta con el servicio requerido, como cirugía, cuidados intensivos, hemodinamia o neurología."
+ },
+ {
+  "chunk_id": "G10-0",
+  "doc_id": "G10",
+  "tipo": "guia",
+  "estado": "vigente",
+  "paciente": null,
+  "fuente": "Sepsis, qSOFA y shock (guía docente TrazaRed)",
+  "texto": "Sepsis y qSOFA. La sepsis es la disfunción de órganos por una respuesta desregulada a una infección. La escala qSOFA sospecha sepsis con dos o más de estos tres criterios: frecuencia respiratoria de 22 o más por minuto, presión sistólica de 100 mmHg o menos y alteración del estado de conciencia. Un qSOFA de 2 o más obliga a evaluación inmediata, cultivos, lactato y antibióticos de amplio espectro dentro de la primera hora, y a considerar remisión urgente a un servicio con UCI si el prestador actual no la tiene."
+ },
+ {
+  "chunk_id": "G10-1",
+  "doc_id": "G10",
+  "tipo": "guia",
+  "estado": "vigente",
+  "paciente": null,
+  "fuente": "Sepsis, qSOFA y shock (guía docente TrazaRed)",
+  "texto": "Shock. La hipotensión sostenida con sistólica menor de 90 mmHg y signos de hipoperfusión (confusión, piel fría, poca orina) define shock: es una emergencia. No se retrasa el traslado, pero el paciente se estabiliza antes: vía aérea, acceso venoso y perfusión."
+ },
+ {
+  "chunk_id": "G11-0",
+  "doc_id": "G11",
+  "tipo": "guia",
+  "estado": "vigente",
+  "paciente": null,
+  "fuente": "Síndrome coronario agudo (guía docente TrazaRed)",
+  "texto": "Síndrome coronario agudo. Ante dolor torácico sugestivo, opresivo, con sudoración o irradiación al brazo, el electrocardiograma debe obtenerse en los primeros 10 minutos. Un supradesnivel del segmento ST define un infarto con elevación del ST: la reperfusión por cateterismo o trombólisis debe lograrse idealmente dentro de los primeros 90 minutos desde el diagnóstico."
+ },
+ {
+  "chunk_id": "G11-1",
+  "doc_id": "G11",
+  "tipo": "guia",
+  "estado": "vigente",
+  "paciente": null,
+  "fuente": "Síndrome coronario agudo (guía docente TrazaRed)",
+  "texto": "Remisión. Si el prestador actual no cuenta con hemodinamia, el paciente debe remitirse de inmediato a una institución que la tenga, avisando al receptor durante el traslado y adjuntando el electrocardiograma y los tiempos registrados."
+ },
+ {
+  "chunk_id": "G12-0",
+  "doc_id": "G12",
+  "tipo": "guia",
+  "estado": "vigente",
+  "paciente": null,
+  "fuente": "Evento cerebrovascular y ventana trombolítica (guía docente TrazaRed)",
+  "texto": "Evento cerebrovascular. La sospecha se hace con la escala de Cincinnati: caída facial, debilidad de un brazo y alteración del habla; cualquier hallazgo positivo activa la ruta de EVC. Se registra la hora exacta del inicio de los síntomas porque define el tratamiento."
+ },
+ {
+  "chunk_id": "G12-1",
+  "doc_id": "G12",
+  "tipo": "guia",
+  "estado": "vigente",
+  "paciente": null,
+  "fuente": "Evento cerebrovascular y ventana trombolítica (guía docente TrazaRed)",
+  "texto": "Ventana. La tomografía cerebral y la evaluación deben hacerse de inmediato: la trombólisis solo es válida dentro de las primeras 4.5 horas desde el inicio de los síntomas. El paciente debe ir a un centro con neurología y tomografía disponibles; si el prestador actual no las tiene, procede la remisión urgente."
+ },
+ {
+  "chunk_id": "G13-0",
+  "doc_id": "G13",
+  "tipo": "guia",
+  "estado": "vigente",
+  "paciente": null,
+  "fuente": "Deterioro respiratorio y escala NEWS2 (guía docente TrazaRed)",
+  "texto": "Deterioro respiratorio. Los signos de alarma son: saturación de oxígeno menor de 90 %, frecuencia respiratoria mayor de 24 o menor de 12 por minuto, uso de músculos accesorios y cianosis. La escala NEWS2 suma frecuencia respiratoria, saturación, presión arterial, frecuencia cardíaca, conciencia y temperatura; un puntaje total de 7 o más indica emergencia y activa respuesta inmediata."
+ },
+ {
+  "chunk_id": "G13-1",
+  "doc_id": "G13",
+  "tipo": "guia",
+  "estado": "vigente",
+  "paciente": null,
+  "fuente": "Deterioro respiratorio y escala NEWS2 (guía docente TrazaRed)",
+  "texto": "Remisión. Si el prestador no tiene ventilación mecánica o cuidados intensivos, procede la remisión urgente con oxígeno durante el traslado y monitoreo continuo."
+ },
+ {
+  "chunk_id": "G14-0",
+  "doc_id": "G14",
+  "tipo": "guia",
+  "estado": "vigente",
+  "paciente": null,
+  "fuente": "Hipoglucemia y regla 15-15 (guía docente TrazaRed)",
+  "texto": "Hipoglucemia. Se define con glucosa menor de 70 mg/dL y es severa cuando el paciente necesita ayuda de terceros. En el paciente consciente se aplica la regla 15-15: 15 gramos de azúcar de absorción rápida, como jugo o tabletas de glucosa, y control a los 15 minutos; si sigue baja, se repite la dosis."
+ },
+ {
+  "chunk_id": "G14-1",
+  "doc_id": "G14",
+  "tipo": "guia",
+  "estado": "vigente",
+  "paciente": null,
+  "fuente": "Hipoglucemia y regla 15-15 (guía docente TrazaRed)",
+  "texto": "Paciente inconsciente. No se administra nada por vía oral: se usa glucagón o dextrosa intravenosa y se activa la atención de urgencias. La recurrencia, la alteración de la conciencia o la imposibilidad de mantener la glucosa con ingestas obligan a remitir al paciente."
+ },
+ {
+  "chunk_id": "N01-0",
+  "doc_id": "N01",
+  "tipo": "norma",
+  "estado": "vigente",
+  "paciente": null,
+  "fuente": "Regla de datos para los modelos de IA (guía docente TrazaRed)",
+  "texto": "Regla de oro con los datos del paciente. A los modelos externos o de IA nunca se les envía el nombre, la cédula, el teléfono ni el correo del paciente: se trabaja con un identificador seudonimizado que solo el sistema puede revertir. Eso es pseudonimización, no anonimización: siempre debe poder re-vincularse el resultado con el paciente real."
+ },
+ {
+  "chunk_id": "N01-1",
+  "doc_id": "N01",
+  "tipo": "norma",
+  "estado": "vigente",
+  "paciente": null,
+  "fuente": "Regla de datos para los modelos de IA (guía docente TrazaRed)",
+  "texto": "Responsabilidad. Toda salida de un modelo de IA es una propuesta: solo entra a la historia clínica cuando un clínico la revisa, la aprueba y la firma con su usuario. La responsabilidad de la decisión es del profesional, nunca del modelo."
+ },
+ {
+  "chunk_id": "H01-0",
+  "doc_id": "H01",
+  "tipo": "historia",
+  "estado": "aprobado",
+  "paciente": "PX-04C94FF5",
+  "fuente": "Reporte IA aprobado · 2026-10-28",
+  "texto": "Paciente PX-04C94FF5, [DOCUMENTO], [TELEFONO]. Predicción del modelo de urgencia: urgencia crítica, probabilidad 0,91. Variables: presión arterial 85/50 mmHg, frecuencia cardíaca 128, frecuencia respiratoria 26, SpO2 89 %."
+ },
+ {
+  "chunk_id": "H01-1",
+  "doc_id": "H01",
+  "tipo": "historia",
+  "estado": "aprobado",
+  "paciente": "PX-04C94FF5",
+  "fuente": "Reporte IA aprobado · 2026-10-28",
+  "texto": "Observación del médico aprobador: qSOFA 2, sospecha de sepsis de origen abdominal; se inicia antibiótico de primera hora y se remite a urgencias del Hospital Universitario del Valle para valoración por UCI."
+ },
+ {
+  "chunk_id": "H02-0",
+  "doc_id": "H02",
+  "tipo": "historia",
+  "estado": "aprobado",
+  "paciente": "PX-04C94FF5",
+  "fuente": "Nota clínica · 2026-10-30",
+  "texto": "PX-04C94FF5 en hospitalización: afebril, presión 108/70 mmHg, frecuencia cardíaca 88, SpO2 96 % con aire ambiente. Cumple 5 días de antibiótico."
+ },
+ {
+  "chunk_id": "H02-1",
+  "doc_id": "H02",
+  "tipo": "historia",
+  "estado": "aprobado",
+  "paciente": "PX-04C94FF5",
+  "fuente": "Nota clínica · 2026-10-30",
+  "texto": "Se solicita control de lactato y se evalúa egreso con contrarreferencia a su IPS para seguimiento ambulatorio."
+ },
+ {
+  "chunk_id": "H03-0",
+  "doc_id": "H03",
+  "tipo": "historia",
+  "estado": "pendiente",
+  "paciente": "PX-04C94FF5",
+  "fuente": "Reporte IA pendiente · 2026-11-01",
+  "texto": "Paciente PX-04C94FF5. Nuevo reporte del modelo: probabilidad 0,55 de urgencia alta por taquicardia nocturna sostenida."
+ },
+ {
+  "chunk_id": "H03-1",
+  "doc_id": "H03",
+  "tipo": "historia",
+  "estado": "pendiente",
+  "paciente": "PX-04C94FF5",
+  "fuente": "Reporte IA pendiente · 2026-11-01",
+  "texto": "Reporte en espera de revisión clínica."
+ },
+ {
+  "chunk_id": "H04-0",
+  "doc_id": "H04",
+  "tipo": "historia",
+  "estado": "rechazado",
+  "paciente": "PX-04C94FF5",
+  "fuente": "Reporte IA rechazado · 2026-10-25",
+  "texto": "Paciente PX-04C94FF5. El modelo sugirió riesgo bajo, probabilidad 0,12."
+ },
+ {
+  "chunk_id": "H04-1",
+  "doc_id": "H04",
+  "tipo": "historia",
+  "estado": "rechazado",
+  "paciente": "PX-04C94FF5",
+  "fuente": "Reporte IA rechazado · 2026-10-25",
+  "texto": "Rechazado por el médico: el registro de signos venía incompleto, sin presión arterial ni frecuencia respiratoria, y no refleja el estado real del paciente."
+ },
+ {
+  "chunk_id": "H05-0",
+  "doc_id": "H05",
+  "tipo": "historia",
+  "estado": "aprobado",
+  "paciente": "PX-EE0B93B3",
+  "fuente": "Reporte IA aprobado · 2026-10-31",
+  "texto": "Paciente PX-EE0B93B3, [DOCUMENTO], [TELEFONO]. Predicción del modelo: urgencia crítica, probabilidad 0,88. Variables: presión 170/95 mmHg, frecuencia cardíaca 102, SpO2 95 %."
+ },
+ {
+  "chunk_id": "H05-1",
+  "doc_id": "H05",
+  "tipo": "historia",
+  "estado": "aprobado",
+  "paciente": "PX-EE0B93B3",
+  "fuente": "Reporte IA aprobado · 2026-10-31",
+  "texto": "Observación del médico aprobador: inicio súbito de caída facial y dificultad del habla hace 2 horas, escala de Cincinnati positiva; ventana trombolítica vigente, se remite de inmediato a centro con neurología y tomografía."
+ }
+]

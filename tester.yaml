@@ -341,3 +341,71 @@ rutas:
         value: 250
         unit: "mg/dL"
     campos: ["recibido", "paciente_id"]
+
+  # ── Libro de radicación y descargas (módulo registro, Luz · 28/10) ─────────
+  # Roles declarados según las firmas de python/registro.py; ROLES_CLINICOS
+  # del proyecto = ["admin", "medico", "especialista"].
+  registro_libro:
+    metodo: GET
+    path: /registro/libro
+    rol_requerido: ["admin", "medico", "especialista", "contable", "paciente", "eps"]
+  registro_libro_csv:
+    metodo: GET
+    path: /registro/libro.csv
+    rol_requerido: ["admin", "medico", "especialista", "contable", "paciente", "eps"]
+  registro_libro_xlsx:
+    metodo: GET
+    path: /registro/libro.xlsx
+    rol_requerido: ["admin", "medico", "especialista", "contable", "paciente", "eps"]
+  registro_libro_pdf:
+    metodo: GET
+    path: /registro/libro.pdf
+    rol_requerido: ["admin", "medico", "especialista", "contable", "paciente", "eps"]
+  registro_formato:
+    metodo: GET
+    path: /registro/remisiones/{id}/formato
+    rol_requerido: ["admin", "medico", "especialista", "contable", "paciente", "eps"]
+  registro_constancia:
+    metodo: GET
+    path: /registro/remisiones/{id}/constancia.pdf
+    rol_requerido: ["admin", "medico", "especialista", "contable", "paciente", "eps"]
+  registro_bitacora:
+    metodo: GET
+    path: /registro/remisiones/{id}/bitacora.xlsx
+    rol_requerido: ["admin", "medico", "especialista", "contable", "paciente", "eps"]
+  registro_fhir:
+    metodo: GET
+    path: /registro/remisiones/{id}/fhir.json
+    rol_requerido: ["admin", "medico", "especialista"]
+  registro_gestiones:
+    metodo: POST
+    path: /registro/remisiones/{id}/gestiones
+    rol_requerido: ["admin", "medico"]
+  registro_cierre:
+    metodo: POST
+    path: /registro/remisiones/{id}/cierre
+    rol_requerido: ["admin", "medico"]
+  registro_pronostico:
+    metodo: POST
+    path: /registro/remisiones/{id}/pronostico
+    rol_requerido: ["admin", "medico", "especialista"]
+  registro_ia_clasificar:
+    metodo: POST
+    path: /registro/ia/clasificar
+    rol_requerido: ["admin", "medico", "especialista"]
+  registro_ia_resumen:
+    metodo: GET
+    path: /registro/ia/resumen
+    rol_requerido: ["admin", "medico", "especialista"]
+  registro_ia_recalcular:
+    metodo: POST
+    path: /registro/ia/recalcular
+    rol_requerido: ["admin"]
+  registro_ia_entrenar:
+    metodo: POST
+    path: /registro/ia/entrenar
+    rol_requerido: ["admin"]
+  registro_mi_seguimiento:
+    metodo: GET
+    path: /registro/mi-seguimiento
+    rol_requerido: ["admin", "medico", "especialista", "contable", "paciente", "eps"]
