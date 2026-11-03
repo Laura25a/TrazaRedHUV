@@ -39,6 +39,7 @@ import registro
 import remisiones
 from auth import (PG_CONNECTION_STRING, ROLES_CLINICOS, get_db, get_usuario_actual,
                   mongo_client, registrar_auditoria, requiere_rol)
+from rag.router import router as rag_router   # asistente clínico RAG (taller semana 12)
 
 app = FastAPI(
     title="API TrazaRed HUV",
@@ -89,6 +90,7 @@ app.include_router(historia.router)
 app.include_router(ia.router)
 app.include_router(contabilidad.router)
 app.include_router(registro.router)
+app.include_router(rag_router)
 app.include_router(eventos.router)
 
 
