@@ -1,0 +1,135 @@
+/* ==========================================================================
+   TrazaRed HUV — "Traza", asistente flotante (esquina inferior derecha)
+   ========================================================================== */
+#traza { position: fixed; right: 22px; bottom: 22px; z-index: 900; font-family: var(--fuente); }
+
+/* Botón con la cara */
+.traza-boton {
+  width: 66px; height: 66px; padding: 0; border: 0; border-radius: 50%; background: none; cursor: pointer;
+  display: block; position: relative; filter: drop-shadow(0 8px 18px rgba(21, 68, 143, .35));
+  animation: traza-flota 4s ease-in-out infinite; transition: transform var(--t);
+}
+.traza-boton:hover { transform: scale(1.06); }
+.traza-boton:focus-visible { outline: 3px solid var(--azul-claro); outline-offset: 4px; }
+.traza-boton .traza-cara { width: 100%; height: 100%; display: block; }
+.traza-boton.activo { animation: none; }
+.traza-boton::after {                      /* anillo al escuchar */
+  content: ""; position: absolute; inset: -6px; border-radius: 50%; border: 3px solid #2b8fc9; opacity: 0; pointer-events: none;
+}
+.traza-boton.escuchando::after { animation: traza-pulso 1.2s ease-out infinite; }
+@keyframes traza-flota { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
+@keyframes traza-pulso { 0% { opacity: .9; transform: scale(.95); } 100% { opacity: 0; transform: scale(1.35); } }
+
+/* Boca que "habla" y ojos que parpadean */
+.traza-cara .traza-boca { transform-origin: 60px 72px; }
+.hablando .traza-cara .traza-boca { animation: traza-habla .28s ease-in-out infinite alternate; }
+@keyframes traza-habla { from { transform: scaleY(.6); } to { transform: scaleY(1.5); } }
+.traza-cara .traza-ojos { transform-origin: 60px 56px; animation: traza-parpadeo 5s infinite; }
+@keyframes traza-parpadeo { 0%, 94%, 100% { transform: scaleY(1); } 97% { transform: scaleY(.2); } }
+
+/* Globo de bienvenida */
+.traza-globo {
+  position: absolute; right: 76px; bottom: 14px; white-space: nowrap; background: var(--navy); color: #fff;
+  font-size: 13px; padding: 8px 12px; border-radius: 12px 12px 2px 12px; box-shadow: var(--sombra-alta);
+  opacity: 0; transform: translateX(8px); transition: opacity .3s, transform .3s; pointer-events: none;
+}
+.traza-globo.visible { opacity: 1; transform: none; }
+
+/* Panel de conversación */
+.traza-panel {
+  position: absolute; right: 0; bottom: 82px; width: 370px; height: min(560px, calc(100vh - 120px));
+  background: var(--superficie); border: 1px solid var(--borde); border-radius: 18px; box-shadow: var(--sombra-alta);
+  display: flex; flex-direction: column; overflow: hidden; animation: traza-entra .18s ease-out;
+}
+.traza-panel.oculto { display: none; }
+@keyframes traza-entra { from { opacity: 0; transform: translateY(10px) scale(.98); } to { opacity: 1; transform: none; } }
+
+.traza-cabeza {
+  display: flex; align-items: center; gap: 10px; padding: 12px 12px 12px 14px; color: #fff;
+  background: linear-gradient(120deg, var(--azul-oscuro), #2b8fc9);
+}
+.traza-cabeza > div { flex: 1; display: flex; flex-direction: column; line-height: 1.2; }
+.traza-cabeza strong { font-size: 16px; }
+.traza-cabeza span#traza-estado { font-size: 12px; opacity: .92; }
+.traza-mini { width: 40px; height: 40px; flex: none; }
+.traza-mini svg { width: 100%; height: 100%; }
+.traza-ico {
+  width: 34px; height: 34px; border: 0; border-radius: 10px; background: rgba(255, 255, 255, .14); color: #fff;
+  display: grid; place-items: center; cursor: pointer;
+}
+.traza-ico:hover { background: rgba(255, 255, 255, .26); }
+.traza-ico svg { width: 18px; height: 18px; }
+.traza-ico.apagado { opacity: .55; text-decoration: line-through; }
+
+.traza-contexto {
+  display: flex; align-items: center; gap: 6px; padding: 7px 14px; font-size: 12.5px;
+  background: var(--azul-suave); color: var(--texto); border-bottom: 1px solid var(--borde);
+}
+.traza-contexto.oculto { display: none; }
+.traza-contexto strong { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.traza-contexto button { border: 0; background: none; cursor: pointer; color: var(--texto-tenue); padding: 2px; display: grid; }
+.traza-contexto svg { width: 14px; height: 14px; }
+
+.traza-chat { flex: 1; overflow-y: auto; padding: 14px; display: flex; flex-direction: column; gap: 10px; background: var(--superficie-2); }
+.traza-msg { max-width: 88%; font-size: 14px; line-height: 1.45; }
+.traza-msg p { margin: 0; padding: 9px 12px; border-radius: 14px; }
+.traza-traza p { background: var(--superficie); color: var(--texto); border: 1px solid var(--borde); border-bottom-left-radius: 4px; }
+.traza-yo { align-self: flex-end; }
+.traza-yo p { background: var(--azul); color: #fff; border-bottom-right-radius: 4px; }
+.traza-esperando p { color: var(--texto-tenue); font-style: italic; }
+.traza-nota { font-size: 12px; color: var(--texto-tenue); margin: 6px 2px 0; }
+
+/* Tarjetas de paciente: un clic y te lleva */
+.traza-pac {
+  width: 100%; margin-top: 6px; display: flex; align-items: center; gap: 10px; padding: 8px 10px; text-align: left;
+  background: var(--superficie); border: 1px solid var(--azul-borde); border-radius: 12px; cursor: pointer; color: var(--texto);
+  transition: border-color var(--t), background var(--t);
+}
+.traza-pac:hover, .traza-pac:focus-visible { border-color: var(--azul); background: var(--azul-suave); outline: none; }
+.traza-pac .avatar { flex: none; }
+.traza-pac-txt { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+.traza-pac-txt strong { font-size: 13.5px; }
+.traza-pac-txt small { font-size: 12px; color: var(--texto-suave); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.traza-pac > svg { width: 18px; height: 18px; color: var(--azul); flex: none; }
+.traza-est { font-weight: 600; }
+.traza-est.est-pendiente, .traza-est.est-en_gestion { color: #8a5700; }
+.traza-est.est-aceptada { color: var(--ok); }
+.traza-est.est-rechazada { color: var(--error); }
+.traza-est.est-completada { color: var(--violeta); }
+
+.traza-acciones { margin-top: 6px; }
+.traza-acciones button, .traza-chips button {
+  border: 1px solid var(--azul-borde); background: var(--superficie); color: var(--azul-oscuro);
+  border-radius: 999px; padding: 6px 11px; font-size: 12.5px; cursor: pointer;
+}
+.traza-acciones button:hover, .traza-chips button:hover { background: var(--azul-suave); border-color: var(--azul); }
+.traza-chips.oculto { display: none; }
+.traza-chips { display: flex; flex-wrap: wrap; gap: 6px; padding: 8px 12px 0; background: var(--superficie); }
+
+.traza-form { display: flex; gap: 8px; align-items: center; padding: 10px 12px 12px; background: var(--superficie); }
+.traza-form input {
+  flex: 1; min-width: 0; height: 40px; padding: 0 12px; border: 1px solid var(--borde); border-radius: 12px;
+  font: inherit; font-size: 14px; color: var(--texto); background: var(--superficie-2);
+}
+.traza-form input:focus { outline: none; border-color: var(--azul); box-shadow: 0 0 0 3px var(--azul-suave); }
+.traza-mic, .traza-enviar {
+  width: 40px; height: 40px; flex: none; border: 0; border-radius: 12px; display: grid; place-items: center; cursor: pointer;
+}
+.traza-mic svg, .traza-enviar svg { width: 19px; height: 19px; }
+.traza-mic { background: var(--violeta-fondo); color: var(--violeta); position: relative; }
+.traza-mic.escuchando { background: var(--violeta); color: #fff; }
+.traza-mic.escuchando::after {
+  content: ""; position: absolute; inset: -4px; border-radius: 14px; border: 2px solid var(--violeta); animation: traza-pulso 1.2s ease-out infinite;
+}
+.traza-enviar { background: var(--azul); color: #fff; }
+.traza-enviar:hover { background: var(--azul-oscuro); }
+
+@media (max-width: 520px) {
+  #traza { right: 14px; bottom: 14px; }
+  .traza-panel { position: fixed; left: 10px; right: 10px; bottom: 92px; width: auto; height: calc(100vh - 110px); }
+  .traza-globo { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .traza-boton, .traza-cara .traza-ojos, .hablando .traza-cara .traza-boca { animation: none; }
+}
+@media print { #traza { display: none; } }

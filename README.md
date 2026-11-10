@@ -457,3 +457,13 @@ Variables nuevas (opcionales): `GROQ_API_KEY`, `MODELO_GROQ`, `LLAVE_SEUDONIMO`,
 - [`docs/README.md`](docs/README.md): dataset de las 600 remisiones.
 - [`documentacion_mapeo_roles.md`](documentacion_mapeo_roles.md): mapeo a FHIR y roles.
 - `docs/TrazaRed_HUV.pdf`: documento del proyecto.
+
+## Traza: asistente flotante con voz
+
+Botón con carita en la esquina inferior derecha de todas las pantallas (`frontend/js/burbuja.js`, `frontend/css/burbuja.css`). Se le escribe o se le habla (micrófono: Chrome o Edge) y responde en voz alta:
+
+- **"¿Dónde está la paciente Marleny Balanta?"** o **"busca la cédula 1175373460"** → encuentra al paciente (sin importar tildes) y te lleva a la ficha de su última remisión; si hay varios, muestra tarjetas para elegir con un clic.
+- **"Abre la remisión 45"**, **"llévame a instituciones"**, **"¿cuántas remisiones pendientes hay?"**.
+- Cualquier otra pregunta ("¿qué tan grave está este paciente?") la responde el agente clínico con el paciente en contexto; si propone una remisión, lleva al Asistente clínico para aprobarla.
+
+Búsqueda, navegación y conteos se resuelven en el navegador con la API del sistema: nombres y documentos no van a ningún modelo de lenguaje. Respeta el rol de cada usuario.
