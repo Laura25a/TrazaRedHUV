@@ -106,7 +106,7 @@ const EXPLICA_PACIENTE = {
   rechazada: "La institución no pudo recibirte. El hospital buscará otra opción.",
   completada: "Tu traslado ya se realizó.",
 };
-const ROLES = { admin: "Administrador", medico: "Médico", especialista: "Especialista", contable: "Contable", eps: "EPS", paciente: "Paciente", director: "Dirección" };
+const ROLES = { admin: "Administrador", medico: "Médico", especialista: "Especialista", contable: "Contable", eps: "EPS", paciente: "Paciente", director: "Dirección", biomedico: "Ingeniería biomédica" };
 
 const VITALES = [
   { loinc: "8867-4", tipo: "Frecuencia cardiaca", unidad: "/min", min: 60, max: 100 },
@@ -312,7 +312,7 @@ $("#marca-inicio").addEventListener("click", (e) => { e.preventDefault(); ir("in
 $("#btn-menu").addEventListener("click", () => $("#lateral").classList.toggle("abierto"));
 
 async function actualizarNotificaciones() {
-  if (!sesion.usuario || ["contable", "director"].includes(sesion.usuario.rol)) return;
+  if (!sesion.usuario || ["contable", "director", "biomedico"].includes(sesion.usuario.rol)) return;
   try {
     const lista = activas(await remisiones()).filter(r => r.estado === "pendiente" || r.estado === "en_gestion")
       .sort((a, b) => String(b.fecha_solicitud).localeCompare(String(a.fecha_solicitud)));
@@ -497,9 +497,12 @@ async function cargarGaleria(p) {
   }
   if (v !== imagenes.version) return;             // el usuario ya cambió de ficha
   if (!lista.length) { gal.innerHTML = `<div class="vacio" style="grid-column:1/-1">Este paciente no tiene imágenes. Sube una con el formulario de arriba.</div>`; return; }
-  gal.innerHTML = lista.map(im => `<button class="miniatura" data-id="${esc(im.instance_id)}" type="button">
+  const puedeEliminar = ["admin", "medico"].includes(sesion.usuario.rol);
+  gal.innerHTML = lista.map(im => `<div class="miniatura-caja"><button class="miniatura" data-id="${esc(im.instance_id)}" type="button">
       <div class="miniatura-img"><div class="esqueleto" style="width:100%;height:100%;border-radius:0"></div></div>
-      <div class="miniatura-info"><strong>${esc(im.descripcion)}</strong><small>${esc(im.modalidad_nombre)} · ${fechaDicom(im.fecha)} · ${im.columnas}×${im.filas}px</small></div></button>`).join("");
+      <div class="miniatura-info"><strong>${esc(im.descripcion)}</strong><small>${esc(im.modalidad_nombre)} · ${fechaDicom(im.fecha)} · ${im.columnas}×${im.filas}px</small></div></button>
+      ${puedeEliminar ? `<div class="img-eliminar" data-eliminar="${esc(im.instance_id)}"><button type="button" class="btn btn-suave btn-sm">Eliminar</button></div>` : ""}</div>`).join("");
+  if (typeof activarEliminarImagen === "function") activarEliminarImagen(gal, () => cargarGaleria(p));
   lista.forEach(async (im) => {
     const cuadro = $(`[data-id="${im.instance_id}"] .miniatura-img`);
     try {

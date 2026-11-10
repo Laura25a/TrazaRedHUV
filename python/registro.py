@@ -52,7 +52,7 @@ GRAVE = re.compile(r"uci|ventilaci|neurocirug|hemodinam|hemodi[aá]lisis|choque|
 
 
 def _no_contable(usuario: dict):
-    if usuario["rol"] in ("contable", "director"):
+    if usuario["rol"] in ("contable", "director", "biomedico"):
         raise HTTPException(403, f"El rol {usuario['rol']} no tiene acceso a datos clínicos individuales")
 
 

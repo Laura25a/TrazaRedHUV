@@ -118,7 +118,7 @@ ALTER TABLE pacientes ADD COLUMN IF NOT EXISTS alergias TEXT;
 -- arranque (auth.migrar_base), así que una base vieja se actualiza sola.
 ALTER TABLE usuarios DROP CONSTRAINT IF EXISTS usuarios_rol_check;
 ALTER TABLE usuarios ADD CONSTRAINT usuarios_rol_check
-    CHECK (rol IN ('admin','medico','especialista','paciente','contable','eps','director'));
+    CHECK (rol IN ('admin','medico','especialista','paciente','contable','eps','director','biomedico'));
 
 -- R13: consultas rápidas de la auditoría por recurso (p. ej. "todo lo del paciente 12")
 CREATE INDEX IF NOT EXISTS idx_auditoria_recurso ON auditoria (tabla, registro_id);
@@ -254,3 +254,25 @@ CREATE TABLE IF NOT EXISTS agente_propuestas (
     decidida_en TIMESTAMP
 );
 CREATE INDEX IF NOT EXISTS idx_agente_propuestas_usuario ON agente_propuestas (usuario_id, estado);
+
+-- ============================================================================
+-- Recuperación de información: imágenes con borrado LÓGICO (Res. 1995/1999)
+-- ============================================================================
+-- Eliminar una imagen la oculta de la ficha; el archivo DICOM nunca se borra del
+-- PACS. Restaurarla (admin o ingeniería biomédica) cierra el registro, que queda
+-- como historia de quién la ocultó, quién la recuperó y por qué.
+CREATE TABLE IF NOT EXISTS imagenes_eliminadas (
+    id SERIAL PRIMARY KEY,
+    instance_id TEXT NOT NULL,
+    paciente_id INTEGER REFERENCES pacientes(id),
+    descripcion TEXT,
+    modalidad TEXT,
+    motivo TEXT NOT NULL,
+    eliminada_por INTEGER NOT NULL REFERENCES usuarios(id),
+    eliminada_en TIMESTAMP NOT NULL DEFAULT now(),
+    vigente BOOLEAN NOT NULL DEFAULT TRUE,          -- TRUE = sigue oculta
+    restaurada_por INTEGER REFERENCES usuarios(id),
+    restaurada_en TIMESTAMP,
+    motivo_restauracion TEXT
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_imagen_eliminada_vigente ON imagenes_eliminadas (instance_id) WHERE vigente;

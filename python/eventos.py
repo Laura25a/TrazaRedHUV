@@ -102,7 +102,7 @@ def _emitir(destinatarios: list, evento: dict) -> None:
         if sus.usuario_id not in destinatarios:
             continue
         # Defensa extra del aislamiento (R17): rol paciente/contable nunca recibe clínicos.
-        if clinico and sus.rol in ("paciente", "contable", "director"):
+        if clinico and sus.rol in ("paciente", "contable", "director", "biomedico"):
             continue
         try:
             sus.loop.call_soon_threadsafe(sus.cola.put_nowait, texto)

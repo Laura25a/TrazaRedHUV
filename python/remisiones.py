@@ -28,7 +28,7 @@ router = APIRouter(tags=["Remisiones"])
 
 def sin_contable(usuario: dict):
     """R03: las remisiones son datos clínicos; el contable no las ve (403)."""
-    if usuario["rol"] in ("contable", "director"):
+    if usuario["rol"] in ("contable", "director", "biomedico"):
         raise HTTPException(status_code=403, detail=f"El rol {usuario['rol']} no tiene acceso a datos clínicos individuales")
 
 class RemisionCreate(BaseModel):

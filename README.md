@@ -115,6 +115,8 @@ No hay registro público: solo el administrador crea cuentas y asigna roles.
 | **EPS** | Libro con los asientos de sus afiliados | Consulta y descarga, solo lectura |
 | **Contable** | Libro contable | Factura radicados cerrados, registra glosas, pagos y anulaciones; nunca ve datos clínicos |
 | **Paciente** | Seguimiento de su remisión | Ve en qué va su remisión, en palabras sencillas y sin datos del personal |
+| **Dirección** | Tendencias de la red | Ve la población por semana (remisiones, IA, alertas) y la agrupación clínica; nunca una ficha individual |
+| **Ingeniería biomédica** | Estado técnico | Administra el PACS y la tecnología: recupera imágenes eliminadas, vigila los servicios (PostgreSQL, MongoDB, PACS, FHIR, IA) y revisa la auditoría técnica. Ve a los pacientes solo con seudónimo |
 
 ## Seguridad
 
@@ -395,6 +397,7 @@ Todos los datos de pacientes son sintéticos o de datasets públicos.
 | Paciente | `paciente@correo.com` | `DEMO_PACIENTE_PASSWORD` |
 | EPS (Coosalud) | `eps@coosalud.com` | `DEMO_EPS_PASSWORD` |
 | Dirección | `director@huv.gov.co` | `DEMO_DIRECTOR_PASSWORD` |
+| Ingeniería biomédica | `biomedico@huv.gov.co` | `DEMO_BIOMEDICO_PASSWORD` |
 
 Las contraseñas son las de las variables indicadas en el archivo de variables; no están en
 el repositorio.
@@ -417,6 +420,13 @@ parámetros del K-means) y detección de atípicos (Isolation Forest), visible a
 **director** (lo crea el admin) con el tablero **Tendencias de la red**
 (`GET /tablero/tendencia`): remisiones, reportes de IA y alertas por semana; recibe 403 en
 fichas e historias individuales.
+
+**Recuperación de información.** Eliminar una imagen es un borrado lógico (Res. 1995 de 1999):
+el médico o el admin la ocultan con motivo obligatorio, el archivo DICOM sigue en el PACS y la
+recupera el **admin** o **Ingeniería biomédica** desde *Recuperación de información*. El admin
+también recupera remisiones eliminadas. Todo queda en la auditoría (quién, cuándo y por qué).
+Rutas: `POST /imagenes/{id}/eliminar`, `GET /recuperacion/imagenes`,
+`POST /recuperacion/imagenes/{id}/restaurar`, `GET /tecnico/estado`, `GET /tecnico/auditoria`.
 
 **En la interfaz:** *Asistente clínico* (agente y consulta a guías), *Reportes de IA*
 (aprobar o rechazar reportes pendientes, también desde la pantalla de predicción) y

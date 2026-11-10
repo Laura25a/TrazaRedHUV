@@ -144,7 +144,10 @@ PATRON_USUARIO = re.compile(r"^[A-Za-z0-9._@-]{3,50}$")
 #   eps           (del Corte 1) sigue las remisiones de sus afiliados, solo lectura
 #   director      (semana 10) ve el tablero de POBLACIÓN (perfiles, tendencias); nunca
 #                 la historia de un paciente individual. Lo crea el admin (R01).
-ROLES = ("admin", "medico", "especialista", "paciente", "contable", "eps", "director")
+#   biomedico     ingeniería biomédica: administra el PACS y la tecnología; recupera
+#                 imágenes eliminadas, ve el estado técnico y la auditoría técnica. No ve
+#                 fichas ni datos clínicos (los pacientes le aparecen con seudónimo).
+ROLES = ("admin", "medico", "especialista", "paciente", "contable", "eps", "director", "biomedico")
 
 # Roles que ven datos clínicos (pacientes, imágenes, observaciones). El contable no está.
 ROLES_CLINICOS = ("admin", "medico", "especialista")
@@ -518,6 +521,7 @@ USUARIOS_INICIALES = [
     ("Contabilidad HUV", "contable@huv.gov.co", "contable", None, "DEMO_CONTABLE_PASSWORD"),
     ("EPS Coosalud", "eps@coosalud.com", "eps", "Coosalud", "DEMO_EPS_PASSWORD"),
     ("Dirección HUV", "director@huv.gov.co", "director", None, "DEMO_DIRECTOR_PASSWORD"),
+    ("Ingeniería Biomédica HUV", "biomedico@huv.gov.co", "biomedico", None, "DEMO_BIOMEDICO_PASSWORD"),
 ]
 
 

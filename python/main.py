@@ -42,6 +42,7 @@ from auth import (PG_CONNECTION_STRING, ROLES_CLINICOS, get_db, get_usuario_actu
 from rag.router import router as rag_router   # asistente clínico RAG (taller semana 12)
 from agente.router import router as agente_router, iniciar_agente, cerrar_agente   # agente (semana 13)
 import tablero                                   # tablero de población y tendencia (semana 10)
+import recuperacion                              # eliminar/recuperar imágenes · ingeniería biomédica
 
 app = FastAPI(
     title="API TrazaRed HUV",
@@ -95,6 +96,7 @@ app.include_router(registro.router)
 app.include_router(rag_router)
 app.include_router(agente_router)
 app.include_router(tablero.router)
+app.include_router(recuperacion.router)
 app.include_router(eventos.router)
 
 
@@ -261,7 +263,7 @@ def obtener_paciente_visible(db, paciente_id: int, usuario: dict) -> dict:
     revela si existe). Admin, médico y especialista ven a todos; la EPS, a sus afiliados; el
     paciente, solo a sí mismo. La usan la ficha, las imágenes del PACS y la historia clínica.
     R03: el contable nunca ve datos clínicos -> 403."""
-    if usuario["rol"] in ("contable", "director"):
+    if usuario["rol"] in ("contable", "director", "biomedico"):
         # El director ve la población (tablero), nunca la historia de un paciente
         raise HTTPException(status_code=403, detail=f"El rol {usuario['rol']} no tiene acceso a datos clínicos individuales")
     cur = db.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
@@ -301,7 +303,8 @@ MAX_IMAGEN = 15 * 1024 * 1024   # 15 MB
 def listar_imagenes(paciente_id: int, db=Depends(get_db),
                     usuario=Depends(requiere_rol(*ROLES_CLINICOS))):
     paciente = obtener_paciente_visible(db, paciente_id, usuario)
-    return {"imagenes": pacs.list_images(paciente["documento"])}
+    ocultas = recuperacion.ids_eliminadas(db)          # borrado lógico: siguen en el PACS, no en la ficha
+    return {"imagenes": [i for i in pacs.list_images(paciente["documento"]) if i["instance_id"] not in ocultas]}
 
 
 @app.post("/pacientes/{paciente_id}/imagenes", status_code=201, tags=["Imágenes (PACS)"])
@@ -349,6 +352,8 @@ def ver_imagen(instance_id: str, db=Depends(get_db),
                usuario=Depends(requiere_rol(*ROLES_CLINICOS))):
     """PNG de la imagen, solo si el paciente es visible para este usuario."""
     pacs.check_instance_id(instance_id)
+    if instance_id in recuperacion.ids_eliminadas(db):  # eliminada: solo se ve desde la papelera
+        raise HTTPException(status_code=404, detail="Imagen no encontrada")
     documento = pacs.instance_patient_id(instance_id)
     cur = db.cursor()
     cur.execute("SELECT id FROM pacientes WHERE documento = %s;", (documento,))
