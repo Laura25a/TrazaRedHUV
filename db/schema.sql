@@ -118,7 +118,7 @@ ALTER TABLE pacientes ADD COLUMN IF NOT EXISTS alergias TEXT;
 -- arranque (auth.migrar_base), así que una base vieja se actualiza sola.
 ALTER TABLE usuarios DROP CONSTRAINT IF EXISTS usuarios_rol_check;
 ALTER TABLE usuarios ADD CONSTRAINT usuarios_rol_check
-    CHECK (rol IN ('admin','medico','especialista','paciente','contable','eps'));
+    CHECK (rol IN ('admin','medico','especialista','paciente','contable','eps','director'));
 
 -- R13: consultas rápidas de la auditoría por recurso (p. ej. "todo lo del paciente 12")
 CREATE INDEX IF NOT EXISTS idx_auditoria_recurso ON auditoria (tabla, registro_id);
@@ -140,6 +140,17 @@ CREATE TABLE IF NOT EXISTS reportes_ia (
     revisado_en TIMESTAMP,
     creado_en TIMESTAMP NOT NULL DEFAULT now()
 );
+-- Bases creadas antes de esta tabla completa: CREATE TABLE IF NOT EXISTS no agrega
+-- columnas a una tabla vieja, así que se agregan una por una (idempotente).
+ALTER TABLE reportes_ia ADD COLUMN IF NOT EXISTS remision_id INTEGER REFERENCES remisiones(id);
+ALTER TABLE reportes_ia ADD COLUMN IF NOT EXISTS creado_por INTEGER REFERENCES usuarios(id);
+ALTER TABLE reportes_ia ADD COLUMN IF NOT EXISTS modelo TEXT;
+ALTER TABLE reportes_ia ADD COLUMN IF NOT EXISTS critico_segun_umbral BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE reportes_ia ADD COLUMN IF NOT EXISTS estado TEXT NOT NULL DEFAULT 'pendiente';
+ALTER TABLE reportes_ia ADD COLUMN IF NOT EXISTS observacion_revision TEXT;
+ALTER TABLE reportes_ia ADD COLUMN IF NOT EXISTS revisado_por INTEGER REFERENCES usuarios(id);
+ALTER TABLE reportes_ia ADD COLUMN IF NOT EXISTS revisado_en TIMESTAMP;
+ALTER TABLE reportes_ia ADD COLUMN IF NOT EXISTS creado_en TIMESTAMP NOT NULL DEFAULT now();
 CREATE INDEX IF NOT EXISTS idx_reportes_ia_paciente ON reportes_ia (paciente_id, estado);
 -- ============================================================================
 -- CORTE 2 — R18/R20: notificaciones y alertas críticas (Persona 4, sistema reactivo)
@@ -220,3 +231,26 @@ CREATE TABLE IF NOT EXISTS pronosticos_remision (
     creado_en TIMESTAMP NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS idx_pronosticos_remision ON pronosticos_remision (remision_id, id);
+
+-- ============================================================================
+-- CORTE 3 — Semana 13: el agente propone, el clínico decide
+-- ============================================================================
+-- Cada acción de escritura que propone el agente (por ejemplo, una remisión a
+-- otra institución) queda aquí con su decisión: aprobada o rechazada, por quién
+-- y con qué motivo. Lo rechazado no se borra: es evidencia (Res. 1995/1999).
+-- La conversación en sí (mensajes) vive en las tablas que crea LangGraph
+-- (checkpoints) y nunca guarda nombre, documento ni teléfono: solo el seudónimo.
+CREATE TABLE IF NOT EXISTS agente_propuestas (
+    id SERIAL PRIMARY KEY,
+    usuario_id INTEGER NOT NULL REFERENCES usuarios(id),
+    conversacion TEXT NOT NULL,
+    paciente_id INTEGER REFERENCES pacientes(id),
+    herramienta TEXT NOT NULL,
+    argumentos JSONB NOT NULL,
+    estado TEXT NOT NULL DEFAULT 'pendiente' CHECK (estado IN ('pendiente','aprobada','rechazada')),
+    motivo_decision TEXT,
+    remision_id INTEGER REFERENCES remisiones(id),
+    creada_en TIMESTAMP NOT NULL DEFAULT now(),
+    decidida_en TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_agente_propuestas_usuario ON agente_propuestas (usuario_id, estado);

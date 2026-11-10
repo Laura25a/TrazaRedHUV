@@ -106,7 +106,7 @@ const EXPLICA_PACIENTE = {
   rechazada: "La institución no pudo recibirte. El hospital buscará otra opción.",
   completada: "Tu traslado ya se realizó.",
 };
-const ROLES = { admin: "Administrador", medico: "Médico", especialista: "Especialista", contable: "Contable", eps: "EPS", paciente: "Paciente" };
+const ROLES = { admin: "Administrador", medico: "Médico", especialista: "Especialista", contable: "Contable", eps: "EPS", paciente: "Paciente", director: "Dirección" };
 
 const VITALES = [
   { loinc: "8867-4", tipo: "Frecuencia cardiaca", unidad: "/min", min: 60, max: 100 },
@@ -312,7 +312,7 @@ $("#marca-inicio").addEventListener("click", (e) => { e.preventDefault(); ir("in
 $("#btn-menu").addEventListener("click", () => $("#lateral").classList.toggle("abierto"));
 
 async function actualizarNotificaciones() {
-  if (!sesion.usuario || sesion.usuario.rol === "contable") return;
+  if (!sesion.usuario || ["contable", "director"].includes(sesion.usuario.rol)) return;
   try {
     const lista = activas(await remisiones()).filter(r => r.estado === "pendiente" || r.estado === "en_gestion")
       .sort((a, b) => String(b.fecha_solicitud).localeCompare(String(a.fecha_solicitud)));

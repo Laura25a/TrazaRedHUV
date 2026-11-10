@@ -1,0 +1,91 @@
+/* TrazaRed HUV — asistente clínico, revisión de reportes de IA y tendencias (semanas 10, 12 y 13) */
+
+/* ── Asistente ─────────────────────────────────────────────────────────── */
+.ast { display: flex; flex-direction: column; min-height: 70vh; }
+.ast-barra { display: flex; flex-wrap: wrap; align-items: center; gap: .6rem 1.2rem; padding: 1rem 1.4rem;
+  border-bottom: 1px solid var(--borde); background: var(--superficie-2); }
+.ast-barra label { display: flex; align-items: center; gap: .6rem; font-size: .88rem; font-weight: 600; color: var(--navy); }
+.ast-paciente { display: inline-flex; gap: .4rem; align-items: center; }
+.ast-paciente input { width: 110px; padding: .42rem .6rem; border: 1px solid var(--borde); border-radius: var(--radio-sm); font: inherit; }
+.ast-modelo { margin-left: auto; font-size: .78rem; }
+
+.ast-chat { flex: 1; padding: 1.2rem 1.4rem; display: flex; flex-direction: column; gap: .8rem; min-height: 300px; }
+.ast-msg { display: flex; }
+.ast-burbuja { max-width: min(760px, 92%); padding: .75rem 1rem; border-radius: 14px; line-height: 1.5; font-size: .93rem;
+  overflow-wrap: anywhere; }
+.ast-usuario { justify-content: flex-end; }
+.ast-usuario .ast-burbuja { background: var(--azul); color: #fff; border-bottom-right-radius: 4px; }
+.ast-asistente .ast-burbuja { background: var(--superficie-2); border: 1px solid var(--borde); border-bottom-left-radius: 4px; }
+.ast-sistema { justify-content: center; }
+.ast-sistema .ast-burbuja { background: var(--alerta-fondo); color: var(--texto-suave); font-size: .84rem; padding: .45rem .8rem; }
+.ast-esperando .ast-burbuja { color: var(--texto-tenue); font-style: italic; animation: ast-pulso 1.2s ease-in-out infinite; }
+@keyframes ast-pulso { 50% { opacity: .55; } }
+@media (prefers-reduced-motion: reduce) { .ast-esperando .ast-burbuja { animation: none; } }
+
+.ast-cita { color: var(--violeta); font-weight: 600; font-family: var(--mono); font-size: .85em; }
+.ast-pasos { margin-top: .6rem; font-size: .84rem; }
+.ast-pasos summary { cursor: pointer; color: var(--azul); font-weight: 600; }
+.ast-pasos ol { margin: .5rem 0 0 1.1rem; padding: 0; display: grid; gap: .45rem; }
+.ast-pasos code { font-family: var(--mono); font-size: .78rem; color: var(--texto-tenue); }
+.ast-resultado { margin-top: .25rem; padding: .45rem .6rem; background: var(--superficie); border-left: 3px solid var(--azul-borde);
+  border-radius: 6px; color: var(--texto-suave); font-size: .8rem; }
+.ast-modo-rag { margin: .4rem 0 0; font-size: .78rem; }
+
+.ast-aprobar { width: min(760px, 100%); border: 2px solid var(--alerta); background: var(--papel); border-radius: var(--radio);
+  padding: 1rem 1.2rem; box-shadow: var(--sombra); display: grid; gap: .6rem; }
+.ast-aprobar h4 { display: flex; align-items: center; gap: .5rem; color: var(--navy); margin: 0; }
+.ast-aprobar h4 svg { width: 20px; height: 20px; fill: none; stroke: var(--alerta); stroke-width: 2; }
+.ast-aprobar dl { display: grid; grid-template-columns: max-content 1fr; gap: .35rem 1rem; margin: 0; font-size: .9rem; }
+.ast-aprobar dt { font-weight: 600; color: var(--texto-suave); }
+.ast-aprobar dd { margin: 0; }
+.ast-aprobar pre { font-family: var(--mono); font-size: .8rem; white-space: pre-wrap; margin: 0; }
+.ast-motivo, .rev-obs { width: 100%; padding: .5rem .65rem; border: 1px solid var(--borde); border-radius: var(--radio-sm); font: inherit; }
+.ast-botones { display: flex; gap: .6rem; flex-wrap: wrap; }
+
+.ast-form { display: flex; gap: .7rem; padding: 1rem 1.4rem; border-top: 1px solid var(--borde);
+  position: sticky; bottom: 0; background: var(--superficie); border-radius: 0 0 var(--radio) var(--radio); z-index: 2; }
+.ast-form textarea { flex: 1; resize: vertical; padding: .6rem .8rem; border: 1px solid var(--borde); border-radius: var(--radio-sm);
+  font: inherit; min-height: 48px; }
+.ast-form textarea:focus, .ast-paciente input:focus, .ast-motivo:focus, .rev-obs:focus { outline: 2px solid var(--azul-borde); outline-offset: 1px; }
+.ast-sugerencias { display: flex; flex-wrap: wrap; gap: .4rem; padding: 0 1.4rem 1rem; }
+.ast-pie { padding: 0 1.4rem 1rem; margin: 0; font-size: .78rem; }
+
+/* ── Revisión de reportes de IA ───────────────────────────────────────── */
+.rev-tabla { width: 100%; border-collapse: collapse; font-size: .88rem; }
+.rev-tabla th, .rev-tabla td { padding: .6rem .5rem; border-bottom: 1px solid var(--borde); text-align: left; vertical-align: middle; }
+.rev-tabla th { font-size: .78rem; text-transform: uppercase; letter-spacing: .03em; color: var(--texto-tenue); }
+.rev-prob { position: relative; min-width: 110px; }
+.rev-prob span { position: relative; z-index: 1; font-weight: 600; font-family: var(--mono); font-size: .84rem; }
+.rev-prob i { display: block; height: 6px; border-radius: 4px; background: var(--violeta); margin-top: .25rem; }
+.rev-acciones { display: flex; flex-wrap: wrap; gap: .4rem; align-items: center; }
+.rev-acciones .rev-obs { width: 200px; flex: 1 1 160px; padding: .38rem .55rem; font-size: .84rem; }
+.pred-resultado .rev-acciones { margin-top: .2rem; }
+
+/* ── Perfil del paciente (predicción) ──────────────────────────────────── */
+.pred-perfil { margin-top: .8rem; }
+.perfil-barras { display: grid; gap: .35rem; }
+.perfil-fila { display: grid; grid-template-columns: 140px 1fr 52px; align-items: center; gap: .6rem; font-size: .85rem; }
+.perfil-fila i { display: block; height: 10px; border-radius: 6px; background: var(--azul); }
+.perfil-fila b { font-family: var(--mono); font-size: .82rem; text-align: right; }
+
+/* ── Tendencias ────────────────────────────────────────────────────────── */
+.tab-semanas { display: flex; align-items: center; gap: .5rem; font-size: .88rem; color: var(--texto-suave); }
+.tab-semanas select { padding: .4rem .6rem; border: 1px solid var(--borde); border-radius: var(--radio-sm); font: inherit; }
+
+@media (max-width: 720px) {
+  .ast-chat { padding: 1rem; }
+  .ast-barra, .ast-form { padding: .8rem 1rem; }
+  .ast-form { flex-direction: column; }
+  .ast-modelo { margin-left: 0; }
+  .ast-barra label { flex-wrap: wrap; }
+  .ast-paciente { flex-wrap: wrap; }
+  .ast-paciente input { width: 90px; }
+  .perfil-fila { grid-template-columns: 100px 1fr 46px; }
+  .rev-tabla th:nth-child(5), .rev-tabla td:nth-child(5) { display: none; }
+}
+
+/* Las gráficas son SVG dentro de .tarjeta: la regla general ".tarjeta svg { width: 24px !important }"
+   (pensada para íconos) las encogía a 24 px, también en la vista Reportes. Aquí recuperan su ancho. */
+.tarjeta.grafica svg, .grafica svg {
+  width: 100% !important; height: auto !important; max-width: none !important; max-height: none !important;
+}

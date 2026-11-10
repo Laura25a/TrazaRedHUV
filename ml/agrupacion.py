@@ -278,3 +278,91 @@ def detalle_clusters():
 def recalcular():
     _calcular.cache_clear()
     return _calcular()
+
+# ---------------------------------------------------------------- semana 10: asignar un paciente nuevo
+# Pertenencia SUAVE con una mezcla de gaussianas (GMM) y detección de ATÍPICOS con
+# Isolation Forest, sobre el mismo preprocesamiento del K-means. Cada componente
+# de la GMM se mapea al perfil del K-means donde cae la mayoría de sus pacientes,
+# así la respuesta habla de los mismos 4 perfiles que ve el tablero.
+CAMPO_A_COLUMNA = {
+    "sexo": "Sex", "edad": "Age", "pacientes_por_hora": "Patients number per hour",
+    "modo_llegada": "Arrival mode", "lesion": "Injury", "mental": "Mental",
+    "dolor": "Pain", "nrs_dolor": "NRS_pain", "sbp": "SBP", "dbp": "DBP",
+    "fc": "HR", "fr": "RR", "temperatura": "BT", "saturacion": "Saturation",
+}
+NOMBRE_PERFIL = {
+    "hipoxemia": "Hipoxemia severa con frecuencia respiratoria alta",
+    "hta": "Presión arterial alta",
+    "sin_dolor": "Sin dolor y con alta proporción de urgentes",
+    "general": "Grupo general (dolor por encima del promedio, signos vitales normales)",
+}
+
+
+@lru_cache(maxsize=1)
+def _modelos_asignacion():
+    from sklearn.ensemble import IsolationForest
+
+    X, y, _ = _cargar()
+    pre = _pre(denso=True)
+    Z = _denso(pre.fit_transform(X))
+    km = KMeans(n_clusters=K, n_init=10, random_state=SEMILLA).fit(Z)
+    res = X.copy()
+    res["cluster"] = km.labels_
+    g = res.groupby("cluster").agg(sat=("Saturation", "median"), sbp=("SBP", "median"), nrs=("NRS_pain", "mean"))
+    c_hipox = g["sat"].idxmin()
+    resto = g.drop(c_hipox)
+    c_hta = resto["sbp"].idxmax()
+    resto = resto.drop(c_hta)
+    c_sin = resto["nrs"].idxmin()
+    c_gen = resto.drop(c_sin).index[0]
+    perfil = {c_hipox: "hipoxemia", c_hta: "hta", c_sin: "sin_dolor", c_gen: "general"}
+
+    # GMM esférica cuyos parámetros salen del K-means (una gaussiana por perfil): media = centroide,
+    # varianza = dispersión de sus pacientes, peso = proporción. Sin iteraciones EM que muevan los
+    # componentes, así la pertenencia suave habla exactamente de los mismos 4 perfiles del tablero.
+    d = Z.shape[1]
+    pesos = np.array([(km.labels_ == c).mean() for c in range(K)])
+    varianzas = np.array([((Z[km.labels_ == c] - km.cluster_centers_[c]) ** 2).sum(axis=1).mean() / d
+                          for c in range(K)])
+    gmm = {"medias": km.cluster_centers_, "varianzas": varianzas, "pesos": pesos, "d": d}
+    mapa = {c: c for c in range(K)}
+
+    iso = IsolationForest(n_estimators=200, contamination=0.05, random_state=SEMILLA).fit(Z)
+    umbral = float(np.quantile(iso.score_samples(Z), 0.05))
+    tasa_urgentes = res.assign(u=y.values).groupby("cluster")["u"].mean().to_dict()
+    return pre, km, gmm, mapa, iso, umbral, perfil, tasa_urgentes
+
+
+def asignar(datos: dict) -> dict:
+    pre, km, gmm, mapa, iso, umbral, perfil, tasa = _modelos_asignacion()
+    fila = {col: (np.nan if datos.get(campo) is None else datos[campo]) for campo, col in CAMPO_A_COLUMNA.items()}
+    if fila["Pain"] == 0:
+        fila["NRS_pain"] = 0
+    if fila["Arrival mode"] in (5, 6):
+        fila["Arrival mode"] = 7
+    X = pd.DataFrame([fila])
+    X[COLS_NUM] = X[COLS_NUM].astype(float)
+    z = _denso(pre.transform(X[COLS]))
+    duro = int(km.predict(z)[0])
+    dist2 = ((z[0] - gmm["medias"]) ** 2).sum(axis=1)
+    log_p = (np.log(gmm["pesos"]) - 0.5 * gmm["d"] * np.log(2 * np.pi * gmm["varianzas"])
+             - dist2 / (2 * gmm["varianzas"]))
+    prob = np.exp(log_p - log_p.max())
+    prob = prob / prob.sum()
+    suave = {}
+    for c, p in enumerate(prob):
+        clave = perfil[mapa[c]]
+        suave[clave] = suave.get(clave, 0.0) + float(p)
+    puntaje = float(iso.score_samples(z)[0])
+    return {
+        "perfil": perfil[duro],
+        "nombre": NOMBRE_PERFIL[perfil[duro]],
+        "pertenencia": {k: round(v, 3) for k, v in sorted(suave.items(), key=lambda kv: -kv[1])},
+        "atipico": puntaje < umbral,
+        "puntaje_atipico": round(puntaje, 4),
+        "umbral_atipico": round(umbral, 4),
+        "tasa_urgentes_del_perfil": round(float(tasa[duro]), 3),
+        "nota": ("Paciente atípico: no se parece a los pacientes de entrenamiento; el perfil y el modelo "
+                 "orientan menos. Prevalece la valoración clínica." if puntaje < umbral else
+                 "La pertenencia suave indica qué tan claro es el perfil; valores repartidos = caso en la frontera."),
+    }

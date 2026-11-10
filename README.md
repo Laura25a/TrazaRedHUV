@@ -394,14 +394,44 @@ Todos los datos de pacientes son sintéticos o de datasets públicos.
 | Contable | `contable@huv.gov.co` | `DEMO_CONTABLE_PASSWORD` |
 | Paciente | `paciente@correo.com` | `DEMO_PACIENTE_PASSWORD` |
 | EPS (Coosalud) | `eps@coosalud.com` | `DEMO_EPS_PASSWORD` |
+| Dirección | `director@huv.gov.co` | `DEMO_DIRECTOR_PASSWORD` |
 
 Las contraseñas son las de las variables indicadas en el archivo de variables; no están en
 el repositorio.
+
+## Corte 3: asistente clínico, RAG completo y tablero de dirección
+
+**Semana 12 · RAG completo.** Búsqueda híbrida (BM25 + densa con RRF), multi-consulta y MMR;
+historia aprobada leída de la base y filtrada antes de rankear; abstención calibrada; pgvector
+en el contenedor `db`; evaluación con 26 preguntas en `docs/RAG_evaluacion.md`. Detalle en `docs/RAG.md`.
+
+**Semana 13 · Agente clínico de remisiones.** `python/agente/`: un agente con harness
+(prompt por capas, 7 herramientas, 2 skills, auditoría, semáforo, tiempo máximo, memoria en
+PostgreSQL) que revisa al paciente abierto, estima su urgencia, busca en las guías y en las
+instituciones con convenio con su EPS, y **propone** la remisión. El médico la aprueba o la
+rechaza desde la tarjeta de aprobación. Endpoints `POST /agente/chat` y `POST /agente/decidir`.
+Sin `GROQ_API_KEY` funciona con un modelo simulado. Detalle en `docs/AGENTE.md`.
+
+**Semana 10 · extras.** `POST /ia/asignar`: perfil del paciente, pertenencia suave (GMM con los
+parámetros del K-means) y detección de atípicos (Isolation Forest), visible al predecir. Rol
+**director** (lo crea el admin) con el tablero **Tendencias de la red**
+(`GET /tablero/tendencia`): remisiones, reportes de IA y alertas por semana; recibe 403 en
+fichas e historias individuales.
+
+**En la interfaz:** *Asistente clínico* (agente y consulta a guías), *Reportes de IA*
+(aprobar o rechazar reportes pendientes, también desde la pantalla de predicción) y
+*Tendencias de la red* (admin y director).
+
+Variables nuevas (opcionales): `GROQ_API_KEY`, `MODELO_GROQ`, `LLAVE_SEUDONIMO`,
+`AGENTE_TIMEOUT_S`, `AGENTE_MAX_SIMULTANEAS` y `DEMO_DIRECTOR_PASSWORD` (usuario
+`director@huv.gov.co`). Prueba: `python pruebas/probar_agente.py`.
 
 ## Documentación
 
 - [`docs/REDISENO_REGISTRO.md`](docs/REDISENO_REGISTRO.md): libro de radicación, formato,
   descargas, IA de remisiones, contabilidad por radicado y cómo probarlo.
+- [`docs/AGENTE.md`](docs/AGENTE.md): agente clínico, herramientas, skills, memoria y límites.
+- [`docs/RAG_evaluacion.md`](docs/RAG_evaluacion.md): evaluación de la recuperación del RAG.
 - [`docs/DATASETS.md`](docs/DATASETS.md): datos, perfiles, modelo de urgencia, umbrales,
   sesgo y limitaciones.
 - [`docs/EVENTOS.md`](docs/EVENTOS.md): eventos, flujos automáticos y alertas.

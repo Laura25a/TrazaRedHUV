@@ -52,8 +52,8 @@ GRAVE = re.compile(r"uci|ventilaci|neurocirug|hemodinam|hemodi[aá]lisis|choque|
 
 
 def _no_contable(usuario: dict):
-    if usuario["rol"] == "contable":
-        raise HTTPException(403, "El rol contable no tiene acceso a datos clínicos")
+    if usuario["rol"] in ("contable", "director"):
+        raise HTTPException(403, f"El rol {usuario['rol']} no tiene acceso a datos clínicos individuales")
 
 
 def _asiento(db, usuario: dict, remision_id: int) -> tuple:

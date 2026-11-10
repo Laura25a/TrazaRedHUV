@@ -243,6 +243,13 @@ def causas():
     return rem.CAUSAS
 
 
+@app.post("/asignar")
+def asignar_paciente(d: DatosClinicos):
+    """Semana 10: perfil del paciente (K-means), pertenencia suave (GMM) y atípico (Isolation Forest)."""
+    from agrupacion import asignar
+    return {"id_seudonimo": d.id_seudonimo, **asignar(d.model_dump())}
+
+
 @app.post("/remisiones/entrenar")
 def reentrenar_remisiones():
     global paquete_rem

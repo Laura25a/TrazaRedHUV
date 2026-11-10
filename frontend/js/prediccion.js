@@ -92,7 +92,11 @@ async function vistaPrediccion() {
       } else {
         r = await API.post("/ia/predecir", datos);
       }
-      $("#pred-resultado").innerHTML = predResultado(r, umbrales, guardado, pid);
+      $("#pred-resultado").innerHTML = predResultado(r, umbrales, guardado, pid) + `<div id="pred-perfil"></div>`;
+      // R10 en el mismo lugar: el médico decide ya mismo si el reporte entra a la historia
+      if (guardado && typeof activarRevision === "function") activarRevision($("#pred-resultado"));
+      // Semana 10: ¿a qué perfil se parece? (pertenencia suave + atípico)
+      API.post("/ia/asignar", datos).then(a => { $("#pred-perfil").innerHTML = predPerfil(a); }).catch(() => {});
     } catch (e) {
       $("#pred-resultado").innerHTML = `<div class="vacio">${esc(
         e.status === 403 ? "Tu rol no puede realizar esta acción." : e.message)}</div>`;
@@ -120,8 +124,22 @@ function predResultado(r, umbrales, guardado, pid) {
       <p class="tenue">Probabilidad de que el paciente sea urgente. ${esc(u + c)}${r.version_modelo ? ` · modelo ${esc(String(r.version_modelo))}` : ""}</p>
       <p>${esc(texto)}</p>
       ${guardado ? `<div class="agr-nota">${icono("info")}<p>Se guardó el reporte <strong>#${guardado}</strong> del paciente ${pid}, en estado
-        <strong>pendiente</strong> de aprobación clínica.</p></div>` : ""}
+        <strong>pendiente</strong> de aprobación clínica. Decide aquí mismo o en <em>Reportes de IA</em>:</p></div>
+        ${typeof revisionBotones === "function" && ["medico", "especialista"].includes(sesion.usuario.rol) ? revisionBotones(guardado) : ""}` : ""}
       <p class="tenue">Apoyo a la decisión clínica, no un diagnóstico.</p></div>`;
+}
+
+const PERFILES_TXT = { hipoxemia: "Hipoxemia severa", hta: "Presión alta", sin_dolor: "Sin dolor", general: "General" };
+function predPerfil(a) {
+  const filas = Object.entries(a.pertenencia || {}).map(([k, v]) => `<div class="perfil-fila">
+      <span>${esc(PERFILES_TXT[k] || k)}</span><i style="width:${Math.max(2, v * 100)}%"></i><b>${agrNum(v * 100, 0)} %</b></div>`).join("");
+  return `<div class="pred-resultado pred-perfil">
+    <div class="pred-prob"><strong>Perfil más parecido: ${esc(a.nombre)}</strong>
+      <span class="pildora ${a.atipico ? "est-pendiente" : "est-activo"}">${a.atipico ? "Paciente atípico" : "Dentro de lo conocido"}</span></div>
+    <div class="perfil-barras">${filas}</div>
+    <p class="tenue">Pertenencia suave (GMM sobre los perfiles del K-means) · atípicos con Isolation Forest ·
+      ${agrNum((a.tasa_urgentes_del_perfil || 0) * 100, 0)} % de urgentes en este perfil.</p>
+    <p class="tenue">${esc(a.nota || "")}</p></div>`;
 }
 
 if (typeof SECCIONES !== "undefined" && typeof ICONOS !== "undefined") {

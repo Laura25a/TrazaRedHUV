@@ -40,6 +40,8 @@ import remisiones
 from auth import (PG_CONNECTION_STRING, ROLES_CLINICOS, get_db, get_usuario_actual,
                   mongo_client, registrar_auditoria, requiere_rol)
 from rag.router import router as rag_router   # asistente clínico RAG (taller semana 12)
+from agente.router import router as agente_router, iniciar_agente, cerrar_agente   # agente (semana 13)
+import tablero                                   # tablero de población y tendencia (semana 10)
 
 app = FastAPI(
     title="API TrazaRed HUV",
@@ -91,6 +93,8 @@ app.include_router(ia.router)
 app.include_router(contabilidad.router)
 app.include_router(registro.router)
 app.include_router(rag_router)
+app.include_router(agente_router)
+app.include_router(tablero.router)
 app.include_router(eventos.router)
 
 
@@ -117,6 +121,27 @@ def al_arrancar():
     # IA del libro de radicación: pronostica sola las remisiones abiertas al
     # arrancar y luego cada PRONOSTICO_CADA_MIN minutos (por defecto 30)
     registro.iniciar_pronosticos_automaticos()
+    # RAG: guías con su vector en pgvector (si la imagen de Postgres lo trae)
+    threading.Thread(target=_preparar_rag, daemon=True, name="rag-pgvector").start()
+
+
+def _preparar_rag():
+    from rag.motor import preparar_pgvector
+    print(f"[RAG] {preparar_pgvector(PG_CONNECTION_STRING)['motivo']}")
+
+
+@app.on_event("startup")
+async def al_arrancar_agente():
+    """Semana 13: el agente y su memoria en PostgreSQL (necesita el bucle async)."""
+    try:
+        await iniciar_agente()
+    except Exception as e:                 # sin agente, el resto del sistema sigue funcionando
+        print(f"[agente] no se pudo iniciar: {e}")
+
+
+@app.on_event("shutdown")
+async def al_cerrar():
+    await cerrar_agente()
 
 
 @app.get("/")
@@ -236,8 +261,9 @@ def obtener_paciente_visible(db, paciente_id: int, usuario: dict) -> dict:
     revela si existe). Admin, médico y especialista ven a todos; la EPS, a sus afiliados; el
     paciente, solo a sí mismo. La usan la ficha, las imágenes del PACS y la historia clínica.
     R03: el contable nunca ve datos clínicos -> 403."""
-    if usuario["rol"] == "contable":
-        raise HTTPException(status_code=403, detail="El rol contable no tiene acceso a datos clínicos")
+    if usuario["rol"] in ("contable", "director"):
+        # El director ve la población (tablero), nunca la historia de un paciente
+        raise HTTPException(status_code=403, detail=f"El rol {usuario['rol']} no tiene acceso a datos clínicos individuales")
     cur = db.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
     cur.execute(f"SELECT {COLUMNAS_PACIENTE} FROM pacientes WHERE id = %s;", (paciente_id,))
     p = cur.fetchone()

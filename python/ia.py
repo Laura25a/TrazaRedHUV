@@ -429,13 +429,13 @@ def entrenar(db=Depends(get_db), admin=Depends(requiere_rol("admin"))):
 # R07: consulta de agrupamientos de pacientes
 @router.get("/ia/clusters")
 def listar_clusters(
-    usuario=Depends(requiere_rol("admin", "medico", "especialista")),
+    usuario=Depends(requiere_rol("admin", "medico", "especialista", "director")),
 ):
     return _pedir_a_ml("GET", "/clusters", espera=60)["clusters"]
 
 @router.get("/ia/clusters/detalle")
 def detalle_clusters(
-      usuario=Depends(requiere_rol("admin", "medico", "especialista")),
+      usuario=Depends(requiere_rol("admin", "medico", "especialista", "director")),
 ):
       return _pedir_a_ml("GET", "/clusters/detalle", espera=120)
   
@@ -470,4 +470,26 @@ def predecir_sin_guardar(
     payload.update({campo: d[campo] for campo in CAMPOS_CLINICOS})
     resultado = llamar_modelo(payload)
     registrar_auditoria(db, usuario["id"], "prediccion_ia", "modelo", None, "consulta sin paciente")
+    return resultado
+
+# ── Semana 10: asignar un paciente a su perfil (pertenencia suave + atípicos) ──
+@router.post("/ia/asignar")
+def asignar_perfil(
+    datos: PrediccionIn,
+    db=Depends(get_db),
+    usuario=Depends(requiere_rol("admin", "medico", "especialista")),
+):
+    """Perfil del paciente (K-means), pertenencia suave (GMM esférica) y si es atípico
+    (Isolation Forest). Solo variables clínicas: no se guarda ni se asocia a un paciente."""
+    d = datos.model_dump()
+    payload = {"id_seudonimo": "consulta-sin-paciente"}
+    payload.update({campo: d[campo] for campo in CAMPOS_CLINICOS})
+    try:
+        r = httpx.post(f"{ML_URL}/asignar", json=payload, timeout=120)
+        r.raise_for_status()
+        resultado = r.json()
+    except httpx.HTTPError:
+        raise HTTPException(status_code=503, detail="El servicio de IA no está disponible")
+    registrar_auditoria(db, usuario["id"], "asignacion_perfil", "modelo", None,
+                        f"perfil={resultado.get('perfil')} atipico={resultado.get('atipico')}")
     return resultado
