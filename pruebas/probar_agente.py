@@ -13,6 +13,7 @@ Qué verifica (entregables de las semanas 12 y 13):
           crea la remisión, prueba canario sin fugas, 10 solicitudes concurrentes con tiempo medido
   Sem. 10 /ia/asignar (pertenencia suave + atípico), director ve tendencia y recibe 403 en la ficha
 """
+import os
 import sys
 import time
 import uuid
@@ -23,7 +24,11 @@ import requests
 from dotenv import dotenv_values
 
 RAIZ = Path(__file__).resolve().parent.parent
-ENV = {**dotenv_values(RAIZ / "pass.env"), **dotenv_values(RAIZ / ".env")}
+# Las claves salen de .env / pass.env, o de las variables de entorno (p. ej. dentro del contenedor api:
+#   docker compose cp ../pruebas/probar_agente.py api:/app/probar_agente.py
+#   docker compose exec api python /app/probar_agente.py --api http://localhost:8000)
+ENV = {**{k: v for k, v in os.environ.items() if k.startswith("DEMO_")},
+       **dotenv_values(RAIZ / "pass.env"), **dotenv_values(RAIZ / ".env")}
 API = sys.argv[sys.argv.index("--api") + 1] if "--api" in sys.argv else "http://localhost:8080/api"
 ok_total, fallas = 0, 0
 
