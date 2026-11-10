@@ -1,0 +1,191 @@
+[
+ {
+  "chunk_id": "N01-0",
+  "doc_id": "N01",
+  "tipo": "norma",
+  "estado": "vigente",
+  "paciente": null,
+  "fuente": "Ley 1581 de 2012 (arts. 5 y 6) y Decreto 1377 de 2013 (art. 6)",
+  "texto": "Protección de datos personales en Colombia. La Ley 1581 de 2012 regula el tratamiento de los datos personales. Los datos relativos a la salud son datos sensibles: afectan la intimidad de la persona y su uso indebido puede generar discriminación (art. 5)."
+ },
+ {
+  "chunk_id": "N01-1",
+  "doc_id": "N01",
+  "tipo": "norma",
+  "estado": "vigente",
+  "paciente": null,
+  "fuente": "Ley 1581 de 2012 (arts. 5 y 6) y Decreto 1377 de 2013 (art. 6)",
+  "texto": "Excepciones al tratamiento de datos sensibles. El tratamiento de datos sensibles está prohibido, salvo las excepciones que enumera la ley (art. 6). La principal es que el titular haya dado su autorización explícita. Otra es que el tratamiento sea necesario para salvaguardar el interés vital del titular cuando este se encuentra física o jurídicamente incapacitado para autorizarlo. El Decreto 1377 de 2013 (art. 6) agrega que ninguna actividad puede condicionarse a que el titular entregue datos sensibles y que se le debe informar que no está obligado a autorizar su tratamiento."
+ },
+ {
+  "chunk_id": "N02-0",
+  "doc_id": "N02",
+  "tipo": "norma",
+  "estado": "vigente",
+  "paciente": null,
+  "fuente": "Ley 2015 de 2020 (historia clínica electrónica interoperable)",
+  "texto": "Historia clínica electrónica interoperable. La Ley 2015 de 2020 regula la interoperabilidad de la historia clínica electrónica en Colombia: que los datos clínicos relevantes de una persona puedan intercambiarse entre los prestadores de salud que la atienden, con el fin de mejorar la atención. Corresponde al Ministerio de Salud y Protección Social reglamentar la historia clínica electrónica interoperable y sus estándares, y adoptar un plan para implementar la interoperabilidad."
+ },
+ {
+  "chunk_id": "N03-0",
+  "doc_id": "N03",
+  "tipo": "norma",
+  "estado": "vigente",
+  "paciente": null,
+  "fuente": "Resolución 866 de 2021 (Ministerio de Salud y Ministerio de TIC)",
+  "texto": "Datos clínicos para la interoperabilidad. La Resolución 866 de 2021, expedida por el Ministerio de Salud y Protección Social y el Ministerio de Tecnologías de la Información y las Comunicaciones, establece el conjunto de datos clínicos relevantes que deben poder intercambiarse para la interoperabilidad de la historia clínica en el país, junto con los catálogos de datos asociados. La fuente de esos datos es la historia clínica de la persona."
+ },
+ {
+  "chunk_id": "N04-0",
+  "doc_id": "N04",
+  "tipo": "norma",
+  "estado": "vigente",
+  "paciente": null,
+  "fuente": "Resolución 1995 de 1999 y Resolución 839 de 2017 (Ministerio de Salud)",
+  "texto": "Historia clínica: reserva, registro y conservación. La Resolución 1995 de 1999 define la historia clínica como un documento privado, obligatorio y sometido a reserva, en el que se registran cronológicamente las condiciones de salud del paciente y los actos médicos del equipo de salud. Entre sus características básicas están la integralidad, la disponibilidad y la oportunidad. Cada anotación debe ser clara y legible, sin tachones ni enmendaduras, con fecha y hora y con el nombre completo y la firma de quien la hace."
+ },
+ {
+  "chunk_id": "N04-1",
+  "doc_id": "N04",
+  "tipo": "norma",
+  "estado": "vigente",
+  "paciente": null,
+  "fuente": "Resolución 1995 de 1999 y Resolución 839 de 2017 (Ministerio de Salud)",
+  "texto": "Conservación de la historia clínica. La Resolución 839 de 2017, que la modifica, exige conservar la historia clínica como mínimo 15 años desde la última atención: los primeros 5 años en el archivo de gestión y los 10 siguientes en el archivo central. La eliminación solo procede después de ese periodo y siguiendo el procedimiento de disposición final del expediente."
+ },
+ {
+  "chunk_id": "N05-0",
+  "doc_id": "N05",
+  "tipo": "norma",
+  "estado": "vigente",
+  "paciente": null,
+  "fuente": "Resolución 3100 de 2019 (Ministerio de Salud)",
+  "texto": "Habilitación de servicios de salud. La Resolución 3100 de 2019 define los procedimientos y condiciones de inscripción de los prestadores de servicios de salud y de habilitación de sus servicios, y adopta el Manual de Inscripción de Prestadores y Habilitación de Servicios de Salud. Los estándares de habilitación son siete: talento humano, infraestructura, dotación, medicamentos, dispositivos médicos e insumos, procesos prioritarios, historia clínica y registros, e interdependencia. El estándar de historia clínica y registros exige, entre otras cosas, que la historia clínica tenga los componentes mínimos de la Resolución 1995 de 1999, que cada anotación lleve fecha, hora y firma de su autor, y que los medios electrónicos garanticen confidencialidad y seguridad."
+ },
+ {
+  "chunk_id": "N06-0",
+  "doc_id": "N06",
+  "tipo": "norma",
+  "estado": "vigente",
+  "paciente": null,
+  "fuente": "Sentencia T-573 de 2023 (Corte Constitucional, Sala Séptima de Revisión)",
+  "texto": "Demoras en la remisión de pacientes. En la Sentencia T-573 de 2023, la Corte Constitucional estudió el caso de una paciente con enfermedad renal crónica que esperó más de dos meses para ser trasladada a una institución de alta complejidad. La Corte concluyó que la EPS vulneró los derechos a la salud y a la vida porque no garantizó la atención oportuna. Sostuvo que el principio de oportunidad prohíbe las barreras administrativas que causen dilaciones riesgosas, y que la falta de cupos en las instituciones no basta para justificar la demora en un traslado urgente."
+ },
+ {
+  "chunk_id": "N06-1",
+  "doc_id": "N06",
+  "tipo": "norma",
+  "estado": "vigente",
+  "paciente": null,
+  "fuente": "Sentencia T-573 de 2023 (Corte Constitucional, Sala Séptima de Revisión)",
+  "texto": "Pruebas y decisión de la Corte en la Sentencia T-573 de 2023. La EPS presentó como prueba una bitácora de remisión, pero la Corte consideró que no demostraba gestiones diligentes: no mostraba que se hubiera acudido a instituciones externas del nivel requerido, y el Hospital Universitario del Valle informó que no había recibido solicitudes de remisión de la paciente. La Corte ordenó a la EPS abstenerse de dilaciones injustificadas en las remisiones y envió el caso a la Superintendencia Nacional de Salud."
+ },
+ {
+  "chunk_id": "R004-0",
+  "doc_id": "R004",
+  "tipo": "historia",
+  "estado": "pendiente",
+  "paciente": "PX-C13ACDF7",
+  "fuente": "Reporte IA pendiente · 2026-10-12",
+  "texto": "Paciente PX-C13ACDF7, [DOCUMENTO]. Reporte de IA de triaje: predicción urgente, probabilidad de urgencia 1.00. Marcado como caso crítico según el umbral. Datos al ingreso: edad 75 años, frecuencia cardíaca 125 lpm, frecuencia respiratoria 26 rpm, presión sistólica 85 mmHg, presión diastólica 50 mmHg, saturación de oxígeno 86 %, temperatura 38.5 °C, dolor 8/10."
+ },
+ {
+  "chunk_id": "R005-0",
+  "doc_id": "R005",
+  "tipo": "historia",
+  "estado": "aprobado",
+  "paciente": "PX-C13ACDF7",
+  "fuente": "Reporte IA aprobado · 2026-10-12",
+  "texto": "Paciente PX-C13ACDF7, [DOCUMENTO]. Reporte de IA de triaje: predicción urgente, probabilidad de urgencia 1.00. Marcado como caso crítico según el umbral. Datos al ingreso: edad 75 años, frecuencia cardíaca 125 lpm, frecuencia respiratoria 26 rpm, presión sistólica 85 mmHg, presión diastólica 50 mmHg, saturación de oxígeno 86 %, temperatura 38.5 °C, dolor 8/10."
+ },
+ {
+  "chunk_id": "R006-0",
+  "doc_id": "R006",
+  "tipo": "historia",
+  "estado": "aprobado",
+  "paciente": "PX-C13ACDF7",
+  "fuente": "Reporte IA aprobado · 2026-10-12",
+  "texto": "Paciente PX-C13ACDF7, [DOCUMENTO]. Reporte de IA de triaje: predicción urgente, probabilidad de urgencia 1.00. Marcado como caso crítico según el umbral. Datos al ingreso: edad 75 años, frecuencia cardíaca 125 lpm, frecuencia respiratoria 26 rpm, presión sistólica 85 mmHg, presión diastólica 50 mmHg, saturación de oxígeno 86 %, temperatura 38.5 °C, dolor 8/10."
+ },
+ {
+  "chunk_id": "R007-0",
+  "doc_id": "R007",
+  "tipo": "historia",
+  "estado": "aprobado",
+  "paciente": "PX-C13ACDF7",
+  "fuente": "Reporte IA aprobado · 2026-10-12",
+  "texto": "Paciente PX-C13ACDF7, [DOCUMENTO]. Reporte de IA de triaje: predicción urgente, probabilidad de urgencia 1.00. Marcado como caso crítico según el umbral. Datos al ingreso: edad 75 años, frecuencia cardíaca 125 lpm, frecuencia respiratoria 26 rpm, presión sistólica 85 mmHg, presión diastólica 50 mmHg, saturación de oxígeno 86 %, temperatura 38.5 °C, dolor 8/10."
+ },
+ {
+  "chunk_id": "R008-0",
+  "doc_id": "R008",
+  "tipo": "historia",
+  "estado": "aprobado",
+  "paciente": "PX-B75AC05D",
+  "fuente": "Reporte IA aprobado · 2026-10-17",
+  "texto": "Paciente PX-B75AC05D, [DOCUMENTO]. Reporte de IA de triaje: predicción no_urgente, probabilidad de urgencia 0.04. Datos al ingreso: edad 53 años, frecuencia cardíaca 80 lpm, frecuencia respiratoria 18 rpm, presión sistólica 182 mmHg, presión diastólica 101 mmHg, temperatura 36.0 °C, dolor 3/10. Observación del médico: Prueba P2: coincide con la clínica"
+ },
+ {
+  "chunk_id": "R009-0",
+  "doc_id": "R009",
+  "tipo": "historia",
+  "estado": "rechazado",
+  "paciente": "PX-B75AC05D",
+  "fuente": "Reporte IA rechazado · 2026-10-17",
+  "texto": "Paciente PX-B75AC05D, [DOCUMENTO]. Reporte de IA de triaje: predicción urgente, probabilidad de urgencia 1.00. Marcado como caso crítico según el umbral. Datos al ingreso: edad 63 años, frecuencia cardíaca 140 lpm, frecuencia respiratoria 24 rpm, presión sistólica 110 mmHg, presión diastólica 70 mmHg, saturación de oxígeno 92 %, temperatura 36.2 °C, dolor 0/10. Observación del médico: Prueba P2: no concuerda con la clínica"
+ },
+ {
+  "chunk_id": "R010-0",
+  "doc_id": "R010",
+  "tipo": "historia",
+  "estado": "aprobado",
+  "paciente": "PX-A5931479",
+  "fuente": "Reporte IA aprobado · 2026-10-17",
+  "texto": "Paciente PX-A5931479, [DOCUMENTO]. Reporte de IA de triaje: predicción no_urgente, probabilidad de urgencia 0.04. Datos al ingreso: edad 53 años, frecuencia cardíaca 80 lpm, frecuencia respiratoria 18 rpm, presión sistólica 182 mmHg, presión diastólica 101 mmHg, temperatura 36.0 °C, dolor 3/10. Observación del médico: Prueba P2: coincide con la clínica"
+ },
+ {
+  "chunk_id": "R011-0",
+  "doc_id": "R011",
+  "tipo": "historia",
+  "estado": "rechazado",
+  "paciente": "PX-A5931479",
+  "fuente": "Reporte IA rechazado · 2026-10-17",
+  "texto": "Paciente PX-A5931479, [DOCUMENTO]. Reporte de IA de triaje: predicción urgente, probabilidad de urgencia 1.00. Marcado como caso crítico según el umbral. Datos al ingreso: edad 63 años, frecuencia cardíaca 140 lpm, frecuencia respiratoria 24 rpm, presión sistólica 110 mmHg, presión diastólica 70 mmHg, saturación de oxígeno 92 %, temperatura 36.2 °C, dolor 0/10. Observación del médico: Prueba P2: no concuerda con la clínica"
+ },
+ {
+  "chunk_id": "R012-0",
+  "doc_id": "R012",
+  "tipo": "historia",
+  "estado": "aprobado",
+  "paciente": "PX-349E893E",
+  "fuente": "Reporte IA aprobado · 2026-10-17",
+  "texto": "Paciente PX-349E893E, [DOCUMENTO]. Reporte de IA de triaje: predicción no_urgente, probabilidad de urgencia 0.04. Datos al ingreso: edad 53 años, frecuencia cardíaca 80 lpm, frecuencia respiratoria 18 rpm, presión sistólica 182 mmHg, presión diastólica 101 mmHg, temperatura 36.0 °C, dolor 3/10. Observación del médico: Prueba P2: coincide con la clínica"
+ },
+ {
+  "chunk_id": "R013-0",
+  "doc_id": "R013",
+  "tipo": "historia",
+  "estado": "rechazado",
+  "paciente": "PX-349E893E",
+  "fuente": "Reporte IA rechazado · 2026-10-17",
+  "texto": "Paciente PX-349E893E, [DOCUMENTO]. Reporte de IA de triaje: predicción urgente, probabilidad de urgencia 1.00. Marcado como caso crítico según el umbral. Datos al ingreso: edad 63 años, frecuencia cardíaca 140 lpm, frecuencia respiratoria 24 rpm, presión sistólica 110 mmHg, presión diastólica 70 mmHg, saturación de oxígeno 92 %, temperatura 36.2 °C, dolor 0/10. Observación del médico: Prueba P2: no concuerda con la clínica"
+ },
+ {
+  "chunk_id": "R014-0",
+  "doc_id": "R014",
+  "tipo": "historia",
+  "estado": "aprobado",
+  "paciente": "PX-8B924D5F",
+  "fuente": "Reporte IA aprobado · 2026-10-17",
+  "texto": "Paciente PX-8B924D5F, [DOCUMENTO]. Reporte de IA de triaje: predicción no_urgente, probabilidad de urgencia 0.04. Datos al ingreso: edad 53 años, frecuencia cardíaca 80 lpm, frecuencia respiratoria 18 rpm, presión sistólica 182 mmHg, presión diastólica 101 mmHg, temperatura 36.0 °C, dolor 3/10. Observación del médico: Prueba P2: coincide con la clínica"
+ },
+ {
+  "chunk_id": "R015-0",
+  "doc_id": "R015",
+  "tipo": "historia",
+  "estado": "rechazado",
+  "paciente": "PX-8B924D5F",
+  "fuente": "Reporte IA rechazado · 2026-10-17",
+  "texto": "Paciente PX-8B924D5F, [DOCUMENTO]. Reporte de IA de triaje: predicción urgente, probabilidad de urgencia 1.00. Marcado como caso crítico según el umbral. Datos al ingreso: edad 63 años, frecuencia cardíaca 140 lpm, frecuencia respiratoria 24 rpm, presión sistólica 110 mmHg, presión diastólica 70 mmHg, saturación de oxígeno 92 %, temperatura 36.2 °C, dolor 0/10. Observación del médico: Prueba P2: no concuerda con la clínica"
+ }
+]

@@ -30,7 +30,7 @@
 services:
   # ── Servicio 1: base relacional del proyecto (reemplaza a Neon en local) ──
   db:
-    image: postgres:16
+    image: pgvector/pgvector:pg16
     container_name: trazared_db
     restart: unless-stopped
     environment:
