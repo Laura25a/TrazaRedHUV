@@ -81,7 +81,8 @@ def datos_clinicos(paciente_id: int) -> dict | None:
             if campo and campo not in signos:
                 signos[campo] = float(fila["valor"])
         cur.execute("""SELECT probabilidad_urgente, critico_segun_umbral, estado FROM reportes_ia
-                       WHERE paciente_id = %s ORDER BY id DESC LIMIT 1;""", (paciente_id,))
+                       WHERE paciente_id = %s AND probabilidad_urgente IS NOT NULL
+                       ORDER BY id DESC LIMIT 1;""", (paciente_id,))
         ia = cur.fetchone()
         cur.close()
     finally:
@@ -325,6 +326,8 @@ def guardar_preferencia(preferencia: str, runtime: ToolRuntime[ContextoClinico])
 
 HERRAMIENTAS = [consultar_paciente, buscar_guias, predecir_urgencia, buscar_ips_con_convenio,
                 proponer_remision, cargar_skill, guardar_preferencia]
+# Si una herramienta falla, el middleware Auditoria (harness.py) le devuelve al modelo
+# "ERROR_HERRAMIENTA: ..." como resultado, en vez de tumbar la respuesta con un Error 500.
 
 CATALOGO = [  # para docs/AGENTE.md y para la interfaz
     {"nombre": "consultar_paciente", "tipo": "lectura", "roles": "médico, especialista", "aprobacion": False},

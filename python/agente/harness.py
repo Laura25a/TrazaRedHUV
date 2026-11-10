@@ -18,6 +18,7 @@ from langchain.agents import create_agent
 from langchain.agents.middleware import (AgentMiddleware, HumanInTheLoopMiddleware,
                                          ModelCallLimitMiddleware, ModelRequest, dynamic_prompt)
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage, trim_messages
+from langgraph.errors import GraphBubbleUp
 from langgraph.types import Command
 
 from agente import skills
@@ -71,13 +72,31 @@ class Auditoria(AgentMiddleware):
         AUDITORIA.append(fila)
         _auditar_bd(ctx, fila["herramienta"], fila["args"])   # guarda el seudónimo, nunca el id real
 
+    @staticmethod
+    def _error(request, e) -> ToolMessage:
+        """Una herramienta que falla no tumba la respuesta: el modelo recibe el error y lo explica."""
+        print(f"[agente] la herramienta {request.tool_call['name']} falló: {type(e).__name__}: {e}")
+        return ToolMessage(content=f"ERROR_HERRAMIENTA: no se pudo completar ({type(e).__name__}). "
+                                   "Dile al clínico que esa información no está disponible ahora.",
+                           tool_call_id=request.tool_call["id"], name=request.tool_call["name"], status="error")
+
     def wrap_tool_call(self, request, handler):
         self._registrar(request)
-        return handler(request)
+        try:
+            return handler(request)
+        except GraphBubbleUp:              # pausas de aprobación humana: no son errores
+            raise
+        except Exception as e:
+            return self._error(request, e)
 
     async def awrap_tool_call(self, request, handler):
         await asyncio.to_thread(self._registrar, request)
-        return await handler(request)
+        try:
+            return await handler(request)
+        except GraphBubbleUp:
+            raise
+        except Exception as e:
+            return self._error(request, e)
 
 
 # ---------- 3. Ventana de contexto (memoria de trabajo) ----------

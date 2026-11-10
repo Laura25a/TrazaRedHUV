@@ -295,7 +295,7 @@ def listar_reportes(
         cur.close()
 
     for f in filas:
-        f["probabilidad"] = float(f["probabilidad"])
+        f["probabilidad"] = float(f["probabilidad"]) if f["probabilidad"] is not None else 0.0
     return filas
 
 

@@ -147,7 +147,7 @@ def historia_aprobada(db, paciente_id: int, alias: str) -> list[dict]:
         cur.execute("""SELECT id, probabilidad_urgente, prediccion, critico_segun_umbral,
                               observacion_revision, revisado_en, creado_en, payload_seudonimizado
                        FROM reportes_ia
-                       WHERE paciente_id = %s AND estado = 'aprobado'
+                       WHERE paciente_id = %s AND estado = 'aprobado' AND probabilidad_urgente IS NOT NULL
                        ORDER BY id DESC LIMIT 10;""", (paciente_id,))
         filas = cur.fetchall()
     except Exception:
