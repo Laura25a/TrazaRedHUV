@@ -27,7 +27,7 @@
   height: 8px;
   margin-top: .42rem;
   border-radius: 50%;
-  background: var(--azul, #0e6b68);
+  background: var(--azul, #1d5fbf);
   flex: none;
 }
 .fila-notif.leida .punto { background: transparent; border: 1px solid var(--texto-tenue, #9aa3b2); }

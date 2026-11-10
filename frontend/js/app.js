@@ -579,7 +579,7 @@ async function vistaPacientes() {
 // VISTA: HOSPITALES DE DESTINO
 // ==========================================================================
 // Texto sobre fondo blanco: tonos oscuros legibles (los de la barra son para rellenos)
-const TEXTO_ESTADO = { completada: "var(--violeta)", aceptada: "var(--ok)", en_gestion: "#a86a05", pendiente: "#a86a05", rechazada: "var(--error)" };
+const TEXTO_ESTADO = { completada: "var(--violeta)", aceptada: "var(--ok)", en_gestion: "#8a5700", pendiente: "#8a5700", rechazada: "var(--error)" };
 const COLOR_ESTADO = { completada: "var(--violeta)", aceptada: "var(--ok)", en_gestion: "#e0a030", pendiente: "#f2c46b", rechazada: "var(--error)" };
 
 async function vistaHospitales({ resaltar } = {}) {
