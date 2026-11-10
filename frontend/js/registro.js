@@ -230,6 +230,7 @@ async function vistaFormato({ remision }) {
       <a href="#" class="volver" id="f-volver">‹ Libro de radicación · asiento ${String(r.id).padStart(6, "0")}</a>
       <div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center">${barraDescargas(descargas)}
         <button class="btn btn-secundario btn-sm" id="f-imprimir">${icono("imprimir")}Imprimir</button>
+        ${per.anotar && typeof abrirDictado === "function" ? `<button class="btn btn-voz" id="f-dictar">${icono("microfono")}Dictar llamada</button>` : ""}
         ${per.anotar ? `<button class="btn btn-coral" id="f-anotar">+ Anotar gestión</button>` : ""}</div>
     </div>
     <article class="formato" aria-label="Formato de registro ${esc(r.radicado)}">
@@ -271,6 +272,7 @@ async function vistaFormato({ remision }) {
             ${!f.bitacora.length ? `<tr><td colspan="6" class="tenue">Todavía no hay gestiones anotadas.</td></tr>` : ""}
             ${r.abierta ? `<tr class="siguiente"><td class="mono">${String(f.bitacora.length + 1).padStart(2, "0")}</td><td colspan="5">${esc(siguienteTxt)}</td></tr>` : ""}</tbody></table></div>
         ${per.anotar || per.cerrar || per.corregir || per.anular || per.restaurar ? `<div class="fmt-acciones">
+          ${per.anotar && typeof abrirDictado === "function" ? `<button class="btn btn-voz btn-sm" id="f-dictar2">${icono("microfono")}Dictar llamada</button>` : ""}
           ${per.anotar ? `<button class="btn btn-coral btn-sm" id="f-anotar2">${icono("telefono")}Anotar gestión</button>` : ""}
           ${per.cerrar ? `<button class="btn btn-primario btn-sm" id="f-cerrar">${icono("cerrar")}Cerrar asiento</button>` : ""}
           ${per.corregir ? `<button class="btn btn-secundario btn-sm" id="f-corregir">Anotar corrección</button>` : ""}
@@ -327,6 +329,8 @@ async function vistaFormato({ remision }) {
   on("#f-volver", (e) => { e.preventDefault(); ir("inicio"); });
   on("#f-imprimir", () => window.print());
   on("#f-anotar", () => formularioGestion(f, recargar));
+  on("#f-dictar", () => abrirDictado(f, recargar));
+  on("#f-dictar2", () => abrirDictado(f, recargar));
   on("#f-anotar2", () => formularioGestion(f, recargar));
   on("#f-cerrar", () => formularioCierre(f, recargar));
   on("#f-corregir", () => formularioRemision({ ...r }));

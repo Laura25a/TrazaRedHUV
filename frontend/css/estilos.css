@@ -26,7 +26,7 @@
   --alerta: #8f5f05;     --alerta-fondo: #fbf0d9;
   --error: #c4432c;      --error-fondo: #fdebe6;
   --violeta: #6a4bc4;    --violeta-fondo: #efeafc;   /* violeta de la IA (se distingue del azul de acción) */
-  --coral: #e0634a;      --coral-oscuro: #c44f37;     /* anotar en el registro */
+  --coral: #c44f37;      --coral-oscuro: #a53d28;     /* anotar en el registro */
   --papel: #fffdf8;      --margen: #f1b3a5;           /* hoja del libro y su margen */
   --serif: "Source Serif 4", Georgia, "Times New Roman", serif;
   --mono: "IBM Plex Mono", ui-monospace, Consolas, monospace;

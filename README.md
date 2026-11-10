@@ -428,6 +428,14 @@ también recupera remisiones eliminadas. Todo queda en la auditoría (quién, cu
 Rutas: `POST /imagenes/{id}/eliminar`, `GET /recuperacion/imagenes`,
 `POST /recuperacion/imagenes/{id}/restaurar`, `GET /tecnico/estado`, `GET /tecnico/auditoria`.
 
+**Bitácora por voz con IA.** En el formato de una remisión, *Dictar llamada*: el médico llama con
+el altavoz, TrazaRed transcribe (dictado del navegador en Chrome/Edge, o Whisper en Groq si hay
+`GROQ_API_KEY`) y la IA propone la anotación: institución, quién respondió y su cargo, qué dijo y la
+causa (sin cama, sin convenio, acepta…). El médico revisa, corrige y confirma; se guarda por la ruta
+normal de gestiones. Antes de cualquier modelo se quitan nombre, documento y teléfonos del paciente,
+y ni el audio ni la transcripción se guardan. Rutas: `POST /bitacora/voz/extraer`,
+`POST /bitacora/voz/transcribir`.
+
 **En la interfaz:** *Asistente clínico* (agente y consulta a guías), *Reportes de IA*
 (aprobar o rechazar reportes pendientes, también desde la pantalla de predicción) y
 *Tendencias de la red* (admin y director).

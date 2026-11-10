@@ -43,6 +43,7 @@ from rag.router import router as rag_router   # asistente clínico RAG (taller s
 from agente.router import router as agente_router, iniciar_agente, cerrar_agente   # agente (semana 13)
 import tablero                                   # tablero de población y tendencia (semana 10)
 import recuperacion                              # eliminar/recuperar imágenes · ingeniería biomédica
+import voz                                       # bitácora por voz con IA
 
 app = FastAPI(
     title="API TrazaRed HUV",
@@ -97,6 +98,7 @@ app.include_router(rag_router)
 app.include_router(agente_router)
 app.include_router(tablero.router)
 app.include_router(recuperacion.router)
+app.include_router(voz.router)
 app.include_router(eventos.router)
 
 
