@@ -293,6 +293,8 @@ SINONIMOS = {
     "ahogo": "deterioro respiratorio saturacion", "oxigeno": "saturacion respiratorio", "respirar": "respiratoria",
     "pecho": "dolor toracico sindrome coronario", "corazon": "sindrome coronario infarto", "infarto": "hemodinamia",
     "derrame": "evento cerebrovascular", "trombosis": "evento cerebrovascular", "habla": "cincinnati",
+    "hablar": "habla cincinnati evento cerebrovascular", "cara": "caida facial cincinnati evento cerebrovascular",
+    "torcio": "caida facial cincinnati", "brazo": "debilidad brazo cincinnati",
     "infeccion": "sepsis qsofa", "fiebre": "sepsis temperatura", "presion": "sistolica hipotension shock",
     "ambulancia": "traslado interinstitucional", "llamadas": "bitacora contacto", "llame": "bitacora contacto",
     "llamada": "bitacora contacto gestion", "anotar": "registro bitacora", "saturado": "saturacion urgencias capacidad",

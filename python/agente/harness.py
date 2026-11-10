@@ -252,7 +252,7 @@ class Harness:
                     timeout=self.timeout_s)
             except asyncio.TimeoutError:
                 return {"estado": "tiempo_agotado", "conversacion": ctx.conversacion,
-                        "detalle": f"El asistente no respondió en {self.timeout_s:.0f} s. Intenta de nuevo."}
+                        "detalle": f"El asistente no respondió en {self.timeout_s:g} s. Intenta de nuevo."}
         resultado = self._empaquetar(salida, ctx)
         if resultado["estado"] == "pendiente_aprobacion":
             await asyncio.to_thread(self._registrar_propuestas, ctx, resultado["acciones"])
