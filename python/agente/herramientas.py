@@ -12,7 +12,7 @@
 #   6. Reutilizan el camino del sistema (tablas, auditoría, eventos), no inventan uno paralelo.
 import json
 import uuid
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date
 
 import psycopg2
@@ -31,9 +31,18 @@ class ContextoClinico:
     conversacion: str = "principal"
     paciente_id: int | None = None     # id REAL: el modelo nunca lo ve
     paciente_alias: str | None = None  # seudónimo: lo único que circula hacia el modelo
+    invocaciones: list = field(default_factory=list)   # ids de agente_invocaciones de este turno (R24)
+
+    @property
+    def usuario_alias(self) -> str:
+        """Cómo se le nombra el clínico al modelo: rol + id, nunca su correo ni su nombre."""
+        return f"{self.rol}-{self.usuario_id}"
 
 
-ROLES_CLINICOS = {"medico", "especialista"}
+# Quién puede usar el asistente. El admin entra en modo consulta (lee y ve la traza
+# completa); solo el médico propone remisiones. Contable, EPS, paciente, director y
+# biomédico reciben 403 en el router y NO_AUTORIZADO en cada herramienta (R24).
+ROLES_CLINICOS = {"medico", "especialista", "admin"}
 INSTITUCION_ORIGEN = "Hospital Universitario del Valle"
 LOINC = {"8867-4": "fc", "8480-6": "sbp", "8462-4": "dbp", "9279-1": "fr",
          "59408-5": "saturacion", "8310-5": "temperatura", "9269-2": "glasgow"}
@@ -101,7 +110,7 @@ def datos_clinicos(paciente_id: int) -> dict | None:
 
 def _verificar(ctx: ContextoClinico, necesita_paciente: bool = True) -> str | None:
     if ctx.rol not in ROLES_CLINICOS:
-        return "NO_AUTORIZADO: solo personal clínico (médico o especialista) usa esta herramienta."
+        return "NO_AUTORIZADO: tu rol no puede usar esta herramienta."
     if necesita_paciente and ctx.paciente_id is None:
         return "SIN_PACIENTE: no hay un paciente abierto en esta conversación. Pide al clínico que abra uno."
     return None
@@ -126,6 +135,8 @@ def consultar_paciente(runtime: ToolRuntime[ContextoClinico]) -> str:
     # por dentro en buscar_ips_con_convenio sin escribirla en el texto.
     texto = f"Paciente {ctx.paciente_alias}: {d['edad']} años, sexo {d['sexo']}. Últimos signos vitales: {signos}."
     if rem:
+        # El motivo es texto libre escrito por personas: es un DATO. Si alguien escondió ahí
+        # una orden para el asistente, el harness la tacha antes de que llegue al modelo (R25).
         texto += (f" Remisión actual: {rem['motivo']} → {rem['destino']}, estado {rem['estado']}, "
                   f"convenio {'vigente' if rem['convenio_vigente'] else 'NO vigente'} ({rem['fecha']}).")
     if d["ultimo_reporte_ia"]:
@@ -245,6 +256,20 @@ def buscar_ips_con_convenio(servicio: str, runtime: ToolRuntime[ContextoClinico]
     return "\n".join(lineas)
 
 
+def _institucion_conocida(nombre: str) -> bool:
+    conn = _db()
+    try:
+        cur = conn.cursor()
+        cur.execute("""SELECT 1 FROM remisiones WHERE institucion_destino = %s
+                       UNION ALL SELECT 1 FROM sistemas_socios WHERE nombre = %s AND activo LIMIT 1;""",
+                    (nombre, nombre))
+        ok = cur.fetchone() is not None
+        cur.close()
+        return ok
+    finally:
+        conn.close()
+
+
 # ---------- Herramienta 5 · ESCRITURA (requiere aprobación humana) ----------
 @tool
 def proponer_remision(institucion_destino: str, motivo: str, prioridad: str,
@@ -259,6 +284,13 @@ def proponer_remision(institucion_destino: str, motivo: str, prioridad: str,
     if ctx.paciente_id is None:
         return "SIN_PACIENTE: abre un paciente antes de remitir."
     prioridad = (prioridad or "urgente").lower()
+    if prioridad not in ("critica", "urgente", "programada"):
+        return "POLITICA: la prioridad debe ser critica, urgente o programada."
+    # POLÍTICA (decidir fuera del modelo): el destino tiene que ser una institución que el
+    # sistema ya conoce. Un texto malicioso no puede hacer que se remita a "externo" o a un correo.
+    if not _institucion_conocida(institucion_destino):
+        return ("POLITICA: esa institución no está en el directorio del sistema. "
+                "Usa buscar_ips_con_convenio y elige una de la lista.")
     motivo_final = f"[{prioridad.upper()}] {motivo.strip()[:400]} (propuesta del asistente, aprobada por el médico)"
     conn = _db()
     try:
@@ -330,13 +362,13 @@ HERRAMIENTAS = [consultar_paciente, buscar_guias, predecir_urgencia, buscar_ips_
 # "ERROR_HERRAMIENTA: ..." como resultado, en vez de tumbar la respuesta con un Error 500.
 
 CATALOGO = [  # para docs/AGENTE.md y para la interfaz
-    {"nombre": "consultar_paciente", "tipo": "lectura", "roles": "médico, especialista", "aprobacion": False},
-    {"nombre": "buscar_guias", "tipo": "lectura (RAG)", "roles": "médico, especialista", "aprobacion": False},
-    {"nombre": "predecir_urgencia", "tipo": "lectura (XGBoost)", "roles": "médico, especialista", "aprobacion": False},
-    {"nombre": "buscar_ips_con_convenio", "tipo": "lectura", "roles": "médico, especialista", "aprobacion": False},
+    {"nombre": "consultar_paciente", "tipo": "lectura", "roles": "médico, especialista, admin (consulta)", "aprobacion": False},
+    {"nombre": "buscar_guias", "tipo": "lectura (RAG)", "roles": "médico, especialista, admin (consulta)", "aprobacion": False},
+    {"nombre": "predecir_urgencia", "tipo": "lectura (XGBoost)", "roles": "médico, especialista, admin (consulta)", "aprobacion": False},
+    {"nombre": "buscar_ips_con_convenio", "tipo": "lectura", "roles": "médico, especialista, admin (consulta)", "aprobacion": False},
     {"nombre": "proponer_remision", "tipo": "escritura", "roles": "médico", "aprobacion": True},
-    {"nombre": "cargar_skill", "tipo": "lectura", "roles": "médico, especialista", "aprobacion": False},
-    {"nombre": "guardar_preferencia", "tipo": "memoria", "roles": "médico, especialista", "aprobacion": False},
+    {"nombre": "cargar_skill", "tipo": "lectura", "roles": "médico, especialista, admin (consulta)", "aprobacion": False},
+    {"nombre": "guardar_preferencia", "tipo": "memoria", "roles": "médico, especialista, admin (consulta)", "aprobacion": False},
 ]
 
 

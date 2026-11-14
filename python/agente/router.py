@@ -11,14 +11,17 @@ import os
 from contextlib import AsyncExitStack
 from typing import Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 
 from agente import skills
 from agente.harness import AUDITORIA, MAX_PASOS_MODELO, Harness, construir_agente
 from agente.herramientas import CATALOGO, ROLES_CLINICOS, ContextoClinico
 from agente.modelo import nombre_modelo, proveedor
-from auth import PG_CONNECTION_STRING, get_db, get_usuario_actual, registrar_auditoria
+import psycopg2.extras
+
+import seguridad
+from auth import PG_CONNECTION_STRING, get_db, get_usuario_actual, registrar_auditoria, requiere_rol
 from rag.router import seudonimo
 
 router = APIRouter(prefix="/agente", tags=["Agente clínico"])
@@ -74,7 +77,7 @@ class Decision(BaseModel):
 
 def exigir_clinico(usuario: dict) -> None:
     if usuario["rol"] not in ROLES_CLINICOS:
-        raise HTTPException(status_code=403, detail="Solo personal clínico (médico o especialista) usa el asistente")
+        raise HTTPException(status_code=403, detail="Tu rol no puede usar el asistente clínico")
 
 
 def _contexto(usuario: dict, conversacion: str, paciente_id: int | None) -> ContextoClinico:
@@ -84,20 +87,34 @@ def _contexto(usuario: dict, conversacion: str, paciente_id: int | None) -> Cont
 
 
 @router.post("/chat")
-async def chat(body: Mensaje, usuario: dict = Depends(get_usuario_actual), db=Depends(get_db)):
-    exigir_clinico(usuario)                                                         # R03
+async def chat(body: Mensaje, request: Request, usuario: dict = Depends(get_usuario_actual), db=Depends(get_db)):
+    exigir_clinico(usuario)                                                         # R03, R24
+    ip = seguridad.ip_cliente(request)
+    # R25 · GUARDIA: si la pregunta trae una orden para el asistente ("ignora tus
+    # instrucciones...") no llega al modelo; queda el incidente con usuario e IP y, si
+    # insiste, la cuenta y la IP se bloquean un rato. Una cuenta bloqueada recibe 403.
+    incidente = seguridad.guardia(db, usuario, ip, body.mensaje, "agente")
+    if incidente:
+        return {"estado": "respondido", "conversacion": body.conversacion_id, "paciente": None,
+                "respuesta": seguridad.RESPUESTA_GUARDIA + (
+                    " Tu acceso al asistente quedó bloqueado temporalmente." if incidente["bloqueado"] else ""),
+                "pasos": [], "consulto": [], "fuentes": [], "invocaciones": [],
+                "seguridad": {"motivo": "inyeccion_detectada", **incidente}}
+    paciente = None
     if body.paciente_id is not None:                   # médico y especialista ven a todos (R03 del sistema)
-        cur = db.cursor()
-        cur.execute("SELECT 1 FROM pacientes WHERE id = %s;", (body.paciente_id,))
-        existe = cur.fetchone() is not None
+        cur = db.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cur.execute("SELECT id, nombre FROM pacientes WHERE id = %s;", (body.paciente_id,))
+        paciente = cur.fetchone()
         cur.close()
-        if not existe:
+        if paciente is None:
             raise HTTPException(status_code=404, detail="Paciente no encontrado")
     ctx = _contexto(usuario, body.conversacion_id, body.paciente_id)                 # R12: seudónimo
-    resultado = await (await _harness()).atender(ctx, body.mensaje)
+    # R12/R24: lo que escribe el clínico también se minimiza antes de salir hacia el LLM
+    mensaje = seguridad.sanear_para_llm(body.mensaje, paciente)
+    resultado = await (await _harness()).atender(ctx, mensaje)
     registrar_auditoria(db, usuario["id"], "agente_chat", "pacientes", body.paciente_id,
                         f"alias={ctx.paciente_alias} conversacion={body.conversacion_id} "
-                        f"estado={resultado['estado']}")                             # R13
+                        f"estado={resultado['estado']} invocaciones={resultado.get('invocaciones', [])} ip={ip}")   # R13
     return resultado
 
 
@@ -124,10 +141,41 @@ async def historial(conversacion_id: str = Query("principal", pattern=r"^[\w-]{1
             {"herramienta": pendiente["herramienta"], "args": pendiente["argumentos"]}}
 
 
+@router.get("/invocaciones")
+def invocaciones(limite: int = Query(50, ge=1, le=300), usuario: dict = Depends(get_usuario_actual), db=Depends(get_db)):
+    """R24 · Bitácora de lo enviado al LLM. El admin ve todas; el clínico, solo las suyas."""
+    exigir_clinico(usuario)
+    cur = db.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cur.execute("""SELECT i.id, i.usuario_id, u.correo AS usuario, i.rol, i.conversacion, i.paciente_alias, i.modelo,
+                          jsonb_array_length(i.payload->'mensajes') AS mensajes,
+                          i.creado_en AT TIME ZONE current_setting('TimeZone') AS creado_en
+                   FROM agente_invocaciones i LEFT JOIN usuarios u ON u.id = i.usuario_id
+                   WHERE %s OR i.usuario_id = %s ORDER BY i.id DESC LIMIT %s;""",
+                (usuario["rol"] == "admin", usuario["id"], limite))
+    filas = cur.fetchall()
+    cur.close()
+    return filas
+
+
+@router.get("/invocaciones/{invocacion_id}/payload")
+def payload_invocacion(invocacion_id: int, usuario: dict = Depends(get_usuario_actual), db=Depends(get_db)):
+    """R24 · El payload seudonimizado EXACTO que se envió al LLM en esa invocación.
+    Sirve para comprobar que no viajó ningún dato personal (prueba del "canario")."""
+    exigir_clinico(usuario)
+    cur = db.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cur.execute("SELECT id, usuario_id, paciente_alias, modelo, payload FROM agente_invocaciones WHERE id = %s;",
+                (invocacion_id,))
+    fila = cur.fetchone()
+    cur.close()
+    if fila is None or (usuario["rol"] != "admin" and fila["usuario_id"] != usuario["id"]):
+        raise HTTPException(status_code=404, detail="Invocación no encontrada")
+    return {"invocacion_id": fila["id"], "alias": fila["paciente_alias"], "modelo": fila["modelo"],
+            "payload": fila["payload"]}
+
+
 @router.get("/estado")
 async def estado(usuario: dict = Depends(get_usuario_actual)):
-    if usuario["rol"] not in ROLES_CLINICOS | {"admin"}:
-        raise HTTPException(status_code=403, detail="Solo personal clínico")
+    exigir_clinico(usuario)
     await _harness()
     from rag.motor import estado as estado_rag
     return {"proveedor": proveedor(), "modelo": nombre_modelo(), "memoria": ESTADO["memoria"],

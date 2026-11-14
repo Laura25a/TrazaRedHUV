@@ -56,7 +56,8 @@ def main(maximo: int):
             WHERE r.activo
             ORDER BY p.id, r.fecha_solicitud DESC;"""
     )
-    candidatos = cur.fetchall()
+    import cripto                                  # R27: el documento está cifrado en la base
+    candidatos = cripto.descifrar_pacientes(cur.fetchall())
     cur.close()
     conn.close()
 

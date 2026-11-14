@@ -55,6 +55,8 @@ router = APIRouter(tags=["Sistema reactivo"])
 EVENTOS_CLINICOS = {
     "remision_creada", "remision_aceptada", "reporte_aprobado",
     "alerta_critica", "alerta_escalada", "observacion_fhir",
+    # Proyecto final · eventos externos (interoperabilidad con el sistema socio)
+    "remision_externa_recibida", "respuesta_socio",
 }
 
 # Segundos sin reconocer una alerta antes de escalarla al admin (R20).
@@ -458,6 +460,14 @@ def trabajo_pendiente(usuario=Depends(_usuario_actual), db=Depends(_db)):
         res["alertas_activas"] = cur.fetchone()[0]
     except Exception:
         db.rollback()
+    if usuario["rol"] in ("especialista", "admin"):
+        try:
+            # Proyecto final (R30): remisiones que llegaron de otra institución y nadie ha respondido
+            cur.execute("""SELECT COUNT(*) FROM remisiones
+                           WHERE origen_externo AND activo AND estado = 'pendiente';""")
+            res["remisiones_recibidas"] += cur.fetchone()[0]
+        except Exception:
+            db.rollback()
     if usuario["rol"] == "especialista":
         try:
             # R08: la bandeja del especialista vive en remisiones_medicas

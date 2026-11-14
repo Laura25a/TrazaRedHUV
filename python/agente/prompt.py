@@ -12,7 +12,7 @@ class _Seguro(dict):
 
 def armar_prompt(contexto, indice_skills: str, preferencias: list[str]) -> str:
     return PLANTILLA.format_map(_Seguro(
-        usuario=contexto.usuario,
+        usuario=contexto.usuario_alias,      # rol + id: ni el correo ni el nombre del clínico van al modelo
         rol=contexto.rol,
         paciente=contexto.paciente_alias or "ninguno",
         fecha=date.today().isoformat(),

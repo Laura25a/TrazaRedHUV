@@ -7,7 +7,7 @@ lo que se comparte: las variables de pass.env, la conexión a PostgreSQL
 
 Contiene:
   * Variables de entorno y conexiones (PostgreSQL y MongoDB).
-  * Contraseñas (bcrypt) y tokens JWT.
+  * Contraseñas (Argon2id; las viejas en bcrypt se migran solas al entrar) y tokens JWT.
   * get_usuario_actual y requiere_rol: las dependencias que usan TODAS las
     rutas protegidas.
   * registrar_auditoria: la usan todos los módulos para dejar rastro.
@@ -28,9 +28,12 @@ from dotenv import load_dotenv
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from jose import JWTError, jwt
-from passlib.context import CryptContext
+from pwdlib import PasswordHash
+from pwdlib.hashers.argon2 import Argon2Hasher
+from pwdlib.hashers.bcrypt import BcryptHasher
 from pydantic import BaseModel, field_validator
 
+import cripto
 from eventos import ids_con_rol, publicar
 
 router = APIRouter(tags=["Usuarios y acceso"])
@@ -102,6 +105,19 @@ def migrar_base():
         cur.execute(ruta.read_text(encoding="utf-8"))
         conn.commit()
         print("[arranque] esquema de la base al día (db/schema.sql)")
+
+        # Proyecto final (R27, R28): cifra los datos personales que sigan en claro y
+        # sella los registros de auditoría que aún no estén en la cadena. Idempotente.
+        try:
+            r = cripto.cifrar_pendientes(conn)
+            sellados = sellar_auditoria_pendiente(conn)
+            conn.commit()
+            if r["cifrados"] or r["recifrados"] or sellados:
+                print(f"[arranque] seguridad: {r['cifrados']} pacientes cifrados, {r['recifrados']} "
+                      f"recifrados con la llave v{r['version']}, {sellados} registros de auditoría sellados")
+        except Exception as e:
+            conn.rollback()
+            print(f"[arranque] no se pudo completar la migración de seguridad: {e}")
 
         # Migraciones adicionales del Corte 2 (idempotentes, igual que schema.sql).
         # Van aquí y no en el entrypoint de Postgres porque ese solo corre la
@@ -205,23 +221,38 @@ COLUMNAS_USUARIO = "id, nombre, correo, rol, activo, paciente_id, eps_nombre, in
 
 
 # ── Contraseñas y tokens ──────────────────────────────────────────────────
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 60
+# Argon2id (clase 14): lento y costoso en memoria A PROPÓSITO, para que probar claves
+# por fuerza bruta no sea viable. El primer algoritmo de la lista es el vigente; bcrypt
+# queda solo para poder verificar las contraseñas que ya existían: la primera vez que
+# ese usuario entra bien, verify_and_update devuelve el hash nuevo y se guarda.
+_hasher = PasswordHash((Argon2Hasher(), BcryptHasher()))
+ALGORITHM = "HS256"                       # un único algoritmo aceptado (nunca "none")
+ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("JWT_MINUTOS", "30"))   # el token vence en minutos
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
 
 
 def hash_password(password: str) -> str:
-    return pwd_context.hash(password)
+    return _hasher.hash(password)
 
 
 def verificar_password(password: str, password_hash: str) -> bool:
-    return pwd_context.verify(password, password_hash)
+    return verificar_y_actualizar(password, password_hash)[0]
 
 
-def crear_token(datos: dict) -> str:
+def verificar_y_actualizar(password: str, password_hash: str):
+    """(es_valida, hash_nuevo). hash_nuevo no es None cuando el guardado usa un
+    algoritmo viejo (bcrypt) o parámetros débiles: hay que reemplazarlo."""
+    try:
+        return _hasher.verify_and_update(password, password_hash)
+    except Exception:                      # hash con formato desconocido: no es válida
+        return False, None
+
+
+def crear_token(datos: dict, minutos: Optional[int] = None) -> str:
+    """Firmado, NO cifrado: cualquiera lo puede leer, nadie lo puede cambiar. Por eso
+    solo lleva el id y el rol, nunca nombre ni documento."""
     datos = datos.copy()
-    datos["exp"] = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    datos["exp"] = datetime.now(timezone.utc) + timedelta(minutes=minutos or ACCESS_TOKEN_EXPIRE_MINUTES)
     return jwt.encode(datos, SECRET_KEY, algorithm=ALGORITHM)
 
 
@@ -229,10 +260,15 @@ def get_usuario_actual(token: str = Depends(oauth2_scheme), db=Depends(get_db)) 
     credenciales_invalidas = HTTPException(status_code=401, detail="Credenciales inválidas")
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        usuario_id = payload.get("usuario_id")
-        if usuario_id is None:
-            raise credenciales_invalidas
     except JWTError:
+        raise credenciales_invalidas
+    # R31: el token de un SISTEMA socio (client credentials) es válido, pero solo sirve
+    # para los endpoints de entrada /interop/*; no abre la API clínica.
+    if payload.get("tipo") == "sistema":
+        raise HTTPException(status_code=403,
+                            detail="Las credenciales de sistema solo sirven para el endpoint de interoperabilidad")
+    usuario_id = payload.get("usuario_id")
+    if usuario_id is None:
         raise credenciales_invalidas
 
     cur = db.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
@@ -259,17 +295,82 @@ def requiere_rol(*roles_permitidos):
     return verificador
 
 
-# ── Auditoría ─────────────────────────────────────────────────────────────
+# ── Auditoría encadenada (R13 + R28) ──────────────────────────────────────
+# Cada registro guarda la huella del anterior (hash_anterior) y la suya (hash).
+# La huella es un HMAC con una llave del .env (cripto.sellar): si alguien edita o
+# borra un registro directamente en la base, la cadena deja de cuadrar a partir de
+# ahí y GET /auditoria/verificar lo señala. Y como la huella lleva llave, quien
+# tenga la base pero no el .env tampoco puede recalcularla para tapar el cambio.
+_CANDADO_AUDITORIA = 28_2026             # candado de PostgreSQL: un sello a la vez
+_FECHA_AUDITORIA = 'YYYY-MM-DD"T"HH24:MI:SS.US'
+
+
+def _ultima_huella(cur) -> str:
+    cur.execute("SELECT hash FROM auditoria WHERE hash IS NOT NULL ORDER BY id DESC LIMIT 1;")
+    fila = cur.fetchone()
+    return fila[0] if fila else cripto.GENESIS
+
+
 def registrar_auditoria(db, usuario_id: Optional[int], accion: str, tabla: str,
                         registro_id: Optional[int], detalle: Optional[str] = None):
-    cur = db.cursor()
+    cur = db.cursor(cursor_factory=psycopg2.extensions.cursor)
+    cur.execute("SELECT pg_advisory_xact_lock(%s);", (_CANDADO_AUDITORIA,))   # se suelta al confirmar
+    anterior = _ultima_huella(cur)
     cur.execute(
-        """INSERT INTO auditoria (usuario_id, accion, tabla, registro_id, detalle)
-           VALUES (%s, %s, %s, %s, %s);""",
+        f"""INSERT INTO auditoria (usuario_id, accion, tabla, registro_id, detalle)
+           VALUES (%s, %s, %s, %s, %s)
+           RETURNING id, to_char(fecha, '{_FECHA_AUDITORIA}');""",
         (usuario_id, accion, tabla, registro_id, detalle),
     )
+    reg_id, fecha_txt = cur.fetchone()
+    huella = cripto.sellar(anterior, cripto.contenido_auditoria(
+        reg_id, usuario_id, accion, tabla, registro_id, detalle, fecha_txt))
+    cur.execute("UPDATE auditoria SET hash_anterior = %s, hash = %s WHERE id = %s;", (anterior, huella, reg_id))
     db.commit()
     cur.close()
+    return reg_id
+
+
+def sellar_auditoria_pendiente(conn) -> int:
+    """Sella, en orden, los registros que aún no tienen huella (los anteriores a R28).
+    No confirma: lo hace quien llama."""
+    cur = conn.cursor(cursor_factory=psycopg2.extensions.cursor)
+    cur.execute("SELECT pg_advisory_xact_lock(%s);", (_CANDADO_AUDITORIA,))
+    anterior = _ultima_huella(cur)
+    cur.execute(f"""SELECT id, usuario_id, accion, tabla, registro_id, detalle, to_char(fecha, '{_FECHA_AUDITORIA}')
+                    FROM auditoria WHERE hash IS NULL ORDER BY id;""")
+    filas = cur.fetchall()
+    for fila in filas:
+        huella = cripto.sellar(anterior, cripto.contenido_auditoria(*fila))
+        cur.execute("UPDATE auditoria SET hash_anterior = %s, hash = %s WHERE id = %s;", (anterior, huella, fila[0]))
+        anterior = huella
+    cur.close()
+    return len(filas)
+
+
+def verificar_cadena_auditoria(db) -> dict:
+    """Recorre toda la cadena. Señala el primer registro que no cuadra y por qué."""
+    cur = db.cursor(cursor_factory=psycopg2.extensions.cursor)
+    cur.execute(f"""SELECT id, usuario_id, accion, tabla, registro_id, detalle,
+                           to_char(fecha, '{_FECHA_AUDITORIA}'), hash_anterior, hash
+                    FROM auditoria ORDER BY id;""")
+    anterior, total, roto, motivo = cripto.GENESIS, 0, None, None
+    for *campos, hash_anterior, huella in cur:
+        total += 1
+        if roto is not None:
+            continue
+        if huella is None:
+            roto, motivo = campos[0], "registro sin sello (se insertó por fuera de la API)"
+        elif hash_anterior != anterior:
+            roto, motivo = campos[0], "no enlaza con el registro anterior (se borró o insertó un registro)"
+        elif not cripto.iguales(cripto.sellar(hash_anterior, cripto.contenido_auditoria(*campos)), huella):
+            roto, motivo = campos[0], "el contenido no corresponde a su huella (el registro fue editado)"
+        else:
+            anterior = huella
+    cur.close()
+    return {"integra": roto is None, "registros": total, "primer_registro_alterado": roto,
+            "motivo": motivo, "ultima_huella": anterior if roto is None else None,
+            "algoritmo": "HMAC-SHA256 encadenado (llave en el .env)"}
 
 
 # ----------------------------------------------------------------------------
@@ -332,7 +433,8 @@ def login(form: OAuth2PasswordRequestForm = Depends(), db=Depends(get_db)):
             "mensaje": "Usuario bloqueado por intentos fallidos. Solo un administrador puede desbloquearlo.",
             "intentos_restantes": 0, "bloqueado": True})
 
-    if not verificar_password(form.password, usuario["contrasena_hash"]):
+    valida, hash_nuevo = verificar_y_actualizar(form.password, usuario["contrasena_hash"])
+    if not valida:
         # Suma el intento y bloquea en la MISMA sentencia (atómico: dos intentos
         # simultáneos no pueden "saltarse" el límite).
         cur.execute(
@@ -369,10 +471,16 @@ def login(form: OAuth2PasswordRequestForm = Depends(), db=Depends(get_db)):
 
     # Login correcto: se reinicia el contador.
     cur.execute("UPDATE usuarios SET intentos_fallidos = 0 WHERE id = %s;", (usuario["id"],))
+    if hash_nuevo:      # la contraseña estaba en bcrypt: queda en Argon2id sin que el usuario haga nada
+        cur.execute("UPDATE usuarios SET contrasena_hash = %s WHERE id = %s;", (hash_nuevo, usuario["id"]))
     db.commit()
     cur.close()
     registrar_auditoria(db, usuario["id"], "login_exitoso", "usuarios", usuario["id"], correo)
-    token = crear_token({"usuario_id": usuario["id"], "rol": usuario["rol"]})
+    if hash_nuevo:
+        registrar_auditoria(db, usuario["id"], "hash_actualizado", "usuarios", usuario["id"],
+                            "contraseña migrada a Argon2id")
+    # El token lleva solo el id y el rol (se puede leer, no cambiar): nada de datos personales.
+    token = crear_token({"usuario_id": usuario["id"], "rol": usuario["rol"], "tipo": "usuario"})
     return Token(access_token=token)
 
 
@@ -467,7 +575,8 @@ def listar_auditoria(
         f"""SELECT a.id, a.usuario_id, u.correo AS usuario, u.correo, a.accion,
                    a.tabla, a.registro_id,
                    a.tabla || COALESCE('/' || a.registro_id, '') AS recurso,
-                   a.detalle, a.fecha AT TIME ZONE current_setting('TimeZone') AS fecha
+                   a.detalle, a.fecha AT TIME ZONE current_setting('TimeZone') AS fecha,
+                   left(a.hash_anterior, 12) AS huella_anterior, left(a.hash, 12) AS huella
               FROM auditoria a LEFT JOIN usuarios u ON u.id = a.usuario_id
               {where} ORDER BY a.id DESC LIMIT %s;""",
         (*valores, limite),
@@ -475,6 +584,16 @@ def listar_auditoria(
     filas = cur.fetchall()
     cur.close()
     return filas
+
+
+@router.get("/auditoria/verificar", dependencies=[Depends(requiere_rol("admin"))])
+def verificar_auditoria(db=Depends(get_db), admin=Depends(get_usuario_actual)):
+    """R28 · Recorre la cadena de huellas e informa si la auditoría fue alterada. Solo admin."""
+    resultado = verificar_cadena_auditoria(db)
+    registrar_auditoria(db, admin["id"], "auditoria_verificada", "auditoria", None,
+                        "cadena íntegra" if resultado["integra"] else
+                        f"cadena ALTERADA en el registro {resultado['primer_registro_alterado']}")
+    return resultado
 
 
 @router.post("/usuarios", response_model=UsuarioOut, status_code=201,

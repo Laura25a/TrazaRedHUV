@@ -8,15 +8,15 @@ import hashlib
 import hmac
 import os
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 
 from auth import get_db, get_usuario_actual, registrar_auditoria
 from rag.motor import estado, responder
 
 router = APIRouter(tags=["RAG"])
-# El profe definió el asistente para personal clínico; admin queda fuera a propósito.
-ROLES_ASISTENTE = {"medico", "especialista"}
+# Personal clínico. El admin entra en modo consulta (mismo criterio que el agente).
+ROLES_ASISTENTE = {"medico", "especialista", "admin"}
 
 
 def seudonimo(paciente_id: int) -> str:
@@ -39,16 +39,32 @@ def _paciente_existe(db, paciente_id: int) -> bool:
 
 
 @router.post("/rag/preguntar")
-def preguntar(body: Pregunta,
+def preguntar(body: Pregunta, request: Request,
               usuario: dict = Depends(get_usuario_actual),
               db=Depends(get_db)):
+    """R23 · Responde con las guías del sistema y SIEMPRE dice de dónde salió: cada
+    respuesta trae `fuentes` (documento y fragmento). Si no hay soporte, lo dice."""
     if usuario["rol"] not in ROLES_ASISTENTE:
         raise HTTPException(status_code=403, detail="Solo personal clínico consulta el asistente")
-    if body.paciente_id is not None and not _paciente_existe(db, body.paciente_id):
-        raise HTTPException(status_code=404, detail="Paciente no encontrado")
+    import psycopg2.extras
+    import seguridad
+    ip = seguridad.ip_cliente(request)
+    incidente = seguridad.guardia(db, usuario, ip, body.pregunta, "rag")          # R25
+    if incidente:
+        return {"respuesta": seguridad.RESPUESTA_GUARDIA, "modo": "bloqueada", "alias": None, "fuentes": [],
+                "seguridad": {"motivo": "inyeccion_detectada", **incidente}}
+    paciente = None
+    if body.paciente_id is not None:
+        cur = db.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cur.execute("SELECT id, nombre FROM pacientes WHERE id = %s;", (body.paciente_id,))
+        paciente = cur.fetchone()
+        cur.close()
+        if paciente is None:
+            raise HTTPException(status_code=404, detail="Paciente no encontrado")
     alias = seudonimo(body.paciente_id) if body.paciente_id is not None else None
+    pregunta = seguridad.sanear_para_llm(body.pregunta, paciente)                  # R12: sin datos personales
     # La historia aprobada del paciente se lee de la base y se filtra ANTES de rankear
-    resultado = responder(body.pregunta, alias, paciente_id=body.paciente_id, db=db)
+    resultado = responder(pregunta, alias, paciente_id=body.paciente_id, db=db)
     registrar_auditoria(db, usuario["id"], "rag_consulta", "paciente", body.paciente_id,
                         f"alias={alias} modo={resultado['modo']} "
                         f"fuentes={[f['chunk_id'] for f in resultado['fuentes']]}")

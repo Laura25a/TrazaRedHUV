@@ -27,6 +27,7 @@ from statistics import median
 from typing import Optional
 
 import httpx
+import cripto
 import psycopg2.extras
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
@@ -413,7 +414,7 @@ def formato_remision(db, usuario: dict, remision_id: int, recalcular=True) -> di
     a, contactos = _asiento(db, usuario, remision_id)
     cur = db.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
     cur.execute("SELECT * FROM pacientes WHERE id = %s;", (a["paciente_id"],))
-    p = cur.fetchone() or {}
+    p = cripto.descifrar_paciente(cur.fetchone()) or {}
     cur.close()
     pron = pronosticar(db, a, contactos, usuario["id"]) if (recalcular and usuario["rol"] != "eps") else None
     pronosticos = _pronosticos_de(db, remision_id)

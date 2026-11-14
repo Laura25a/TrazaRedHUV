@@ -48,7 +48,10 @@ from dotenv import load_dotenv
 
 RAIZ = Path(__file__).resolve().parent.parent
 DATA = RAIZ / "data"
+load_dotenv(RAIZ / ".env", override=False)
 load_dotenv(RAIZ / "pass.env", override=False)
+
+import cripto   # después de cargar el .env: las llaves de cifrado salen de ahí (R27)
 
 SEMILLA = 2026
 POR_GRUPO = 200
@@ -351,12 +354,15 @@ def cargar(con_mongo=True):
     for p in pacientes:
         extra = (p.get("fecha_nacimiento") or None, p.get("telefono") or None,
                  p.get("tipo_sangre") or None, p.get("alergias") or None)
+        # R27: el documento se guarda cifrado; la unicidad y la búsqueda van por su
+        # índice ciego (HMAC). Entra en claro y se cifra antes de confirmar (más abajo).
+        idx = cripto.indice_ciego(p["documento"])
         cur.execute(
-            """INSERT INTO pacientes (nombre, documento, genero, eps,
+            """INSERT INTO pacientes (nombre, documento, documento_idx, genero, eps,
                                       fecha_nacimiento, telefono, tipo_sangre, alergias)
-               VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-               ON CONFLICT (documento) DO NOTHING RETURNING id;""",
-            (p["nombre"], p["documento"], p["genero"], p["eps"], *extra),
+               VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+               ON CONFLICT (documento_idx) DO NOTHING RETURNING id;""",
+            (p["nombre"], p["documento"], idx, p["genero"], p["eps"], *extra),
         )
         fila = cur.fetchone()
         if fila is None:          # ya estaba cargado: solo se completan los datos de la ficha
@@ -364,8 +370,8 @@ def cargar(con_mongo=True):
                 """UPDATE pacientes SET fecha_nacimiento = COALESCE(fecha_nacimiento, %s),
                           telefono = COALESCE(telefono, %s), tipo_sangre = COALESCE(tipo_sangre, %s),
                           alergias = COALESCE(alergias, %s)
-                    WHERE documento = %s;""",
-                (*extra, p["documento"]),
+                    WHERE documento_idx = %s;""",
+                (*extra, idx),
             )
             saltados += 1
             continue
@@ -408,7 +414,9 @@ def cargar(con_mongo=True):
             "origen": "dataset_sintetico_semana8",
         })
         nuevos += 1
+    r = cripto.cifrar_pendientes(conn)        # R27: nada personal queda en claro al confirmar
     conn.commit()
+    print(f"[cargar] datos personales cifrados (AES-256-GCM, llave v{r['version']}): {r['cifrados']} pacientes")
 
     if coleccion is not None and docs_mongo:
         coleccion.insert_many(docs_mongo)
@@ -416,15 +424,15 @@ def cargar(con_mongo=True):
     # Usuario de rol paciente (necesita un paciente existente para vincularse)
     clave = os.getenv("DEMO_PACIENTE_PASSWORD")
     if clave:
-        from passlib.context import CryptContext
-        cur.execute("SELECT id FROM pacientes WHERE documento = %s;", (pacientes[0]["documento"],))
+        from pwdlib import PasswordHash
+        cur.execute("SELECT id FROM pacientes WHERE documento_idx = %s;", (cripto.indice_ciego(pacientes[0]["documento"]),))
         fila = cur.fetchone()
         if fila:
             cur.execute(
                 """INSERT INTO usuarios (nombre, correo, contrasena_hash, rol, paciente_id)
                    VALUES (%s, 'paciente@correo.com', %s, 'paciente', %s)
                    ON CONFLICT (correo) DO NOTHING;""",
-                (pacientes[0]["nombre"], CryptContext(schemes=["bcrypt"]).hash(clave), fila[0]),
+                (pacientes[0]["nombre"], PasswordHash.recommended().hash(clave), fila[0]),
             )
             if cur.rowcount:
                 print(f"[cargar] usuario paciente@correo.com vinculado a {pacientes[0]['nombre']}")

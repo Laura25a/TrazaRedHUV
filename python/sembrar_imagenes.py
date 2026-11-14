@@ -145,7 +145,8 @@ def main(maximo: int):
             ORDER BY p.id, r.fecha_solicitud DESC;"""
     )
     candidatos = []
-    for fila in cur.fetchall():
+    import cripto                                  # R27: el documento está cifrado en la base
+    for fila in cripto.descifrar_pacientes(cur.fetchall()):
         m = fila["motivo"].lower()
         if any(k in m for k in CRANEO):
             candidatos.append((fila, "CT"))

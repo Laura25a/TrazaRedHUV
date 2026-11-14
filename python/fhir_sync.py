@@ -5,6 +5,7 @@ de PostgreSQL (Neon) hacia el servidor HAPI FHIR, como recursos Patient, Encount
 import os
 from pathlib import Path
 import requests
+import cripto
 import psycopg2
 import psycopg2.extras
 from dotenv import load_dotenv
@@ -77,7 +78,7 @@ def sincronizar_paciente(paciente_id: int) -> str:
     conn = get_db()
     cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
     cur.execute("SELECT * FROM pacientes WHERE id = %s;", (paciente_id,))
-    paciente = cur.fetchone()
+    paciente = cripto.descifrar_paciente(cur.fetchone())
     cur.close(); conn.close()
     if paciente is None:
         raise ValueError("Paciente no encontrado en Postgres")
@@ -172,8 +173,9 @@ def obtener_o_crear_paciente_fhir(documento: str) -> str:
         return fhir_id
     conn = get_db()
     cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-    cur.execute("SELECT * FROM pacientes WHERE documento = %s;", (documento,))
-    paciente = cur.fetchone()
+    # R27: el documento está cifrado en la base; se busca por su índice ciego
+    cur.execute("SELECT * FROM pacientes WHERE documento_idx = %s;", (cripto.indice_ciego(documento),))
+    paciente = cripto.descifrar_paciente(cur.fetchone())
     cur.close(); conn.close()
     if paciente is None:
         raise ValueError(f"Paciente con documento {documento} no existe en Postgres")
@@ -214,6 +216,14 @@ if __name__ == "__main__":
 
 URL_API_RECEPTORA = os.getenv("API_WEBHOOK_URL", "http://api:8000/fhir/observacion")
 GLUCOSA_LOINC = "2339-0"
+
+
+def _cabecera_webhook() -> str:
+    return "X-Webhook-Secret"
+
+
+def _secreto_webhook() -> str:
+    return os.getenv("FHIR_WEBHOOK_SECRET") or cripto.derivar("webhook-fhir")
 
 
 def crear_subscription_fhir(max_intentos: int = 10, espera_seg: int = 3) -> dict:
@@ -270,7 +280,9 @@ def crear_subscription_fhir(max_intentos: int = 10, espera_seg: int = 3) -> dict
             "type": "rest-hook",
             "endpoint": URL_API_RECEPTORA,
             "payload": "application/fhir+json",
-            "header": ["Content-Type: application/fhir+json"],
+            # R29: HAPI envía este secreto en cada aviso; la API rechaza los que no lo traen.
+            "header": ["Content-Type: application/fhir+json",
+                       f"{_cabecera_webhook()}: {_secreto_webhook()}"],
         },
     }
     r = requests.post(f"{FHIR_BASE_URL}/Subscription",
@@ -299,7 +311,7 @@ def paciente_id_por_fhir_reference(reference: str):
                 documento = ident.get("value")
                 conn = get_db()
                 cur = conn.cursor()
-                cur.execute("SELECT id FROM pacientes WHERE documento = %s;", (documento,))
+                cur.execute("SELECT id FROM pacientes WHERE documento_idx = %s;", (cripto.indice_ciego(documento),))
                 fila = cur.fetchone()
                 cur.close(); conn.close()
                 return fila[0] if fila else None
@@ -319,7 +331,7 @@ def sincronizar_observacion_fhir(paciente_id: int, valor: float,
     conn = get_db()
     cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
     cur.execute("SELECT * FROM pacientes WHERE id = %s;", (paciente_id,))
-    paciente = cur.fetchone()
+    paciente = cripto.descifrar_paciente(cur.fetchone())
     cur.close(); conn.close()
     if paciente is None:
         raise ValueError("Paciente no encontrado")

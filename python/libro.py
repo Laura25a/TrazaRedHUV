@@ -19,6 +19,7 @@ nunca se desincronizan:
 from datetime import datetime, timezone
 from typing import Iterable, Optional
 
+import cripto
 import psycopg2.extras
 
 from auth import con_zona, db_mongo
@@ -81,7 +82,7 @@ def cargar_remisiones(db, condiciones: Iterable[str] = (), valores: Iterable = (
     where = " AND ".join(condiciones) or "TRUE"
     sql = f"{SQL_ASIENTO} WHERE {where} ORDER BY {orden}" + (" LIMIT %s" if limite else "")
     cur.execute(sql, (*valores, *( [limite] if limite else [] )))
-    filas = cur.fetchall()
+    filas = cripto.descifrar_pacientes(cur.fetchall(), "paciente_id", "paciente_")   # R27
     cur.close()
     for f in filas:
         for k in ("probabilidad_efectiva", "probabilidad_al_radicar"):

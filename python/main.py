@@ -26,12 +26,13 @@ import psycopg2.extras
 import os
 import threading
 
-from fastapi import Depends, FastAPI, HTTPException, Query
+from fastapi import Depends, FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 import auth
 import contabilidad
+import cripto
 import eventos
 import historia
 import ia
@@ -44,6 +45,8 @@ from agente.router import router as agente_router, iniciar_agente, cerrar_agente
 import tablero                                   # tablero de población y tendencia (semana 10)
 import recuperacion                              # eliminar/recuperar imágenes · ingeniería biomédica
 import voz                                       # bitácora por voz con IA
+import seguridad                                 # proyecto final: STRIDE (límite de tasa, guardia, panel)
+import interop                                   # proyecto final: interoperabilidad con el sistema socio
 
 app = FastAPI(
     title="API TrazaRed HUV",
@@ -87,6 +90,11 @@ async def cabeceras_de_seguridad(request, call_next):
     return respuesta
 
 
+# Proyecto final · Denial of service: límite de peticiones por IP (10 por ventana en
+# login, token de sistema, agente y entrada del socio). Va después de las cabeceras
+# para que un 429 también salga con ellas.
+app.middleware("http")(seguridad.limite_de_tasa)
+
 # Cada módulo trae sus rutas en un "router"; aquí se conectan a la app.
 app.include_router(auth.router)
 app.include_router(remisiones.router)
@@ -99,6 +107,8 @@ app.include_router(agente_router)
 app.include_router(tablero.router)
 app.include_router(recuperacion.router)
 app.include_router(voz.router)
+app.include_router(seguridad.router)
+app.include_router(interop.router)
 app.include_router(eventos.router)
 
 
@@ -186,6 +196,9 @@ class PacienteCreate(BaseModel):
     telefono: Optional[str] = None
     tipo_sangre: Optional[str] = None
     alergias: Optional[str] = None
+    # Proyecto final (R27): también se guardan cifrados
+    direccion: Optional[str] = None
+    correo: Optional[str] = None
 
 
 class PacienteOut(BaseModel):
@@ -198,28 +211,36 @@ class PacienteOut(BaseModel):
     telefono: Optional[str] = None
     tipo_sangre: Optional[str] = None
     alergias: Optional[str] = None
+    direccion: Optional[str] = None
+    correo: Optional[str] = None
+    por_conciliar: bool = False
 
 
-COLUMNAS_PACIENTE = "id, nombre, documento, genero, eps, fecha_nacimiento, telefono, tipo_sangre, alergias"
+COLUMNAS_PACIENTE = ("id, nombre, documento, genero, eps, fecha_nacimiento, telefono, tipo_sangre, "
+                     "alergias, direccion, correo, por_conciliar")
 
 
 @app.get("/pacientes", response_model=List[PacienteOut],
          dependencies=[Depends(requiere_rol(*ROLES_CLINICOS))])
 def listar_pacientes(
-    q: Optional[str] = Query(None, description="Busca por documento o por nombre"),
+    q: Optional[str] = Query(None, description="Busca por documento (exacto) o por nombre"),
     db=Depends(get_db),
 ):
+    """R27: el documento está cifrado en la base, así que no se puede buscar "por un
+    pedazo" con LIKE. Si lo buscado parece un documento, se busca el documento
+    completo por su índice ciego (HMAC); si no, por nombre."""
     cur = db.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-    if q:
-        patron = f"%{q.strip()}%"
-        cur.execute(
-            f"""SELECT {COLUMNAS_PACIENTE} FROM pacientes
-               WHERE documento ILIKE %s OR nombre ILIKE %s ORDER BY id;""",
-            (patron, patron),
-        )
+    if q and q.strip():
+        q = q.strip()
+        if any(c.isdigit() for c in q) and len(cripto.normalizar_documento(q)) >= 5:
+            cur.execute(f"SELECT {COLUMNAS_PACIENTE} FROM pacientes WHERE documento_idx = %s ORDER BY id;",
+                        (cripto.indice_ciego(q),))
+        else:
+            cur.execute(f"SELECT {COLUMNAS_PACIENTE} FROM pacientes WHERE nombre ILIKE %s ORDER BY id;",
+                        (f"%{q}%",))
     else:
         cur.execute(f"SELECT {COLUMNAS_PACIENTE} FROM pacientes ORDER BY id;")
-    filas = cur.fetchall()
+    filas = cripto.descifrar_pacientes(cur.fetchall())
     cur.close()
     return filas
 
@@ -229,18 +250,26 @@ def listar_pacientes(
 def crear_paciente(paciente: PacienteCreate, db=Depends(get_db), usuario=Depends(get_usuario_actual)):
     cur = db.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
     try:
+        # El documento entra ya con su índice ciego (que es el que garantiza que no se
+        # repita) y, en la MISMA transacción, se cifra junto con teléfono, dirección y
+        # correo: el texto en claro nunca llega a confirmarse en la base.
         cur.execute(
-            f"""INSERT INTO pacientes (nombre, documento, genero, eps,
-                                       fecha_nacimiento, telefono, tipo_sangre, alergias)
-               VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-               RETURNING {COLUMNAS_PACIENTE};""",
-            (paciente.nombre, paciente.documento, paciente.genero, paciente.eps,
-             paciente.fecha_nacimiento, paciente.telefono, paciente.tipo_sangre, paciente.alergias),
+            """INSERT INTO pacientes (nombre, documento, documento_idx, genero, eps,
+                                      fecha_nacimiento, tipo_sangre, alergias)
+               VALUES (%s, '', %s, %s, %s, %s, %s, %s)
+               RETURNING id;""",
+            (paciente.nombre, cripto.indice_ciego(paciente.documento), paciente.genero, paciente.eps,
+             paciente.fecha_nacimiento, paciente.tipo_sangre, paciente.alergias),
         )
+        nuevo_id = cur.fetchone()["id"]
+        cripto.cifrar_fila_paciente(cur, nuevo_id, {
+            "documento": cripto.normalizar_documento(paciente.documento) or paciente.documento,
+            "telefono": paciente.telefono, "direccion": paciente.direccion, "correo": paciente.correo})
+        cur.execute(f"SELECT {COLUMNAS_PACIENTE} FROM pacientes WHERE id = %s;", (nuevo_id,))
     except psycopg2.errors.UniqueViolation:
         db.rollback(); cur.close()
         raise HTTPException(status_code=409, detail="Ya existe un paciente con ese documento")
-    fila = cur.fetchone()
+    fila = cripto.descifrar_paciente(cur.fetchone())
     db.commit()
     cur.close()
 
@@ -253,7 +282,7 @@ def crear_paciente(paciente: PacienteCreate, db=Depends(get_db), usuario=Depends
     try:
         import fhir_sync
         fhir_id = fhir_sync.sincronizar_paciente(fila["id"])
-        print(f"[FHIR] Patient {fhir_id} creado para paciente {fila['id']} ({fila['documento']})")
+        print(f"[FHIR] Patient {fhir_id} creado para paciente {fila['id']}")
     except Exception as e:
         print(f"[FHIR] no se pudo sincronizar el paciente {fila['id']}: {e}")
 
@@ -270,7 +299,7 @@ def obtener_paciente_visible(db, paciente_id: int, usuario: dict) -> dict:
         raise HTTPException(status_code=403, detail=f"El rol {usuario['rol']} no tiene acceso a datos clínicos individuales")
     cur = db.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
     cur.execute(f"SELECT {COLUMNAS_PACIENTE} FROM pacientes WHERE id = %s;", (paciente_id,))
-    p = cur.fetchone()
+    p = cripto.descifrar_paciente(cur.fetchone())
     cur.close()
     visible = p is not None and (
         usuario["rol"] in ROLES_CLINICOS
@@ -358,7 +387,7 @@ def ver_imagen(instance_id: str, db=Depends(get_db),
         raise HTTPException(status_code=404, detail="Imagen no encontrada")
     documento = pacs.instance_patient_id(instance_id)
     cur = db.cursor()
-    cur.execute("SELECT id FROM pacientes WHERE documento = %s;", (documento,))
+    cur.execute("SELECT id FROM pacientes WHERE documento_idx = %s;", (cripto.indice_ciego(documento),))
     fila = cur.fetchone()
     cur.close()
     if fila is None:
@@ -394,10 +423,38 @@ class SimularObservacionIn(BaseModel):
     unidad: str = "mg/dL"
 
 
+def _validar_observacion_glucosa(obs: ObservacionFHIRIn) -> Optional[str]:
+    if obs.resourceType != "Observation":
+        return "Se esperaba un recurso Observation"
+    codigos = [(c.get("system"), c.get("code")) for c in ((obs.code or {}).get("coding") or [])]
+    if ("http://loinc.org", "2339-0") not in codigos:
+        return "La Observation debe traer el código LOINC 2339-0 (glucosa) con system http://loinc.org"
+    valor = (obs.valueQuantity or {}).get("value")
+    if not isinstance(valor, (int, float)) or isinstance(valor, bool) or not (0 < valor < 2000):
+        return "valueQuantity.value debe ser un número de glucosa válido"
+    if not ((obs.subject or {}).get("reference") or "").startswith("Patient/"):
+        return "subject.reference debe apuntar a un Patient"
+    return None
+
+
+def _auditar_webhook_rechazado(request, motivo: str) -> None:
+    """Deja el rechazo en la auditoría con la IP (origen externo). Nunca tumba la respuesta."""
+    try:
+        conn = psycopg2.connect(PG_CONNECTION_STRING, connect_timeout=5)
+        try:
+            registrar_auditoria(conn, None, "webhook_rechazado", "fhir", None,
+                                f"origen=externo ip={seguridad.ip_cliente(request)} motivo={str(motivo)[:160]}")
+        finally:
+            conn.close()
+    except Exception as e:
+        print(f"[FHIR] no se pudo auditar el rechazo del webhook: {e}")
+
+
 @app.post("/fhir/observacion", tags=["R21 FHIR reactivo"], status_code=202)
 @app.put("/fhir/observacion/Observation/{observation_id}", tags=["R21 FHIR reactivo"], status_code=202)
 async def recibir_observacion_fhir(
     observacion: ObservacionFHIRIn,
+    request: Request,
     observation_id: Optional[str] = None,
 ):
     """R21: receptor del rest-hook de HAPI FHIR para Observation de glucosa.
@@ -413,6 +470,20 @@ async def recibir_observacion_fhir(
     """
     import fhir_sync
     from eventos import publicar
+
+    # R29 · Entrada externa autenticada: solo quien conoce el secreto (HAPI FHIR lo
+    # envía en la cabecera X-Webhook-Secret de la Subscription) puede avisar. Sin
+    # cabecera: 401. Con secreto equivocado: 403. Y el recurso se valida ANTES de
+    # tocar la base: debe ser una Observation de glucosa (LOINC 2339-0) con valor numérico.
+    try:
+        seguridad.exigir_webhook(request)
+    except HTTPException as e:
+        _auditar_webhook_rechazado(request, e.detail)
+        raise
+    problema = _validar_observacion_glucosa(observacion)
+    if problema:
+        _auditar_webhook_rechazado(request, problema)
+        raise HTTPException(status_code=422, detail=problema)
 
     # 0. Idempotencia: ¿ya procesamos esta Observation?
     obs_id = observacion.id or observation_id or "desconocido"

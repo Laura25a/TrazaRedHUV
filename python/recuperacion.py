@@ -24,6 +24,7 @@ Rutas:
 import os
 
 import httpx
+import cripto
 import psycopg2
 import psycopg2.extras
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
@@ -64,8 +65,8 @@ def _paciente_de_instancia(db, instance_id: str) -> dict:
     pacs.check_instance_id(instance_id)
     documento = pacs.instance_patient_id(instance_id)
     cur = db.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-    cur.execute("SELECT id, documento FROM pacientes WHERE documento = %s;", (documento,))
-    fila = cur.fetchone()
+    cur.execute("SELECT id, documento FROM pacientes WHERE documento_idx = %s;", (cripto.indice_ciego(documento),))
+    fila = cripto.descifrar_paciente(cur.fetchone())
     cur.close()
     if fila is None:
         raise HTTPException(status_code=404, detail="Imagen no encontrada")

@@ -276,3 +276,133 @@ CREATE TABLE IF NOT EXISTS imagenes_eliminadas (
     motivo_restauracion TEXT
 );
 CREATE UNIQUE INDEX IF NOT EXISTS idx_imagen_eliminada_vigente ON imagenes_eliminadas (instance_id) WHERE vigente;
+
+-- ============================================================================
+-- PROYECTO FINAL — Seguridad con STRIDE (R25, R27, R28) · solo AGREGA
+-- ============================================================================
+-- R27 · Cifrado de campos: documento, teléfono, dirección y correo del paciente
+-- se guardan cifrados con AES-256-GCM (python/cripto.py). En la columna queda
+-- "v1.nonce.cifrado"; la llave vive en el .env. La API cifra lo que encuentre en
+-- claro cada vez que arranca (migración idempotente).
+--   documento_idx: índice ciego (HMAC del documento) para buscar y para que el
+--                  documento siga siendo único sin tenerlo en claro.
+--   id_federado:   identificador con el que otra institución nombró al paciente
+--                  cuando llegó por interoperabilidad y aún no se ha conciliado.
+ALTER TABLE pacientes ADD COLUMN IF NOT EXISTS documento_idx TEXT;
+ALTER TABLE pacientes ADD COLUMN IF NOT EXISTS direccion TEXT;
+ALTER TABLE pacientes ADD COLUMN IF NOT EXISTS correo TEXT;
+ALTER TABLE pacientes ADD COLUMN IF NOT EXISTS id_federado TEXT;
+ALTER TABLE pacientes ADD COLUMN IF NOT EXISTS por_conciliar BOOLEAN NOT NULL DEFAULT FALSE;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_pacientes_documento_idx ON pacientes (documento_idx);
+-- El cifrado de un mismo documento es distinto cada vez: la unicidad pasa al índice ciego.
+ALTER TABLE pacientes DROP CONSTRAINT IF EXISTS pacientes_documento_key;
+
+-- R28 · Auditoría a prueba de manipulación: cada registro guarda la huella del
+-- anterior y la suya (HMAC con llave del .env). GET /auditoria/verificar recorre
+-- la cadena. La API sella los registros viejos al arrancar.
+ALTER TABLE auditoria ADD COLUMN IF NOT EXISTS hash_anterior TEXT;
+ALTER TABLE auditoria ADD COLUMN IF NOT EXISTS hash TEXT;
+
+-- R25 · Incidentes de seguridad (intentos de inyección al agente, firmas inválidas,
+-- ráfagas) con el usuario y la IP que permiten identificarlos, y bloqueos temporales.
+CREATE TABLE IF NOT EXISTS incidentes_seguridad (
+    id SERIAL PRIMARY KEY,
+    tipo TEXT NOT NULL,                      -- inyeccion_directa | inyeccion_indirecta | firma_invalida | ...
+    usuario_id INTEGER REFERENCES usuarios(id),
+    ip TEXT,
+    origen TEXT,                             -- agente | rag | voz | interop | webhook_fhir
+    detalle TEXT,                            -- fragmento que disparó la regla (recortado)
+    creado_en TIMESTAMP NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_incidentes_reciente ON incidentes_seguridad (creado_en);
+
+CREATE TABLE IF NOT EXISTS bloqueos_temporales (
+    id SERIAL PRIMARY KEY,
+    tipo TEXT NOT NULL CHECK (tipo IN ('usuario','ip')),
+    valor TEXT NOT NULL,                     -- id del usuario o la IP
+    motivo TEXT NOT NULL,
+    hasta TIMESTAMP NOT NULL,
+    creado_en TIMESTAMP NOT NULL DEFAULT now(),
+    levantado_por INTEGER REFERENCES usuarios(id),
+    levantado_en TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_bloqueos_vigentes ON bloqueos_temporales (tipo, valor, hasta);
+
+-- R24 · Cada llamada del agente al LLM deja el payload seudonimizado que se envió.
+CREATE TABLE IF NOT EXISTS agente_invocaciones (
+    id SERIAL PRIMARY KEY,
+    usuario_id INTEGER REFERENCES usuarios(id),
+    rol TEXT,
+    conversacion TEXT,
+    paciente_alias TEXT,
+    modelo TEXT,
+    payload JSONB NOT NULL,
+    creado_en TIMESTAMP NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_agente_invocaciones_usuario ON agente_invocaciones (usuario_id, id);
+
+-- ============================================================================
+-- PROYECTO FINAL — Interoperabilidad entre sistemas (R29–R32) · solo AGREGA
+-- ============================================================================
+-- Cada institución socia entra con credenciales de SISTEMA (no de una persona).
+--   client_id / client_secret_hash : lo que ELLOS usan para pedirnos un token (Argon2id)
+--   secreto_firma                  : con lo que ELLOS firman cada mensaje (cifrado)
+--   url_base + *_saliente          : dónde viven ELLOS y las credenciales que NOS dieron (cifradas)
+CREATE TABLE IF NOT EXISTS sistemas_socios (
+    id SERIAL PRIMARY KEY,
+    nombre TEXT NOT NULL,
+    client_id TEXT NOT NULL UNIQUE,
+    client_secret_hash TEXT NOT NULL,
+    secreto_firma TEXT NOT NULL,
+    scopes TEXT NOT NULL DEFAULT 'system/Bundle.write system/Task.write system/Observation.write',
+    url_base TEXT,
+    cliente_saliente TEXT,
+    secreto_saliente TEXT,
+    firma_saliente TEXT,
+    activo BOOLEAN NOT NULL DEFAULT TRUE,
+    de_prueba BOOLEAN NOT NULL DEFAULT FALSE,
+    creado_por INTEGER REFERENCES usuarios(id),
+    creado_en TIMESTAMP NOT NULL DEFAULT now()
+);
+
+-- Remisiones que cruzan la frontera: de dónde vino o a quién se envió.
+ALTER TABLE remisiones ADD COLUMN IF NOT EXISTS origen_externo BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE remisiones ADD COLUMN IF NOT EXISTS socio_id INTEGER REFERENCES sistemas_socios(id);
+ALTER TABLE remisiones ADD COLUMN IF NOT EXISTS referencia_externa TEXT;   -- cómo la llama el otro sistema
+ALTER TABLE remisiones ADD COLUMN IF NOT EXISTS estado_interop TEXT;       -- enviada | recibida | respondida
+
+-- Bitácora de cada mensaje que entra o sale. (socio, dirección, mensaje_id) es
+-- único: un mensaje repetido se rechaza con 409 y no se procesa dos veces.
+CREATE TABLE IF NOT EXISTS interop_mensajes (
+    id SERIAL PRIMARY KEY,
+    socio_id INTEGER REFERENCES sistemas_socios(id),
+    direccion TEXT NOT NULL CHECK (direccion IN ('entrante','saliente')),
+    mensaje_id TEXT NOT NULL,
+    tipo TEXT NOT NULL,                       -- Bundle | Task | Observation
+    estado TEXT NOT NULL,                     -- aceptado | por_conciliar | enviado | error
+    codigo_http INTEGER,
+    remision_id INTEGER REFERENCES remisiones(id),
+    paciente_id INTEGER REFERENCES pacientes(id),
+    referencia_externa TEXT,
+    detalle TEXT,
+    recurso JSONB,                            -- lo recibido/enviado (ya minimizado: sin documento ni teléfono)
+    creado_en TIMESTAMP NOT NULL DEFAULT now(),
+    UNIQUE (socio_id, direccion, mensaje_id)
+);
+CREATE INDEX IF NOT EXISTS idx_interop_mensajes_remision ON interop_mensajes (remision_id);
+
+-- R32 · Consentimiento del paciente para compartir sus datos con otra institución
+-- (Ley 1581/2012: los datos de salud son sensibles y su transferencia exige autorización).
+CREATE TABLE IF NOT EXISTS consentimientos (
+    id SERIAL PRIMARY KEY,
+    paciente_id INTEGER NOT NULL REFERENCES pacientes(id),
+    socio_id INTEGER NOT NULL REFERENCES sistemas_socios(id),
+    finalidad TEXT NOT NULL DEFAULT 'Remisión y continuidad de la atención',
+    medio TEXT NOT NULL DEFAULT 'escrito' CHECK (medio IN ('escrito','verbal','digital')),
+    otorgado_en TIMESTAMP NOT NULL DEFAULT now(),
+    registrado_por INTEGER REFERENCES usuarios(id),
+    vigente BOOLEAN NOT NULL DEFAULT TRUE,
+    revocado_en TIMESTAMP,
+    revocado_por INTEGER REFERENCES usuarios(id)
+);
+CREATE INDEX IF NOT EXISTS idx_consentimientos_paciente ON consentimientos (paciente_id, socio_id, vigente);

@@ -28,6 +28,108 @@ def _servicio(texto: str) -> str:
     return next((nombre for raiz, nombre in SERVICIOS.items() if raiz in t), "")
 
 
+def _limpio(contenido) -> str:
+    """Quita las marcas <datos>…</datos> con las que el harness entrega cada resultado."""
+    return re.sub(r"^<datos[^>]*>\n?|\n?</datos>$", "", str(contenido or "").strip())
+
+
+# Qué signo cuenta como alterado (para nombrar solo lo que explica la conclusión)
+_SIGNOS = [
+    (r"SpO2 \(%\) ([\d.]+)", lambda v: v < 92, "SpO2 {:g} %"),
+    (r"frecuencia respiratoria \(rpm\) ([\d.]+)", lambda v: v > 22 or v < 10, "FR {:g}/min"),
+    (r"presión sistólica \(mmHg\) ([\d.]+)", lambda v: v < 90 or v > 180, "PAS {:g} mmHg"),
+    (r"frecuencia cardíaca \(lpm\) ([\d.]+)", lambda v: v > 110 or v < 50, "FC {:g} lpm"),
+    (r"temperatura \(°C\) ([\d.]+)", lambda v: v >= 38.3 or v < 36, "T {:g} °C"),
+    (r"Glasgow ([\d.]+)", lambda v: v < 15, "Glasgow {:g}"),
+]
+
+
+def _alterados(texto: str) -> list[str]:
+    fuera = []
+    for patron, es_anormal, plantilla in _SIGNOS:
+        m = re.search(patron, texto)
+        if m and es_anormal(float(m.group(1))):
+            fuera.append(plantilla.format(float(m.group(1))).replace(".", ","))
+    return fuera
+
+
+def _frase(texto: str, largo: int = 210) -> str:
+    """Primera idea completa de un fragmento, sin cortarla a media palabra."""
+    texto = " ".join(texto.split())
+    if len(texto) <= largo:
+        return texto.rstrip(".") + "."
+    corte = texto[:largo]
+    punto = max(corte.rfind(". "), corte.rfind("; "))
+    return (corte[:punto] if punto > 80 else corte[:corte.rfind(" ")]).rstrip(".,;") + "…"
+
+
+def _redactar(pregunta: str, por: dict) -> str:
+    """Respuesta corta, como la daría un colega: primero la conclusión, luego el dato
+    que la sustenta con su cita. Nada de contar qué herramientas se usaron."""
+    for texto in por.values():
+        if texto.startswith("SIN_PACIENTE"):
+            return "Primero abre un paciente (búscalo por nombre o cédula) y te respondo sobre él."
+        if texto.startswith("NO_AUTORIZADO"):
+            return "Tu rol no puede consultar esa información."
+    if "proponer_remision" in por:
+        t = por["proponer_remision"]
+        if "REMISION_CREADA" in t:
+            rad = re.search(r"radicado=(\S+)", t)
+            dest = re.search(r"destino=(.+?) prioridad=(\w+)", t)
+            return (f"Listo: quedó radicada{' ' + rad.group(1) if rad else ''}"
+                    f"{' hacia ' + dest.group(1) + ', prioridad ' + dest.group(2) if dest else ''}. "
+                    "Está en el libro como pendiente; falta confirmar el cupo por teléfono y anotarlo en la bitácora.")
+        if t.startswith("POLITICA") or t.startswith("NO_"):
+            return t.split(": ", 1)[-1]
+        return "No radiqué la remisión. Dime qué conducta prefieres y la ajusto."
+
+    partes = []
+    pred = por.get("predecir_urgencia", "")
+    nivel = re.search(r"probabilidad ([0-9.,]+) → (CRÍTICO|URGENTE|NO URGENTE)", pred)
+    cp = por.get("consultar_paciente", "")
+    alterados = _alterados(cp)
+    if nivel:
+        pct = round(float(nivel.group(1).replace(",", ".")) * 100)
+        titulo = {"CRÍTICO": "Está crítico", "URGENTE": "Es urgente", "NO URGENTE": "No se ve urgente por ahora"}[nivel.group(2)]
+        partes.append(f"{titulo}: el modelo estima {pct} % de probabilidad de urgencia."
+                      + (f" Lo que más pesa: {', '.join(alterados)}." if alterados else ""))
+    elif pred.startswith("SIN_DATOS"):
+        partes.append("No tiene signos vitales registrados, así que no puedo estimar la urgencia.")
+    elif pred.startswith("MODELO_"):
+        partes.append("El modelo de urgencia no está disponible en este momento.")
+    elif cp and not cp.startswith("NO_"):
+        quien = re.search(r": (\d+) años, sexo (\w+)", cp)
+        rem = re.search(r"Remisión actual: (.+?) → (.+?), estado (\w+)", cp)
+        partes.append((f"{quien.group(1)} años, sexo {quien.group(2)}. " if quien else "")
+                      + (f"Alterado: {', '.join(alterados)}." if alterados else "Signos vitales sin alteraciones de alarma."))
+        if rem:
+            partes.append(f"Remisión: {_frase(rem.group(1), 90).rstrip('.…')} hacia {rem.group(2)} ({rem.group(3).replace('_', ' ')}).")
+
+    guias = por.get("buscar_guias", "")
+    fuentes = re.findall(r"^\[(\d+)\] \(([^)]+)\) ([^:\n]+): (.*)$", guias, re.M)
+    if fuentes:
+        n, _, fuente, texto = fuentes[0]
+        partes.append(f"{'Conducta según' if nivel else 'Según'} {fuente.strip()}: {_frase(texto)} [{n}]")
+        if not nivel and len(fuentes) > 1:
+            n2, _, fuente2, texto2 = fuentes[1]
+            partes.append(f"Además ({fuente2.strip()}): {_frase(texto2, 150)} [{n2}]")
+    elif guias.startswith("SIN_EVIDENCIA") and not partes:
+        partes.append("No encontré soporte para eso en las guías del sistema; prefiero no inventar una respuesta.")
+
+    ips = re.findall(r"^\d+\. (.+?) — (.+)$", por.get("buscar_ips_con_convenio", ""), re.M)
+    if ips:
+        partes.append(f"Para su EPS la mejor opción es {ips[0][0]} ({ips[0][1]})."
+                      + (f" Alternativas: {', '.join(n for n, _ in ips[1:3])}." if len(ips) > 1 else ""))
+    elif por.get("buscar_ips_con_convenio", "").startswith("SIN_HISTORIAL"):
+        partes.append("No hay historial de remisiones de su EPS para sugerir una institución.")
+
+    if "guardar_preferencia" in por:
+        partes.append("Listo, lo tendré en cuenta en las próximas conversaciones.")
+    if nivel or ips:
+        partes.append("La decisión es tuya.")
+    return " ".join(partes) or "No encontré información para responder eso."
+
+
 class ModeloSimulado(BaseChatModel):
     latencia: float = 0.3          # segundos que "tarda" en pensar
     herramientas: list = []        # nombres de las herramientas que le dimos
@@ -77,10 +179,10 @@ class ModeloSimulado(BaseChatModel):
 
     @staticmethod
     def _completar_remision(pregunta: str, resultados: list) -> dict:
-        por_nombre = {m.name: str(m.content) for m in resultados}
+        por_nombre = {m.name: _limpio(m.content) for m in resultados}
         ips = re.search(r"^1\. (.+?) —", por_nombre.get("buscar_ips_con_convenio", ""), re.M)
         pred = por_nombre.get("predecir_urgencia", "")
-        prioridad = "critica" if "CRÍTICO" in pred else ("urgente" if "URGENTE" in pred else "programada")
+        prioridad = "critica" if "CRÍTICO" in pred else ("urgente" if "URGENTE" in pred and "NO URGENTE" not in pred else "programada")
         prob = re.search(r"probabilidad ([0-9.,]+)", pred)
         servicio = _servicio(pregunta) or "valoración y manejo de mayor complejidad"
         motivo = f"Requiere {servicio}"
@@ -105,40 +207,9 @@ class ModeloSimulado(BaseChatModel):
             return AIMessage(content="", tool_calls=[llamada])
         if not resultados:
             return AIMessage(content=(
-                "Puedo ayudarte con el paciente abierto: revisar sus signos, estimar su urgencia con el modelo, "
-                "buscar en las guías, sugerir instituciones con convenio con su EPS y proponer una remisión "
-                "para que tú la apruebes. ¿Qué necesitas?"))
-        por = {m.name: str(m.content) for m in resultados}
-        partes = []
-        pred = por.get("predecir_urgencia", "")
-        if pred and not pred.startswith(("SIN_", "NO_", "MODELO_")):
-            prob = re.search(r"probabilidad ([0-9.,]+) → ([A-ZÁÉÍÓÚ ]+)", pred)
-            if prob:
-                partes.append(f"Conclusión: el modelo de urgencia clasifica al paciente como {prob.group(2).strip()} "
-                              f"(probabilidad {prob.group(1)}).")
-        if "consultar_paciente" in por:
-            cp = por["consultar_paciente"]
-            if "Últimos signos vitales: " in cp:
-                signos = cp.split("Últimos signos vitales: ", 1)[1].split(". Remisión")[0].split(". Último reporte")[0]
-                partes.append("Datos del paciente: " + signos.rstrip(".") + ".")
-            else:
-                partes.append(cp[:250])
-        if "buscar_guias" in por:
-            fuentes = re.findall(r"^\[(\d+)\] \(([^)]+)\) ([^:]+): (.{0,170})", por["buscar_guias"], re.M)
-            if fuentes:
-                partes.append("Evidencia de las guías:\n" + "\n".join(f"- {t.strip()}… [{n}]" for n, _, _, t in fuentes))
-            else:
-                partes.append("Guías: no hay evidencia suficiente en las fuentes del sistema.")
-        if "buscar_ips_con_convenio" in por:
-            partes.append("Instituciones sugeridas:\n" + "\n".join(por["buscar_ips_con_convenio"].splitlines()[1:4]))
-        if "proponer_remision" in por:
-            texto = por["proponer_remision"]
-            partes.append(("Decisión del clínico: " if "REMISION_CREADA" not in texto else "Resultado: ") + texto[:300])
-        if "guardar_preferencia" in por:
-            partes.append("Listo, guardé tu preferencia para las próximas conversaciones.")
-        if any(k in por for k in ("predecir_urgencia", "buscar_guias")):
-            partes.append("Sugerencia para revisión del clínico: la decisión final es tuya.")
-        return AIMessage(content="[modelo simulado]\n" + "\n\n".join(partes))
+                "Puedo decirte qué tan grave está el paciente abierto, qué dicen las guías, a qué institución "
+                "conviene remitirlo según su EPS y dejarte lista la remisión para que la apruebes. ¿Qué necesitas?"))
+        return AIMessage(content=_redactar(pregunta, {m.name: _limpio(m.content) for m in resultados}))
 
     def _generate(self, messages, stop=None, run_manager=None, **kwargs):
         time.sleep(self.latencia)

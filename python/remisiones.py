@@ -13,6 +13,7 @@ import json
 from datetime import date, datetime
 from typing import List, Optional
 
+import cripto
 import psycopg2
 import psycopg2.extras
 from bson import ObjectId
@@ -123,7 +124,7 @@ def listar_remisiones(
     cur.execute(sql, tuple(valores))
     filas = cur.fetchall()
     cur.close()
-    return filas
+    return cripto.descifrar_pacientes(filas, "paciente_id", "paciente_")     # R27
 
 
 @router.get("/remisiones/{remision_id}")
@@ -152,7 +153,7 @@ def obtener_remision(remision_id: int, db=Depends(get_db), usuario=Depends(get_u
            WHERE r.id = %s AND (r.activo = TRUE OR %s);""",
         (remision_id, usuario["rol"] == "admin"),
     )
-    fila = cur.fetchone()
+    fila = cripto.descifrar_paciente(cur.fetchone(), "paciente_id", "paciente_")
     cur.close()
     if fila is None:
         raise HTTPException(status_code=404, detail="Remisión no encontrada")
@@ -423,7 +424,7 @@ def remitir(body: RemitirIn, db=Depends(get_db), usuario=Depends(get_usuario_act
 
     # Validar paciente
     cur.execute("SELECT id, nombre, documento FROM pacientes WHERE id = %s;", (body.paciente_id,))
-    paciente = cur.fetchone()
+    paciente = cripto.descifrar_paciente(cur.fetchone())
     if paciente is None:
         cur.close()
         raise HTTPException(404, "Paciente no encontrado")
@@ -562,7 +563,7 @@ def bandeja_especialista(estado: Optional[str] = None,
         params.append(estado)
     sql += " ORDER BY r.created_at DESC;"
     cur.execute(sql, tuple(params))
-    filas = cur.fetchall()
+    filas = cripto.descifrar_pacientes(cur.fetchall(), "paciente_id", "paciente_")
     cur.close()
     return filas
 

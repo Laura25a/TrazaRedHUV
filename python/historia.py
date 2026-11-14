@@ -6,6 +6,7 @@ de IA aprobados. Solo admin, médico y especialista pueden descargarla.
 """
 import io
 
+import cripto
 import psycopg2.extras
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
@@ -130,7 +131,7 @@ def historia_json(paciente_id: int, db=Depends(get_db),
             """SELECT id, nombre, documento, genero, eps, fecha_nacimiento,
                       telefono, tipo_sangre, alergias
                FROM pacientes WHERE id = %s;""", (paciente_id,))
-        paciente = cur.fetchone()
+        paciente = cripto.descifrar_paciente(cur.fetchone())
         if paciente is None:
             raise HTTPException(status_code=404, detail="Paciente no encontrado")
 
@@ -161,7 +162,7 @@ def historia_pdf(paciente_id: int, db=Depends(get_db),
         """SELECT id, nombre, documento, genero, eps, fecha_nacimiento,
                   telefono, tipo_sangre, alergias
            FROM pacientes WHERE id = %s;""", (paciente_id,))
-    paciente = cur.fetchone()
+    paciente = cripto.descifrar_paciente(cur.fetchone())
     if paciente is None:
         cur.close()
         raise HTTPException(status_code=404, detail="Paciente no encontrado")

@@ -53,7 +53,7 @@ DEPENDENCIAS = [
     ("uvicorn", "uvicorn"),
     ("multipart", "python-multipart"),
     ("jose", "python-jose[cryptography]"),
-    ("passlib", "passlib[bcrypt]"),
+    ("pwdlib", "pwdlib[argon2,bcrypt]"),   # proyecto final: contraseñas con Argon2id
     ("httpx", "httpx"),        # semana 8: cliente del PACS (pacs.py)
     ("PIL", "Pillow"),         # semana 8: validación de imágenes subidas
 ]

@@ -22,6 +22,7 @@ import re
 import unicodedata
 
 import httpx
+import cripto
 import psycopg2.extras
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel, Field
@@ -172,9 +173,9 @@ class Transcripcion(BaseModel):
 @router.post("/bitacora/voz/extraer")
 def extraer(body: Transcripcion, db=Depends(get_db), usuario=Depends(requiere_rol("admin", "medico"))):
     cur = db.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-    cur.execute("""SELECT r.id, r.institucion_destino, p.nombre, p.documento, p.telefono
+    cur.execute("""SELECT r.id, r.paciente_id, r.institucion_destino, p.nombre, p.documento, p.telefono
                    FROM remisiones r JOIN pacientes p ON p.id = r.paciente_id WHERE r.id = %s;""", (body.remision_id,))
-    rem = cur.fetchone()
+    rem = cripto.descifrar_paciente(cur.fetchone(), "paciente_id")
     cur.close()
     if rem is None:
         raise HTTPException(404, "Remisión no encontrada")
