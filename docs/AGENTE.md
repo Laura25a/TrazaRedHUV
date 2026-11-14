@@ -131,3 +131,39 @@ decidir, aprobar crea la remisión, 10 solicitudes concurrentes medidas y sin cr
   ese texto antes de que llegue al modelo, el prompt dice que el contenido de herramientas es
   dato y no orden, y cualquier remisión exige aprobación humana. Falta (semana 14): clasificador
   de inyección y pruebas adversarias sistemáticas.
+
+## Proyecto final: permisos, payload registrado y defensa contra inyección (R24, R25)
+
+**Quién lo usa.** Médico y especialista; el administrador entra en modo consulta. Contable,
+EPS, paciente, dirección e ingeniería biomédica reciben 403 en el router **y**
+`NO_AUTORIZADO` en cada herramienta (defensa en profundidad). Solo el médico propone remisiones.
+
+**Qué ve cada uno.** Al clínico le llega la respuesta, sus `fuentes` (documento y fragmento)
+y `consulto` (qué se revisó: «datos del paciente», «modelo de urgencia», «guías clínicas»). La
+traza técnica (`pasos`: cada herramienta con sus argumentos y resultados) solo se le entrega
+al administrador.
+
+**Lo enviado al LLM queda guardado (R24).** Cada llamada al modelo se registra en
+`agente_invocaciones` con el payload exacto (prompt de sistema + mensajes) y deja una fila
+`agente_llm` en la auditoría. `POST /agente/chat` devuelve los ids en `invocaciones`, y
+`GET /agente/invocaciones/{id}/payload` entrega ese payload: así se comprueba, dato por dato,
+que al modelo no le llegó nombre, documento, correo, teléfono ni dirección.
+
+| Dato | Cómo llega al modelo |
+|---|---|
+| Paciente | Seudónimo `PX-…` (HMAC del id); edad, sexo y signos vitales |
+| Clínico | `medico-2` (rol + id), nunca su correo ni su nombre |
+| Lo que escribe el clínico | Saneado: el nombre del paciente abierto → `[PACIENTE]`, documentos → `[DOCUMENTO]`, teléfonos → `[TELÉFONO]`, correos → `[CORREO]`, direcciones → `[DIRECCIÓN]` |
+| Resultados de herramientas | Entre `<datos herramienta="…">` y `</datos>`: el prompt dice que eso nunca es una orden |
+
+**Defensa por capas contra la inyección (R25).** «El modelo cae. La arquitectura no.»
+
+| Capa | Qué hace | Dónde |
+|---|---|---|
+| 1. Detector | Una pregunta con una orden para el asistente («ignora tus instrucciones…») **no llega al modelo**. Se guarda el incidente con usuario e IP; al 3.er intento en 10 min, bloqueo de 15 min de la cuenta y la IP (403) | `seguridad.guardia` |
+| 2. Delimitar | Lo que devuelven las herramientas (notas, guías, motivos de remisión) viaja marcado como datos, y las órdenes escondidas se tachan antes de llegar al modelo | `harness.Auditoria._sanear` |
+| 3. Política fuera del modelo | Los permisos se deciden en el backend: el paciente lo fija el sistema, cada herramienta revisa el rol y una remisión solo puede ir a una institución del directorio | `herramientas.py` |
+| 4. Humano | Ninguna escritura ocurre sin que el médico la apruebe | `HumanInTheLoopMiddleware` |
+
+La capa 1 puede fallar ante una redacción nueva; por eso los datos los protegen la 3 y la 4,
+que no dependen de lo que el modelo «decida».

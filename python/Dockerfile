@@ -20,6 +20,9 @@ COPY frontend/ ./frontend/
 COPY data/ ./data/
 # 4) Esquema de la base: la API lo aplica en cada arranque (es idempotente)
 COPY db/ ./db/
+# 5) Baterías de prueba, para correrlas dentro del contenedor:
+#      docker compose exec api python /app/pruebas/probar_final.py
+COPY pruebas/*.py ./pruebas/
 
 WORKDIR /app/python
 EXPOSE 8000

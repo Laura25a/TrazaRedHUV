@@ -227,7 +227,7 @@ COLUMNAS_USUARIO = "id, nombre, correo, rol, activo, paciente_id, eps_nombre, in
 # ese usuario entra bien, verify_and_update devuelve el hash nuevo y se guarda.
 _hasher = PasswordHash((Argon2Hasher(), BcryptHasher()))
 ALGORITHM = "HS256"                       # un único algoritmo aceptado (nunca "none")
-ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("JWT_MINUTOS", "30"))   # el token vence en minutos
+ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("JWT_MINUTOS") or "30")   # el token vence en minutos
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
 
 

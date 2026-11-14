@@ -118,19 +118,48 @@ def cifrar(texto, aad: str) -> str | None:
     return f"v{v}.{_b64(nonce)}.{_b64(cifrado)}"
 
 
+def _abrir(valor: str, aad: str, llave: bytes) -> str:
+    _, nonce, cifrado = valor.split(".")
+    return AESGCM(llave).decrypt(_desb64(nonce), _desb64(cifrado), aad.encode()).decode()
+
+
+def _llave_derivada_v1() -> bytes:
+    """La v1 que se usó mientras LLAVE_CIFRADO no estaba definida (derivada de SECRET_KEY)."""
+    return hmac.new(_semilla(), b"trazared:cifrado-campos-v1", hashlib.sha256).digest()
+
+
 def descifrar(valor, aad: str):
     """Devuelve el texto. Un valor que no está cifrado (dato viejo) se devuelve igual.
     Si el valor fue alterado o pertenece a otra fila, lanza ValueError."""
     if not esta_cifrado(valor):
         return valor
-    version, nonce, cifrado = valor.split(".")
-    llave = _llaves_cifrado().get(int(version[1:]))
+    version = int(valor.split(".")[0][1:])
+    llave = _llaves_cifrado().get(version)
     if llave is None:
-        raise ValueError(f"No hay llave para la versión {version}")
+        raise ValueError(f"No hay llave para la versión v{version}")
     try:
-        return AESGCM(llave).decrypt(_desb64(nonce), _desb64(cifrado), aad.encode()).decode()
+        return _abrir(valor, aad, llave)
     except InvalidTag:
+        # Si el equipo definió LLAVE_CIFRADO después de haber cifrado con la llave derivada
+        # de SECRET_KEY, lo viejo todavía se puede leer (y la migración lo vuelve a cifrar).
+        if version == 1 and os.getenv("LLAVE_CIFRADO"):
+            try:
+                return _abrir(valor, aad, _llave_derivada_v1())
+            except InvalidTag:
+                pass
         raise ValueError("El dato cifrado fue alterado o no pertenece a este registro")
+
+
+def _con_llave_vigente(valor, aad: str) -> bool:
+    """¿Este valor ya está cifrado con la versión Y la llave vigentes?"""
+    v = version_vigente()
+    if version_de(valor) != v:
+        return False
+    try:
+        _abrir(valor, aad, _llaves_cifrado()[v])
+        return True
+    except InvalidTag:
+        return False
 
 
 def aad_paciente(paciente_id: int, campo: str) -> str:
@@ -188,42 +217,45 @@ def cifrar_fila_paciente(cur, paciente_id: int, datos: dict) -> None:
 
 
 def cifrar_pendientes(conn) -> dict:
-    """Migración idempotente: cifra lo que aún esté en claro y vuelve a cifrar lo que
-    esté en una versión de llave anterior. Se corre al arrancar la API (auth.migrar_base)
-    y al terminar de cargar el dataset. No confirma: lo hace quien llama."""
+    """Migración idempotente: cifra lo que aún esté en claro, vuelve a cifrar lo que esté
+    con una llave anterior y corrige el índice ciego si cambió su llave. Se corre al
+    arrancar la API (auth.migrar_base) y al terminar de cargar el dataset.
+    No confirma: lo hace quien llama."""
     vigente = version_vigente()
     cur = conn.cursor()
     cur.execute("SELECT id, documento, telefono, direccion, correo, documento_idx FROM pacientes ORDER BY id;")
     cifrados = recifrados = 0
     for pid, documento, telefono, direccion, correo, idx in cur.fetchall():
         actual = {"documento": documento, "telefono": telefono, "direccion": direccion, "correo": correo}
-        cambios, valores, toca_claro, toca_version = [], [], False, False
-        claro = {}
+        cambios, valores, toca_claro, toca_llave = [], [], False, False
+        doc_claro = None
         for campo, valor in actual.items():
             if valor in (None, ""):
                 continue
+            aad = aad_paciente(pid, campo)
             if not esta_cifrado(valor):
-                claro[campo] = valor
-                toca_claro = True
-            elif version_de(valor) != vigente:
-                claro[campo] = descifrar(valor, aad_paciente(pid, campo))
-                toca_version = True
+                claro, toca_claro = valor, True
+            elif not _con_llave_vigente(valor, aad):
+                claro, toca_llave = descifrar(valor, aad), True
             else:
+                if campo == "documento":
+                    doc_claro = descifrar(valor, aad)
                 continue
-            nuevo = cifrar(claro[campo], aad_paciente(pid, campo))
+            if campo == "documento":
+                doc_claro = claro
+            nuevo = cifrar(claro, aad)
             # Se comprueba ANTES de escribir que lo cifrado vuelve a dar el original
-            if descifrar(nuevo, aad_paciente(pid, campo)) != str(claro[campo]):
+            if descifrar(nuevo, aad) != str(claro):
                 raise RuntimeError(f"El cifrado del paciente {pid} ({campo}) no se pudo verificar")
             cambios.append(f"{campo} = %s")
             valores.append(nuevo)
-        if idx is None and documento:
-            doc_claro = claro.get("documento") or descifrar(documento, aad_paciente(pid, "documento"))
+        if doc_claro and indice_ciego(doc_claro) != idx:
             cambios.append("documento_idx = %s")
             valores.append(indice_ciego(doc_claro))
         if cambios:
             cur.execute(f"UPDATE pacientes SET {', '.join(cambios)} WHERE id = %s;", (*valores, pid))
             cifrados += toca_claro
-            recifrados += toca_version and not toca_claro
+            recifrados += toca_llave and not toca_claro
     cur.close()
     return {"cifrados": cifrados, "recifrados": recifrados, "version": vigente}
 

@@ -56,15 +56,15 @@ from auth import (PG_CONNECTION_STRING, ROLES_CLINICOS, get_db, get_usuario_actu
 
 router = APIRouter(tags=["Interoperabilidad entre sistemas"])
 
-INSTITUCION = os.getenv("INSTITUCION_NOMBRE", "Hospital Universitario del Valle")
+INSTITUCION = (os.getenv("INSTITUCION_NOMBRE") or "Hospital Universitario del Valle")
 # Secreto con el que las instituciones del acuerdo calculan el identificador federado.
 # El valor por defecto es el de la demo de clase: se cambia en el .env de ambos equipos.
-SECRETO_FEDERADO = os.getenv("SECRETO_FEDERADO", "secreto-federado-del-curso-solo-demo")
-SID_FEDERADO = os.getenv("SID_FEDERADO", cripto.SID_FEDERADO)
+SECRETO_FEDERADO = (os.getenv("SECRETO_FEDERADO") or "secreto-federado-del-curso-solo-demo")
+SID_FEDERADO = os.getenv("SID_FEDERADO") or cripto.SID_FEDERADO
 SID_REMISION = "urn:trazared:remision"
-URL_LOCAL = os.getenv("INTEROP_URL_LOCAL", "http://127.0.0.1:8000")     # para el socio de prueba (bucle local)
+URL_LOCAL = (os.getenv("INTEROP_URL_LOCAL") or "http://127.0.0.1:8000")     # para el socio de prueba (bucle local)
 MINUTOS_TOKEN_SISTEMA = 10
-TOLERANCIA_S = int(os.getenv("INTEROP_TOLERANCIA_S", "300"))             # reloj del emisor: ±5 min
+TOLERANCIA_S = int(os.getenv("INTEROP_TOLERANCIA_S") or "300")             # reloj del emisor: ±5 min
 SCOPES = ("system/Bundle.write", "system/Task.write", "system/Observation.write")
 SCOPE_DE = {"Bundle": SCOPES[0], "Task": SCOPES[1], "Observation": SCOPES[2]}
 

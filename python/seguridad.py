@@ -47,12 +47,12 @@ def ip_cliente(request: Request) -> str:
 #   general  todo lo demás              → por IP      (nginx ya limita a 10 r/s)
 # Las de IA van por usuario y no por IP porque en un hospital muchos médicos salen
 # a internet por la misma IP: uno que abusa no debe dejar sin asistente a los demás.
-VENTANA_S = float(os.getenv("LIMITE_VENTANA_S", "10"))
-LIMITE_SENSIBLE = int(os.getenv("LIMITE_SENSIBLE", "10"))     # intentos fallidos de login o de token de sistema
-LIMITE_SOCIO = int(os.getenv("LIMITE_SOCIO", "30"))           # mensajes del sistema socio
-LIMITE_IA = int(os.getenv("LIMITE_IA", "20"))                 # preguntas al asistente, por usuario
-LIMITE_GENERAL = int(os.getenv("LIMITE_GENERAL", "300"))
-MAX_CUERPO_INTEROP = int(os.getenv("MAX_CUERPO_INTEROP", str(512 * 1024)))   # 512 KB por mensaje del socio
+VENTANA_S = float(os.getenv("LIMITE_VENTANA_S") or "10")
+LIMITE_SENSIBLE = int(os.getenv("LIMITE_SENSIBLE") or "10")     # intentos fallidos de login o de token de sistema
+LIMITE_SOCIO = int(os.getenv("LIMITE_SOCIO") or "30")           # mensajes del sistema socio
+LIMITE_IA = int(os.getenv("LIMITE_IA") or "20")                 # preguntas al asistente, por usuario
+LIMITE_GENERAL = int(os.getenv("LIMITE_GENERAL") or "300")
+MAX_CUERPO_INTEROP = int(os.getenv("MAX_CUERPO_INTEROP") or str(512 * 1024))   # 512 KB por mensaje del socio
 _CUBETAS = [
     ("acceso", re.compile(r"^/(login|oauth/token)$"), LIMITE_SENSIBLE),
     ("socio", re.compile(r"^/interop/(Bundle|Task|Observation)$"), LIMITE_SOCIO),
@@ -154,9 +154,9 @@ PATRON_INYECCION = re.compile(
     r"|importante\s+para\s+el\s+asistente|nota\s+para\s+(la\s+ia|el\s+modelo|el\s+asistente)",
     re.IGNORECASE)
 
-GUARDIA_MAX = int(os.getenv("GUARDIA_MAX_INTENTOS", "3"))          # intentos antes del bloqueo
-GUARDIA_VENTANA_MIN = int(os.getenv("GUARDIA_VENTANA_MIN", "10"))  # ... dentro de estos minutos
-GUARDIA_BLOQUEO_MIN = int(os.getenv("GUARDIA_BLOQUEO_MIN", "15"))  # cuánto dura el bloqueo
+GUARDIA_MAX = int(os.getenv("GUARDIA_MAX_INTENTOS") or "3")          # intentos antes del bloqueo
+GUARDIA_VENTANA_MIN = int(os.getenv("GUARDIA_VENTANA_MIN") or "10")  # ... dentro de estos minutos
+GUARDIA_BLOQUEO_MIN = int(os.getenv("GUARDIA_BLOQUEO_MIN") or "15")  # cuánto dura el bloqueo
 RESPUESTA_GUARDIA = ("Ese mensaje contiene una instrucción que intenta cambiar mis reglas o pedir datos "
                      "que no corresponden. No la ejecuté. El intento quedó registrado en la auditoría.")
 

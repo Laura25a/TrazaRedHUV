@@ -182,3 +182,44 @@ Con 0.9 la alerta salta en 1 de cada 8 pacientes y es más del doble de selectiv
 - Con k = 4 los grupos son poco separados (silueta de 0.122) y uno de ellos es pequeño (32 pacientes): los grupos orientan, no deciden.
 
 **Cómo se usa en el sistema.** La API es la única que habla con el servicio de IA. Antes de llamarlo, una capa quita nombre, documento, correo, teléfono y dirección: al modelo solo le llegan las variables clínicas y un identificador seudónimo, derivado del paciente con una clave secreta (HMAC) y que no se puede deshacer. El payload exacto que se envió queda guardado y se consulta en `GET /ia/reportes/{id}/payload`. Cada análisis crea un reporte en estado `pendiente`, que un médico o especialista aprueba o rechaza; solo los aprobados llegan a la historia clínica, y los rechazados se conservan como evidencia. Un admin puede ver la versión y las métricas del modelo (`GET /modelo`) y reentrenarlo (`POST /entrenar`). El modelo se guarda con la versión 1.1 desde el cuaderno; al reentrenarlo desde el servicio la numeración pasa a 2.x.
+
+## Corpus
+
+Base documental del **agente clínico y el RAG** (R23). El asistente solo afirma lo que puede
+citar de aquí: cada respuesta trae el documento y el fragmento usados, y si no encuentra
+soporte lo dice en vez de inventar.
+
+- **Ubicación:** `docs/RAG/corpus/` (un `.md` por documento) → fragmentado en
+  `python/rag/fragmentos.json` (40 fragmentos). Detalle del procesamiento y la evaluación:
+  [`RAG.md`](RAG.md) y [`RAG_evaluacion.md`](RAG_evaluacion.md).
+- **Origen:** guías **docentes** redactadas por el equipo para el curso a partir de normas
+  colombianas vigentes y de escalas clínicas de uso público. No son copia de guías con derechos
+  reservados ni reemplazan los protocolos oficiales del HUV.
+- **Sin datos personales:** ningún documento del corpus contiene nombre, documento, teléfono,
+  correo ni dirección. La historia del paciente usa el seudónimo `PX-…` (R12).
+
+| Id | Documento | Tipo | Por qué es pertinente para la remisión de pacientes |
+|---|---|---|---|
+| G01 | Historia clínica · Resolución 1995 de 1999 | guía | Qué se registra y por qué no se borra |
+| G02 | Remisión y contrarreferencia | guía | Requisitos y pasos de una remisión |
+| G03 | Traslados interinstitucionales y CRU | guía | Cómo se coordina el traslado |
+| G04 | EPS e IPS en la remisión | guía | Quién autoriza y quién recibe |
+| G05 | Estados y trazabilidad de la remisión | guía | Los estados del libro de radicación |
+| G06 | Urgencias saturadas y remisión oportuna | guía | Cuándo remitir por capacidad |
+| G07 | Seguridad del acceso y del transporte de datos | guía | Reglas de acceso y transporte |
+| G08 | Portal del paciente y Ley 1581 de 2012 | guía | Derechos del paciente sobre sus datos |
+| G09 | Triage de urgencias en cinco niveles | guía | Prioridad de atención |
+| G10 | Sepsis, qSOFA y shock | guía | Criterios de gravedad y de remisión urgente |
+| G11 | Síndrome coronario agudo | guía | Cuándo remitir a hemodinamia |
+| G12 | Evento cerebrovascular y ventana trombolítica | guía | Tiempos que obligan a remitir |
+| G13 | Deterioro respiratorio y escala NEWS2 | guía | Signos de alarma y UCI |
+| G14 | Hipoglucemia y regla 15-15 | guía | Conducta ante glucosa baja (enlaza con R21) |
+| N01 | Regla de datos para los modelos de IA | norma | Qué puede y qué no puede viajar a un modelo |
+| H01–H05 | Historia de ejemplo de dos pacientes (seudónimos) | historia | Probar que solo entra la historia **aprobada** del paciente abierto |
+
+**Historia aprobada en vivo.** Además del corpus fijo, en cada consulta se leen de la base los
+reportes de IA **aprobados** del paciente abierto (`rag.motor.historia_aprobada`) y se filtran
+**antes** de rankear: uno pendiente, uno rechazado o el de otro paciente nunca son fuente.
+
+**Defensa del corpus (R25).** Un documento es un dato, no una orden: si un fragmento trae algo
+como «ignora tus instrucciones», se tacha antes de llegar al modelo y queda el incidente.

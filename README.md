@@ -124,7 +124,17 @@ No hay registro público: solo el administrador crea cuentas y asigna roles.
   hasta que el administrador la desbloquea, y el administrador recibe el aviso en vivo.
 - **Sesión obligatoria** en todas las rutas de datos (token JWT) y control de acceso por
   rol: lo que no le corresponde a un rol, se niega.
-- **Contraseñas cifradas** con bcrypt.
+- **Contraseñas con Argon2id** (lento y costoso en memoria a propósito). Las que estaban en
+  bcrypt se migran solas la primera vez que su dueño inicia sesión.
+- **Datos personales cifrados en la base:** documento, teléfono, dirección y correo del
+  paciente se guardan con AES-256-GCM; la llave vive en el `.env`. Se busca por documento con
+  un índice ciego, sin descifrar.
+- **Auditoría encadenada:** cada registro guarda la huella del anterior; el administrador
+  puede verificar en cualquier momento si alguien editó o borró un registro.
+- **Guardia del asistente:** un texto que intenta darle órdenes al asistente no llega al
+  modelo, queda registrado con usuario e IP y, si se insiste, bloquea la cuenta 15 minutos.
+- **Modelo de amenazas STRIDE:** cada control responde a una amenaza, con su evidencia y su
+  riesgo residual, en [`docs/STRIDE.md`](docs/STRIDE.md).
 - **Bitácora inalterable:** la API rechaza (409) cualquier intento de modificar o quitar un
   contacto ya anotado; cada gestión queda firmada con usuario y hora.
 - **Protecciones web:** CORS cerrado al dominio propio, cabeceras de seguridad y límite de
@@ -282,6 +292,7 @@ desde su formato. El mapeo campo por campo está en
 | Ley 2015 de 2020 (historia clínica electrónica interoperable) | Historia clínica que se pueda intercambiar entre prestadores | Servidor FHIR R4 con LOINC y SNOMED, Bundle FHIR por remisión, historia clínica en PDF |
 | Resolución 866 de 2021 | Datos clínicos mínimos para la interoperabilidad | Recursos `Patient`, `Encounter`, `Observation`, `ServiceRequest` y `Communication` codificados |
 | Resolución 1995 de 1999 (historia clínica) | Confidencialidad, integridad y custodia; los registros no se destruyen | Bitácora inalterable, anulación lógica con restauración, historial de correcciones, reportes rechazados conservados |
+| Ley 1273 de 2009 (delitos informáticos) | Protege contra el acceso abusivo y la violación de datos personales (arts. 269A y 269F) | Bloqueo de cuenta, límite de intentos, incidentes con usuario e IP, bloqueo temporal |
 | Resolución 3100 de 2019 (habilitación) | Registros y procesos de atención trazables | Libro de radicación con recorrido completo de cada remisión y registro de quién hizo qué y cuándo |
 
 ## Estructura del repositorio
@@ -444,7 +455,73 @@ Variables nuevas (opcionales): `GROQ_API_KEY`, `MODELO_GROQ`, `LLAVE_SEUDONIMO`,
 `AGENTE_TIMEOUT_S`, `AGENTE_MAX_SIMULTANEAS` y `DEMO_DIRECTOR_PASSWORD` (usuario
 `director@huv.gov.co`). Prueba: `python pruebas/probar_agente.py`.
 
+## Proyecto final: seguridad con STRIDE e interoperabilidad entre sistemas
+
+El sistema del Corte 2 reaccionaba dentro de sí mismo. Ahora **conversa con otra institución
+de forma segura**, con un modelo de amenazas que justifica cada control (R23 a R34).
+
+### Intercambio con la institución socia
+
+Cada equipo es una institución. El médico de una remite un paciente al especialista de la
+otra; la información viaja en FHIR, de API a API.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant M as Médico (HUV)
+    participant A as TrazaRed HUV
+    participant B as Sistema socio
+    participant E as Especialista (socio)
+    M->>A: Remitir a institución socia
+    A->>A: ¿Consentimiento del paciente? Si no: 403
+    A->>B: POST /oauth/token (credenciales de sistema)
+    B-->>A: JWT de sistema (10 min)
+    A->>B: POST /interop/Bundle · Bearer + firma HMAC + FHIR
+    B-->>A: 201 asociado · 202 por conciliar · 401/403/409/422
+    B-->>E: aviso en vivo + bandeja + contador
+    E->>B: Acepta o rechaza
+    B->>A: POST /interop/Task · Bearer + firma HMAC
+    A-->>M: aviso en vivo con la respuesta
+    Note over A,B: Ambos lados auditan con origen=externo
+```
+
+| Requisito | Qué hace TrazaRed | Dónde |
+|---|---|---|
+| **R23** Agente RAG con fuentes | Cada respuesta cita documento y fragmento; sin soporte, lo dice | `python/rag/`, `docs/DATASETS.md` § Corpus |
+| **R24** Herramientas por rol | El paciente lo fija el sistema, cada herramienta revisa el rol y **cada payload enviado al LLM queda guardado** para comprobar que no lleva datos personales | `python/agente/`, Seguridad › *Lo enviado al LLM* |
+| **R25** Prompt injection | Detector + datos delimitados + política fuera del modelo + aprobación humana; incidente con usuario e IP y bloqueo temporal | `python/seguridad.py` |
+| **R26** Modelo STRIDE | Diagrama de flujo de datos con fronteras de confianza y 32 amenazas con control, evidencia, riesgo residual y norma | [`docs/STRIDE.md`](docs/STRIDE.md) |
+| **R27** Cifrado de campos | AES-256-GCM de documento, teléfono, dirección y correo, atado a cada paciente; índice ciego para buscar | `python/cripto.py` |
+| **R28** Auditoría encadenada | Huella HMAC encadenada y `GET /auditoria/verificar` (solo admin) | `python/auth.py` |
+| **R29** Entradas autenticadas | Webhook FHIR con `X-Webhook-Secret`; sistema socio con token y firma en cada mensaje | `python/seguridad.py`, `python/interop.py` |
+| **R30** Remisiones FHIR | Envía y recibe `Bundle` (Patient, ServiceRequest, Observation, DiagnosticReport aprobado, Consent) y responde con `Task`; lo inválido se rechaza con `OperationOutcome` sin dejar nada a medias | `python/interop.py` |
+| **R31** Autenticación entre sistemas | OAuth2 *client credentials* por institución; ese token solo abre `/interop/*` | `POST /oauth/token` |
+| **R32** Consentimiento y minimización | Sin consentimiento del paciente para esa institución no sale nada; el Bundle no lleva documento ni teléfono (identificador federado) | Formato › *Remitir a institución socia* |
+| **R33** Demostración cruzada | Ida y vuelta entre las dos URL públicas, sin recargar, con la auditoría de ambos lados | [`docs/INTEROP.md`](docs/INTEROP.md) § 9 |
+
+**Pantallas nuevas.** *Interoperabilidad* (médico, especialista, admin): remisiones recibidas
+y enviadas; el admin además registra las instituciones socias y ve la bitácora de mensajes.
+*Seguridad* (admin): cifrado, cadena de auditoría, contraseñas, incidentes, bloqueos, límites y
+todo lo que se le envió al LLM.
+
+**Probarlo todo** (48 comprobaciones; usa un socio de prueba que es este mismo sistema):
+
+```bash
+cd docker
+docker compose up -d --build api
+docker compose exec api python /app/pruebas/probar_final.py
+```
+
+**Variables nuevas** (todas opcionales; ver [`.env.example`](.env.example)): `LLAVE_CIFRADO`,
+`LLAVE_INDICE`, `LLAVE_AUDITORIA`, `FHIR_WEBHOOK_SECRET`, `SECRETO_FEDERADO`,
+`INSTITUCION_NOMBRE`. Si no se definen, las llaves se derivan de `SECRET_KEY`.
+
 ## Documentación
+
+- [`docs/STRIDE.md`](docs/STRIDE.md): modelo de amenazas, fronteras de confianza, controles,
+  riesgo residual y mapa normativo (R26).
+- [`docs/INTEROP.md`](docs/INTEROP.md): contrato con la institución socia: token, firma,
+  perfil FHIR, códigos de respuesta, consentimiento y demostración cruzada (R30–R33).
 
 - [`docs/REDISENO_REGISTRO.md`](docs/REDISENO_REGISTRO.md): libro de radicación, formato,
   descargas, IA de remisiones, contabilidad por radicado y cómo probarlo.
@@ -455,15 +532,29 @@ Variables nuevas (opcionales): `GROQ_API_KEY`, `MODELO_GROQ`, `LLAVE_SEUDONIMO`,
 - [`docs/EVENTOS.md`](docs/EVENTOS.md): eventos, flujos automáticos y alertas.
 - [`docs/CONTABILIDAD.md`](docs/CONTABILIDAD.md): estructura de las facturas.
 - [`docs/README.md`](docs/README.md): dataset de las 600 remisiones.
-- [`documentacion_mapeo_roles.md`](documentacion_mapeo_roles.md): mapeo a FHIR y roles.
+- [`documentacion_mapeo_roles.md`](documentacion_mapeo_roles.md): mapeo a FHIR, roles y mapa
+  de requisitos a leyes (R01–R33).
 - `docs/TrazaRed_HUV.pdf`: documento del proyecto.
 
 ## Traza: asistente flotante con voz
 
-Botón con carita en la esquina inferior derecha de todas las pantallas (`frontend/js/burbuja.js`, `frontend/css/burbuja.css`). Se le escribe o se le habla (micrófono: Chrome o Edge) y responde en voz alta:
+Botón con carita en la esquina inferior derecha de todas las pantallas
+(`frontend/js/burbuja.js`). Se le escribe o se le habla (micrófono: Chrome o Edge), como a un
+colega, y **responde corto o te lleva al lugar**:
 
-- **"¿Dónde está la paciente Marleny Balanta?"** o **"busca la cédula 1175373460"** → encuentra al paciente (sin importar tildes) y te lleva a la ficha de su última remisión; si hay varios, muestra tarjetas para elegir con un clic.
-- **"Abre la remisión 45"**, **"llévame a instituciones"**, **"¿cuántas remisiones pendientes hay?"**.
-- Cualquier otra pregunta ("¿qué tan grave está este paciente?") la responde el agente clínico con el paciente en contexto; si propone una remisión, lleva al Asistente clínico para aprobarla.
+| Le dices | Hace |
+|---|---|
+| «¿Cómo va Marleny Balanta?» · «busca la cédula 1175373460» | Abre su ficha y resume lo que importa: diagnóstico, estado, signos alterados, alergias y último contacto |
+| «¿Qué tengo pendiente?» · «alertas» · «remisiones en riesgo» · «las de hoy» | Cuenta y lista; un toque te lleva |
+| «¿Qué tan grave está?» · «¿a dónde lo remito?» | Pregunta al agente clínico con el paciente en contexto |
+| «Criterios de qSOFA» | Responde con las guías y muestra sus fuentes |
+| «Radicar remisión» · «nuevo paciente» · «dictar llamada» | Te lleva y abre el formulario |
+| «Llévame a instituciones» · «abre la remisión 45» | Navega |
+| (admin) «usuarios bloqueados» · «estado del sistema» · «¿la auditoría está íntegra?» · «incidentes» | Responde sobre el sistema por dentro |
 
-Búsqueda, navegación y conteos se resuelven en el navegador con la API del sistema: nombres y documentos no van a ningún modelo de lenguaje. Respeta el rol de cada usuario.
+**Al médico** le llega la respuesta y sus fuentes, no el proceso. **Al administrador**, además,
+el detalle técnico: qué herramientas se usaron, con qué argumentos y qué se envió al LLM.
+Cuando abres una ficha, Traza ya sabe de qué paciente hablas y sugiere la siguiente pregunta.
+
+Búsqueda, navegación, conteos y resúmenes se resuelven en el navegador con la API del
+sistema: nombres y documentos no van a ningún modelo de lenguaje. Respeta el rol de cada usuario.

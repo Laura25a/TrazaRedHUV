@@ -167,3 +167,32 @@ curl http://localhost:8081/fhir/Patient/{id}
 curl http://localhost:8081/fhir/Encounter/{id}
 curl http://localhost:8081/fhir/Observation/{id}
 ```
+
+## 9. Mapa de requisitos a leyes (ampliado con el proyecto final, R23–R33)
+
+Cada requisito, el control que lo cumple y la norma que atiende. El detalle de cada amenaza,
+su evidencia y su riesgo residual está en [`docs/STRIDE.md`](docs/STRIDE.md).
+
+| Requisito | Control en TrazaRed | Norma que atiende |
+|---|---|---|
+| R01 Roles | Solo el admin crea cuentas y asigna el rol; el rol se lee de la base en cada petición | Ley 1581/2012 art. 4 f (circulación restringida) y art. 17 d |
+| R02 Bloqueo por intentos | Bloqueo al 3.er intento fallido; solo el admin desbloquea | Ley 1581/2012 art. 4 g (seguridad); Ley 1273/2009 art. 269A |
+| R03 Seguridad transversal | JWT, control por rol en el backend, CORS cerrado, cabeceras, sin secretos en el repositorio | Ley 1581/2012 art. 4 g y art. 17 d |
+| R09, R11 Registros que no se destruyen | Bitácora inalterable, anulación lógica, historial de correcciones | Res. 1995/1999 (integridad y custodia) |
+| R10 Aprobación clínica de la IA | Todo lo que produce la IA entra como borrador pendiente | Res. 1995/1999; Res. 3100/2019 |
+| R12 Seudonimización | Al modelo solo le llega un alias y variables clínicas | Ley 1581/2012 art. 4 b y f (finalidad y circulación restringida) |
+| R13 Auditoría | Quién, qué, sobre qué y cuándo | Res. 1995/1999; Res. 3100/2019 |
+| R15, R21 FHIR | Recursos R4 con LOINC, SNOMED y UCUM; suscripción reactiva | Ley 2015/2020; Res. 866/2021 |
+| R17–R20 Sistema reactivo | Canal por destinatario; eventos clínicos nunca a paciente ni contable | Ley 1581/2012 art. 4 f; Res. 3100/2019 |
+| **R23** Agente RAG con fuentes | Respuestas con documento y fragmento citados; abstención sin soporte | Res. 1995/1999 (veracidad del registro); Res. 3100/2019 |
+| **R24** Herramientas por rol | Paciente fijado por el sistema, rol revisado en cada herramienta, payload al LLM registrado y seudonimizado | Ley 1581/2012 art. 4 b, f y g |
+| **R25** Prompt injection | Detector, datos delimitados, política fuera del modelo, aprobación humana; incidente con usuario e IP y bloqueo temporal | Ley 1581/2012 art. 4 g; Ley 1273/2009 arts. 269A y 269F |
+| **R26** Modelo STRIDE | Amenazas, controles, evidencia y riesgo residual por componente | Ley 1581/2012 art. 17 d (deber de seguridad); Res. 3100/2019 |
+| **R27** Cifrado de campos | AES-256-GCM de documento, teléfono, dirección y correo; llave fuera del repositorio; índice ciego | Ley 1581/2012 arts. 5 y 6 (datos sensibles) y art. 4 g |
+| **R28** Auditoría encadenada | Huella HMAC del registro anterior en cada registro; verificación solo para el admin | Res. 1995/1999 (integridad y custodia) |
+| **R29** Entradas externas autenticadas | Secreto en el webhook FHIR; token de sistema y firma HMAC por mensaje; validación antes de procesar | Ley 1581/2012 art. 4 g; Res. 866/2021 |
+| **R30** Remisiones FHIR entre sistemas | Bundle con Patient, ServiceRequest, Observation, DiagnosticReport aprobado y Consent; `OperationOutcome` en el rechazo | Ley 2015/2020; Res. 866/2021; Res. 3100/2019 |
+| **R31** Autenticación entre sistemas | Credenciales por institución, token de 10 min con `scope`, sin acceso a la API clínica | Ley 1581/2012 art. 4 f y g |
+| **R32** Consentimiento y minimización | Consentimiento vigente por institución; Bundle sin documento, teléfono, correo ni dirección; identificador federado | Ley 1581/2012 arts. 5, 6 y 9 (autorización del titular para datos sensibles) y art. 4 b (finalidad) |
+| **R33** Demostración cruzada | Ida y vuelta en vivo con auditoría de ambos lados | Ley 2015/2020 (historia clínica interoperable) |
+| Incidentes de seguridad | Registro de incidentes con usuario, IP y fragmento | SIC: reporte dentro de los 15 días hábiles siguientes a la detección |

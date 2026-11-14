@@ -46,9 +46,22 @@ El evento es un dict con `tipo` y `mensaje` (obligatorios) y, cuando aplique,
 | `observacion_fhir` | rest-hook de HAPI (Persona 3), al llegar una `Observation` | el médico responsable | **audita** el evento con origen FHIR (R13) | bandeja + canal vivo + auditoría |
 | `alerta_escalada` | `eventos.py` (hilo de escalamiento), si una alerta pasa del plazo sin reconocer | todos los `admin` | marca la alerta como `escalada` (R20) | bandeja + canal vivo + toast |
 
+### Eventos externos (proyecto final: interoperabilidad y seguridad)
+
+Vienen de **fuera** del sistema (otra institución) o de un control de seguridad. Usan el mismo
+`publicar()`: bandeja, canal en vivo y auditoría, sin camino paralelo.
+
+| Evento (`tipo`) | Quién lo dispara | Destinatarios | Reacción automática | Dónde se ve |
+|---|---|---|---|---|
+| `remision_externa_recibida` | `interop.py`, cuando llega y se valida un `Bundle` del sistema socio (`POST /interop/Bundle`, 201 o 202) | todos los `especialista` y `admin` | crea la remisión (`origen_externo`), sus observaciones y, si el paciente no existe, lo deja *por conciliar*; sube el contador `remisiones_recibidas`; audita `interop_remision_recibida` con `origen=externo` | bandeja + canal vivo + toast + Interoperabilidad › Recibidas |
+| `respuesta_socio` | `interop.py`, cuando el socio responde con un `Task` (`POST /interop/Task`) | el médico que envió la remisión y los `admin` | actualiza el estado de la remisión (aceptada / rechazada); audita `interop_respuesta_recibida` | bandeja + canal vivo + toast + Interoperabilidad › Enviadas |
+| `interop_rechazo` | `interop.py`, cuando un mensaje del socio no pasa la validación (400 o 422) | todos los `admin` | **no guarda ningún dato clínico**; registra el mensaje como rechazado y audita `interop_rechazo` con el motivo | bandeja + canal vivo + Interoperabilidad › Mensajes |
+| `alerta_critica` (origen externo) | `interop.py`, si llega una `Observation` de glucosa crítica (menor de 54 o desde 300 mg/dL) | los clínicos | **crea la alerta** activa hasta que se reconozca (R20) | barra de alertas + canal vivo + toast |
+| `incidente_seguridad` | `seguridad.py`: intento de inyección al asistente, orden escondida en datos o firma inválida del socio | todos los `admin` | guarda el incidente con usuario e IP; al 3.er intento en 10 min, bloqueo temporal de 15 min (R25) | bandeja + canal vivo + Seguridad › Incidentes y bloqueos |
+
 **Privacidad del canal (R17):** los tipos `remision_creada`, `remision_aceptada`,
-`reporte_aprobado`, `alerta_critica`, `alerta_escalada` y `observacion_fhir` son
-**clínicos**: aunque un módulo los dirija por error a un `paciente` o a un
+`reporte_aprobado`, `alerta_critica`, `alerta_escalada`, `observacion_fhir`,
+`remision_externa_recibida` y `respuesta_socio` son **clínicos**: aunque un módulo los dirija por error a un `paciente` o a un
 `contable`, el canal SSE no se los entrega.
 
 ## Flujos automáticos (R19)
