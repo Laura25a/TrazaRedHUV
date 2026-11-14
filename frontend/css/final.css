@@ -78,3 +78,28 @@
 
 /* Los avisos no quedan debajo del botón de Traza */
 @media (min-width: 521px) { #toasts { right: 104px; } }
+
+/* ── Menú lateral con barra para bajar ─────────────────────────────────────
+   Con todas las secciones nuevas el menú ya no cabe en pantallas bajas: se
+   desplaza por dentro y el resto de la página queda quieta. */
+.lateral { overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: var(--azul-borde) transparent; }
+.lateral::-webkit-scrollbar { width: 8px; }
+.lateral::-webkit-scrollbar-thumb { background: var(--azul-borde); border-radius: 8px; }
+.lateral::-webkit-scrollbar-thumb:hover { background: var(--azul); }
+.lateral::-webkit-scrollbar-track { background: transparent; }
+.lateral ul { flex: none; }
+
+/* ── Panel de notificaciones ───────────────────────────────────────────────
+   1) El panel heredaba el color BLANCO de la barra superior: las notificaciones
+      sin leer quedaban con letra blanca sobre fondo blanco (se veían vacías).
+   2) Ahora tiene alto máximo y su propia barra para bajar. */
+.menu-flotante { color: var(--texto); }
+#panel-notif { width: min(380px, calc(100vw - 24px)); max-height: min(72vh, 640px); overflow-y: auto;
+  overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: var(--azul-borde) transparent; }
+#panel-notif::-webkit-scrollbar { width: 8px; }
+#panel-notif::-webkit-scrollbar-thumb { background: var(--azul-borde); border-radius: 8px; }
+.fila-notif { color: var(--texto); }
+.fila-notif-texto { overflow-wrap: anywhere; }
+.notif-ver-todas { display: block; width: 100%; margin-top: .3rem; padding: .55rem; border: 0; border-top: 1px solid var(--borde);
+  background: none; color: var(--azul); font-weight: 600; font-size: .84rem; cursor: pointer; border-radius: 0 0 8px 8px; }
+.notif-ver-todas:hover { background: var(--azul-suave); }

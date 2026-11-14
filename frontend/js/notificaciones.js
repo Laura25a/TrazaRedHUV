@@ -41,7 +41,7 @@ const Notificaciones = (() => {
     bloque.className = "bandeja-bloque";
     bloque.innerHTML = `<h4>Notificaciones ${sinLeer ? `· ${sinLeer} sin leer` : ""}</h4>` + (
       lista.length
-        ? lista.slice(0, 6).map(n => `
+        ? lista.slice(0, 20).map(n => `
           <button class="fila-notif ${n.leida ? "leida" : ""}" data-notif="${n.id}" title="${n.leida ? "Ya leída" : "Marcar como leída"}">
             <span class="punto" aria-hidden="true"></span>
             <span class="fila-notif-texto">${esc(n.mensaje)}
@@ -49,12 +49,14 @@ const Notificaciones = (() => {
             </span>
           </button>`).join("")
         : `<p class="tenue" style="padding:.4rem .7rem">Sin notificaciones.</p>`
-    );
+    ) + (lista.length ? `<button class="notif-ver-todas" data-todas>Ver todas las notificaciones</button>` : "");
     // Los bloques nuevos van encima del render de la Persona 1.
     panel.querySelectorAll(".bandeja-bloque, .pendientes-strip").forEach(b => b.remove());
     panel.prepend(bloque);
     panel.querySelectorAll("[data-notif]").forEach(b =>
       b.addEventListener("click", () => marcarLeida(+b.dataset.notif)));
+    const todas = panel.querySelector("[data-todas]");
+    if (todas) todas.addEventListener("click", () => { panel.classList.add("oculto"); ir("notificaciones"); });
   }
 
   function pintarPendientes(p) {
