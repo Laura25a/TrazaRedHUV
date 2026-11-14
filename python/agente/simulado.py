@@ -80,7 +80,7 @@ def _redactar(pregunta: str, por: dict) -> str:
             rad = re.search(r"radicado=(\S+)", t)
             dest = re.search(r"destino=(.+?) prioridad=(\w+)", t)
             return (f"Listo: quedó radicada{' ' + rad.group(1) if rad else ''}"
-                    f"{' hacia ' + dest.group(1) + ', prioridad ' + dest.group(2) if dest else ''}. "
+                    f"{' hacia ' + dest.group(1) + ', prioridad ' + dest.group(2).replace('critica', 'crítica') if dest else ''}. "
                     "Está en el libro como pendiente; falta confirmar el cupo por teléfono y anotarlo en la bitácora.")
         if t.startswith("POLITICA") or t.startswith("NO_"):
             return t.split(": ", 1)[-1]

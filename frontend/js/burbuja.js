@@ -28,6 +28,7 @@ const TRAZA = {
   abierta: false, montada: false, ocupada: false,
   paciente: null,            // {id, nombre} del paciente en contexto
   remision: null,            // su remisión abierta (para resumir y para las acciones)
+  propuesta: null,           // {conv, destino}: remisión propuesta por el agente esperando decisión
   conversacion: "traza-" + Date.now().toString(36),
   hablar: true,              // leer en voz alta las respuestas
   conversando: false,        // modo manos libres (tras usar el micrófono)
@@ -105,7 +106,7 @@ function trazaDesmontar() {
   trazaDetenerConversacion();
   const r = $("#traza");
   if (r) r.remove();
-  Object.assign(TRAZA, { abierta: false, montada: false, paciente: null, remision: null, conversacion: "traza-" + Date.now().toString(36) });
+  Object.assign(TRAZA, { abierta: false, montada: false, paciente: null, remision: null, propuesta: null, conversacion: "traza-" + Date.now().toString(36) });
 }
 
 function trazaAbrir(si) {
@@ -180,6 +181,11 @@ function trazaEntender(texto) {
   const t = tzNorm(texto);
   const rol = tzRol();
   if (!t) return { tipo: "nada" };
+  if (TRAZA.propuesta) {
+    if (/^(si|sii|dale|ok|okay|de acuerdo|hazlo|claro|correcto|apruebo|aprobar|apruebala|aprobada|radicala|radicar|radica|acepto|aceptar|aceptala|confirmo|confirmar)\b|^si,? (radicala|radica|aprueba|dale|hazlo)/.test(t)) return { tipo: "decidir", aprobar: true };
+    if (/^(no|nop|nel|descarta|descartala|descartar|rechaza|rechazala|rechazar|cancela|cancelala|mejor no)\b/.test(t)) return { tipo: "decidir", aprobar: false, motivo: texto.replace(/^\s*no[,.]?\s*/i, "").trim() };
+    if (/\b(ya (la |lo )?(acepte|aprobe|hice|decidi|radique|rechace|descarte)|ya esta|listo ya|ya)\b/.test(t)) return { tipo: "revisar_propuesta" };
+  }
   if (/^(gracias|listo|chao|adios|hasta luego|eso es todo|nada mas|muchas gracias)\b/.test(t)) return { tipo: "despedida" };
   if (/^(hola|buenas|buenos dias|buenas tardes|buenas noches|hey)\b$/.test(t)) return { tipo: "saludo" };
   if (/que (puedes|sabes) hacer|^ayuda\b|como funcionas|quien eres|para que sirves/.test(t)) return { tipo: "ayuda" };
@@ -264,6 +270,8 @@ async function trazaEnviar(texto, porVoz) {
   try {
     switch (it.tipo) {
       case "saludo": trazaMsg("traza", clin ? "¡Hola! Dime un paciente, una sección o una duda clínica." : "¡Hola! ¿A dónde te llevo?"); break;
+      case "decidir": await trazaDecidir(it.aprobar, it.motivo); break;
+      case "revisar_propuesta": await trazaRevisarPropuesta(); break;
       case "despedida": trazaMsg("traza", "Con gusto. Aquí estoy si me necesitas."); trazaDetenerConversacion(); break;
       case "ayuda": trazaAyuda(clin, rol); break;
       case "falta_paciente": trazaMsg("traza", "¿De qué paciente? Dime su nombre o su cédula."); break;
@@ -406,7 +414,7 @@ async function trazaResumen(pid, remisionId, yaAbierta) {
   const alterados = (f.signos || []).map(s => { const c = TRAZA_RANGOS[s.codigo_loinc]; return c && c[1](+s.valor) ? `${c[0]} ${String(+s.valor).replace(".", ",")} ${c[2]}`.trim() : null; }).filter(Boolean);
   const ultima = (f.bitacora || []).slice(-1)[0];
   // Fuera las marcas internas: "[URGENTE] ...", "(propuesta del asistente, ...)", "; modelo de urgencia 0.99 (critica)"
-  const limpiar = (t) => String(t || "").replace(/^\[[^\]]+\]\s*/, "").replace(/\s*\(propuesta del asistente[^)]*\)/i, "").replace(/;?\s*modelo de urgencia [\d.,]+ \(\w+\)/i, "").trim();
+  const limpiar = (t) => String(t || "").replace(/^\[[^\]]+\]\s*/, "").replace(/\s*\(propuesta del asistente[^)]*\)/i, "").replace(/;?\s*modelo de urgencia [\d.,]+ \(\w+\)/i, "").replace(/[;,\s]+$/, "").trim();
   const partes = [
     `${primerNombre(p.nombre || r.paciente_nombre)}${p.edad != null ? `, ${p.edad} años` : ""}${p.eps ? `, ${p.eps}` : ""}.`,
     `${limpiar(f.diagnostico) || "Remisión"}${f.requiere ? `; ${limpiar(f.requiere).toLowerCase()}` : ""}. ${f.estado_texto || ESTADOS[r.estado]} hacia ${r.institucion_acepta || r.institucion_destino}${f.tiempo_texto ? ` (${f.tiempo_texto})` : ""}.`,
@@ -621,6 +629,8 @@ async function trazaPreguntar(texto, clin) {
   const espera = trazaMsg("traza", "Lo reviso…", { hablar: false });
   espera.classList.add("traza-esperando");
   let r;
+  if (TRAZA.propuesta && TRAZA.propuesta.conv === TRAZA.conversacion)       // la propuesta espera en su hilo;
+    TRAZA.conversacion = "traza-" + Date.now().toString(36);                 // la pregunta nueva va en otro
   try {
     r = await API.post("/agente/chat", { mensaje: texto, conversacion_id: TRAZA.conversacion, paciente_id: TRAZA.paciente ? TRAZA.paciente.id : null });
   } finally { espera.remove(); }
@@ -640,25 +650,65 @@ async function trazaPreguntar(texto, clin) {
     else if (/la mejor opci[oó]n es/i.test(r.respuesta || "") && tzRol() === "medico") trazaSugerir(["Remite este paciente", "¿Qué tan grave está?"]);
     else if (TRAZA.paciente && /probabilidad de urgencia/i.test(r.respuesta || "")) trazaSugerir(["¿A dónde lo remito?", "¿Qué dice la guía?"]);
   } else if (r.estado === "pendiente_aprobacion") {
-    const a = (r.acciones || [])[0] || { args: {} };
-    const destino = a.args.institucion_destino || "la institución sugerida";
-    // Con "detalle" es una propuesta ANTERIOR que sigue sin decidir: hay que resolverla para seguir.
-    trazaMsg("traza", r.detalle ? `Antes de seguir: hay una propuesta de remisión a ${destino} esperando tu decisión.`
-      : `Te propongo remitirlo a ${destino}${a.args.prioridad ? `, prioridad ${a.args.prioridad}` : ""}. Nada se radica hasta que tú lo apruebes.`,
-      { html: `<div class="traza-acciones"><button type="button" data-ast>Revisar y decidir</button> <button type="button" data-descartar>Descartarla</button></div>` });
-    const ultimo = $("#traza-chat").lastElementChild;
-    $("[data-descartar]", ultimo).addEventListener("click", async (ev) => {
-      ev.target.disabled = true;
-      try {
-        await API.post("/agente/decidir", { conversacion_id: TRAZA.conversacion, decision: "reject", motivo: "Descartada por el clínico desde Traza" });
-        trazaMsg("traza", "Descartada: no se radicó nada. ¿Qué necesitas?");
-      } catch (e) { trazaMsg("traza", `No pude descartarla: ${e.message}`); }
-    });
-    $("[data-ast]", ultimo).addEventListener("click", () => {
-      if (typeof AST !== "undefined") { AST.conversacion = TRAZA.conversacion; try { sessionStorage.setItem("ast-conv", AST.conversacion); } catch { /* sin storage */ } }
-      ir("asistente", { paciente: TRAZA.paciente && TRAZA.paciente.id });
-    });
+    trazaPropuesta(r, TRAZA.conversacion);
   } else trazaMsg("traza", r.detalle || "No pude responder ahora. Intenta de nuevo.");
+}
+
+// ---------- Propuestas del agente: se deciden AQUÍ mismo ----------
+// El médico aprueba o rechaza con un botón o con palabras ("sí, radícala", "no").
+// Una propuesta sin decidir ya no bloquea a Traza: las preguntas nuevas siguen en
+// otra conversación y la propuesta queda esperando con sus botones.
+function trazaPropuesta(r, conv) {
+  const a = (r.acciones || [])[0] || { args: {} };
+  const x = a.args || {};
+  TRAZA.propuesta = { conv, destino: x.institucion_destino || "la institución sugerida" };
+  const medico = tzRol() === "medico";
+  trazaMsg("traza", `${r.detalle ? "Tienes pendiente esta propuesta" : "Te propongo"}: remitir${TRAZA.paciente ? " a " + primerNombre(TRAZA.paciente.nombre) : ""} a ${TRAZA.propuesta.destino}${x.prioridad ? `, prioridad ${({ critica: "crítica" })[x.prioridad] || x.prioridad}` : ""}. ${medico ? "¿La radico? Nada se crea hasta que digas que sí." : "Solo el médico puede aprobarla."}`, {
+    html: `${x.motivo ? `<p class="traza-nota">Motivo: ${esc(String(x.motivo).slice(0, 160))}</p>` : ""}
+      <div class="traza-acciones">${medico ? `<button type="button" data-si>Sí, radicar</button> <button type="button" data-no>No, descartar</button>` : ""}</div>` });
+  const caja = $("#traza-chat").lastElementChild;
+  const si = $("[data-si]", caja), no = $("[data-no]", caja);
+  if (si) si.addEventListener("click", () => { trazaEnviar("Sí, radícala", false); });
+  if (no) no.addEventListener("click", () => { trazaEnviar("No, descártala", false); });
+  if (medico) trazaSugerir(["Sí, radícala", "No, descártala"]);
+}
+
+async function trazaDecidir(aprobar, motivo) {
+  const p = TRAZA.propuesta;
+  if (!p) { trazaMsg("traza", "No tengo ninguna propuesta esperando tu decisión."); return; }
+  if (tzRol() !== "medico") { trazaMsg("traza", "Solo el médico puede aprobar o rechazar una remisión."); return; }
+  trazaEstado(aprobar ? "radicando…" : "descartando…");
+  const r = await API.post("/agente/decidir", { conversacion_id: p.conv, decision: aprobar ? "approve" : "reject",
+    motivo: aprobar ? null : (motivo || "Descartada por el médico desde Traza") });
+  TRAZA.propuesta = null;
+  $$("#traza-chat [data-si], #traza-chat [data-no]").forEach(b => { b.disabled = true; });
+  if (r.estado === "sin_pendientes") { trazaMsg("traza", "Esa propuesta ya estaba decidida, así que sigo contigo. ¿Qué necesitas?"); return; }
+  if (aprobar) {
+    remisionesCache = null;
+    trazaMsg("traza", String(r.respuesta || "Listo: quedó radicada en el libro como pendiente.").replace(/^\[modelo simulado\]\s*/, ""),
+      { html: `<div class="traza-acciones"><button type="button" data-libro>Ver en el libro</button></div>` });
+    $("[data-libro]", $("#traza-chat").lastElementChild).addEventListener("click", () => ir("inicio", { vista: "abiertas" }));
+    trazaSugerir(["Dictar llamada", "¿Qué tengo pendiente?"]);
+  } else {
+    trazaMsg("traza", "Descartada: no se radicó nada. Quedó registrada como rechazada por ti. ¿Qué conducta prefieres?");
+  }
+}
+
+async function trazaRevisarPropuesta() {
+  const p = TRAZA.propuesta;
+  if (!p) { trazaMsg("traza", "Perfecto, no hay nada pendiente. ¿Qué sigue?"); return; }
+  const h = await API.get(`/agente/historial?conversacion_id=${encodeURIComponent(p.conv)}`).catch(() => ({ pendiente: true }));
+  if (!h.pendiente) {
+    TRAZA.propuesta = null;
+    remisionesCache = null;
+    trazaMsg("traza", "Confirmado: la propuesta ya está decidida. Sigo contigo, ¿qué necesitas?");
+  } else {
+    trazaMsg("traza", `Todavía la veo sin decidir (remisión a ${p.destino}). ¿La radico?`, {
+      html: `<div class="traza-acciones"><button type="button" data-si>Sí, radicar</button> <button type="button" data-no>No, descartar</button></div>` });
+    const caja = $("#traza-chat").lastElementChild;
+    $("[data-si]", caja).addEventListener("click", () => trazaEnviar("Sí, radícala", false));
+    $("[data-no]", caja).addEventListener("click", () => trazaEnviar("No, descártala", false));
+  }
 }
 
 // Sugerencias de qué preguntar después (aparecen como botones bajo la conversación)
