@@ -40,18 +40,31 @@ def ip_cliente(request: Request) -> str:
 
 
 # ── Límite de tasa (ventana deslizante en memoria) ────────────────────────
+# "Diez por ventana, el resto espera." Tres cubetas, cada una con su dueño:
+#   acceso   /login y /oauth/token      → por IP      (frena la fuerza bruta: cuentan los intentos fallidos)
+#   socio    /interop/*                 → por IP      (la puerta de otro sistema)
+#   ia       agente, RAG y voz          → por USUARIO (cada llamada cuesta: LLM)
+#   general  todo lo demás              → por IP      (nginx ya limita a 10 r/s)
+# Las de IA van por usuario y no por IP porque en un hospital muchos médicos salen
+# a internet por la misma IP: uno que abusa no debe dejar sin asistente a los demás.
 VENTANA_S = float(os.getenv("LIMITE_VENTANA_S", "10"))
-LIMITE_SENSIBLE = int(os.getenv("LIMITE_SENSIBLE", "10"))     # login, token de sistema, agente, entrada del socio
-LIMITE_GENERAL = int(os.getenv("LIMITE_GENERAL", "300"))      # el resto de la API (nginx ya limita a 10 r/s)
+LIMITE_SENSIBLE = int(os.getenv("LIMITE_SENSIBLE", "10"))     # intentos fallidos de login o de token de sistema
+LIMITE_SOCIO = int(os.getenv("LIMITE_SOCIO", "30"))           # mensajes del sistema socio
+LIMITE_IA = int(os.getenv("LIMITE_IA", "20"))                 # preguntas al asistente, por usuario
+LIMITE_GENERAL = int(os.getenv("LIMITE_GENERAL", "300"))
 MAX_CUERPO_INTEROP = int(os.getenv("MAX_CUERPO_INTEROP", str(512 * 1024)))   # 512 KB por mensaje del socio
-# Rutas donde cada petición es cara (Argon2, LLM) o es la puerta de otro sistema
-_SENSIBLES = re.compile(r"^/(login|oauth/token|agente/chat|agente/decidir|rag/preguntar|bitacora/voz/|interop/(Bundle|Task|Observation))")
+_CUBETAS = [
+    ("acceso", re.compile(r"^/(login|oauth/token)$"), LIMITE_SENSIBLE),
+    ("socio", re.compile(r"^/interop/(Bundle|Task|Observation)$"), LIMITE_SOCIO),
+    ("ia", re.compile(r"^/(agente/(chat|decidir)|rag/preguntar|bitacora/voz/)"), LIMITE_IA),
+]
 _golpes: dict = defaultdict(deque)
 _candado = threading.Lock()
 _rechazos = {"total": 0}
 
 
-def _permitir(clave: str, limite: int) -> tuple[bool, int]:
+def _permitir(clave: str, limite: int, anotar: bool = True) -> tuple[bool, int]:
+    """¿Cabe otra petición en la ventana? Con anotar=False solo consulta (no cuenta)."""
     ahora = time.monotonic()
     with _candado:
         cola = _golpes[clave]
@@ -59,22 +72,51 @@ def _permitir(clave: str, limite: int) -> tuple[bool, int]:
             cola.popleft()
         if len(cola) >= limite:
             return False, max(1, int(VENTANA_S - (ahora - cola[0])) + 1)
-        cola.append(ahora)
+        if anotar:
+            cola.append(ahora)
         if len(_golpes) > 5000:                      # no crecer sin fin con IPs que no volvieron
             for k in [k for k, v in _golpes.items() if not v or ahora - v[-1] > VENTANA_S]:
                 _golpes.pop(k, None)
         return True, 0
 
 
+def _anotar(clave: str) -> None:
+    with _candado:
+        _golpes[clave].append(time.monotonic())
+
+
+def _usuario_del_token(request: Request) -> Optional[str]:
+    """Id del usuario si el token es válido (se verifica la firma: no se confía en un id inventado)."""
+    cabecera = request.headers.get("authorization") or ""
+    if not cabecera.lower().startswith("bearer "):
+        return None
+    try:
+        from jose import jwt
+        import auth
+        datos = jwt.decode(cabecera[7:].strip(), auth.SECRET_KEY, algorithms=[auth.ALGORITHM])
+        return str(datos.get("usuario_id")) if datos.get("usuario_id") is not None else None
+    except Exception:
+        return None
+
+
 async def limite_de_tasa(request: Request, call_next):
-    """Middleware. Cada IP tiene dos cubetas: la de rutas sensibles (10 por ventana) y
-    la general. Quien se pasa recibe 429 con Retry-After; nadie más se ve afectado."""
+    """Middleware. Quien se pasa recibe 429 con Retry-After; nadie más se ve afectado."""
     ruta = request.url.path
     if request.method == "OPTIONS" or ruta.startswith(("/app", "/eventos/stream", "/docs", "/openapi")):
         return await call_next(request)
     ip = ip_cliente(request)
-    sensible = bool(_SENSIBLES.match(ruta))
-    ok, espera = _permitir(f"{'s' if sensible else 'g'}:{ip}", LIMITE_SENSIBLE if sensible else LIMITE_GENERAL)
+    nombre, limite, dueno = "general", LIMITE_GENERAL, ip
+    for cubeta, patron, tope in _CUBETAS:
+        if patron.match(ruta):
+            nombre, limite = cubeta, tope
+            if cubeta == "ia":
+                dueno = _usuario_del_token(request) or ip
+            break
+    # En "acceso" solo cuentan los intentos FALLIDOS: entrar bien no es un ataque (y el
+    # tester inicia sesión con todos los roles seguidos); adivinar claves sí lo es.
+    solo_fallos = nombre == "acceso"
+    clave = f"{nombre}:{dueno}"
+    ok, espera = _permitir(clave, limite, anotar=not solo_fallos)
     if not ok:
         _rechazos["total"] += 1
         return JSONResponse(status_code=429, headers={"Retry-After": str(espera)},
@@ -83,7 +125,10 @@ async def limite_de_tasa(request: Request, call_next):
         tam = request.headers.get("content-length")
         if tam and tam.isdigit() and int(tam) > MAX_CUERPO_INTEROP:
             return JSONResponse(status_code=413, content={"detail": "El mensaje supera el tamaño permitido"})
-    return await call_next(request)
+    respuesta = await call_next(request)
+    if solo_fallos and respuesta.status_code >= 400:
+        _anotar(clave)
+    return respuesta
 
 
 # ── Guardia del agente (R25) ──────────────────────────────────────────────
@@ -289,6 +334,7 @@ def estado_seguridad(db=Depends(get_db)):
         "contrasenas": {**claves, "algoritmo": "Argon2id (bcrypt se migra al iniciar sesión)"},
         "incidentes": incidentes, "bloqueos_vigentes": bloqueos,
         "limites": {"ventana_s": VENTANA_S, "sensibles_por_ventana": LIMITE_SENSIBLE,
+                    "socio_por_ventana": LIMITE_SOCIO, "ia_por_usuario": LIMITE_IA,
                     "general_por_ventana": LIMITE_GENERAL, "rechazadas_429": _rechazos["total"]},
         "guardia": {"intentos_para_bloqueo": GUARDIA_MAX, "ventana_min": GUARDIA_VENTANA_MIN,
                     "bloqueo_min": GUARDIA_BLOQUEO_MIN},

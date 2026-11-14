@@ -100,7 +100,7 @@ async function astAbrirPaciente(pid, silencioso = false) {
 }
 
 function astBienvenida() {
-  astMensaje("asistente", "Hola. Abre un paciente arriba y pregúntame por él: puedo revisar sus signos, estimar su urgencia, buscar en las guías, sugerir instituciones con convenio y proponerte una remisión para que tú la apruebes.");
+  astMensaje("asistente", "Hola. Abre un paciente arriba y pregúntame por él. Te respondo corto: qué tan grave está, qué dicen las guías, a dónde conviene remitirlo. Si propongo una remisión, tú decides.");
 }
 
 async function astCargarHistorial() {
@@ -147,6 +147,12 @@ function astFuentes(fuentes) {
     `<li><span class="ast-cita">[${f.n}]</span> ${esc(f.fuente)} <code>${esc(f.chunk_id)}</code></li>`).join("")}</ol></details>`;
 }
 
+function astFuentesCortas(fuentes) {
+  if (!fuentes || !fuentes.length) return "";
+  return `<details class="ast-pasos"><summary>Fuentes (${fuentes.length})</summary><ol>${fuentes.map(f =>
+    `<li><span class="ast-cita">[${f.n}]</span> ${esc(f.fuente)}<div class="ast-resultado">${esc(String(f.texto || "").slice(0, 260))}</div></li>`).join("")}</ol></details>`;
+}
+
 function astTarjetaAprobacion(acciones) {
   const a = acciones[0];
   const args = a.args || {};
@@ -190,11 +196,16 @@ function astTarjetaAprobacion(acciones) {
 
 function astPintarRespuesta(r) {
   if (r.estado === "pendiente_aprobacion") {
-    if (r.pasos && r.pasos.length) astMensaje("asistente", "Revisé el caso con las herramientas del sistema.", astPasos(r.pasos));
+    if (r.pasos && r.pasos.length) astMensaje("asistente", "Revisé el caso. Detalle técnico:", astPasos(r.pasos));
     else if (r.detalle) astMensaje("sistema", r.detalle);
+    else if ((r.consulto || []).length) astMensaje("asistente", `Revisé ${r.consulto.join(", ")} y te propongo esto:`);
     astTarjetaAprobacion(r.acciones);
   } else if (r.estado === "respondido") {
-    astMensaje("asistente", r.respuesta || "(sin texto)", astPasos(r.pasos || []));
+    if (r.seguridad) { astMensaje("sistema", r.respuesta); return; }       // la guardia frenó el mensaje (R25)
+    // Al médico: la respuesta, sus fuentes y qué se consultó. La traza técnica completa
+    // (cada herramienta con sus resultados) solo le llega al administrador.
+    const consulto = (r.consulto || []).length ? `<p class="tenue ast-consulto">Consulté: ${esc(r.consulto.join(" · "))}</p>` : "";
+    astMensaje("asistente", r.respuesta || "(sin texto)", astFuentesCortas(r.fuentes) + consulto + astPasos(r.pasos || []));
   } else if (r.estado === "tiempo_agotado") {
     astMensaje("sistema", r.detalle || "El asistente tardó demasiado. Intenta de nuevo.");
   } else if (r.estado === "sin_pendientes") {
@@ -221,6 +232,7 @@ async function astEnviar() {
     } else {
       const r = await API.post("/rag/preguntar", { pregunta: texto, paciente_id: AST.paciente });
       espera.remove();
+      if (r.seguridad) { astMensaje("sistema", r.respuesta); return; }
       const modo = { llm: "redactada con el modelo de lenguaje", extractivo: "extractiva (frases de las guías, sin LLM)", abstencion: "sin evidencia" }[r.modo] || r.modo;
       astMensaje("asistente", r.respuesta, `<p class="tenue ast-modo-rag">Respuesta ${esc(modo)}</p>${astFuentes(r.fuentes)}`);
     }
@@ -237,7 +249,7 @@ if (typeof SECCIONES !== "undefined" && typeof ICONOS !== "undefined") {
   ICONOS.asistente = '<path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/><path d="M8.5 11h.01M12 11h.01M15.5 11h.01"/>';
   SECCIONES.asistente = {
     titulo: "Asistente clínico", icono: "asistente",
-    roles: ["medico", "especialista"],
+    roles: ["medico", "especialista", "admin"],          // el admin entra en modo consulta y ve la traza completa
     pintar: vistaAsistente, grupo: "Inteligencia artificial",
   };
 }

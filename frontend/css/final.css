@@ -1,0 +1,79 @@
+/* ==========================================================================
+   TrazaRed HUV — Proyecto final: interoperabilidad, seguridad y Traza
+   ========================================================================== */
+.itp-cuerpo { padding: 1.2rem 1.4rem 1.4rem; display: grid; gap: .9rem; }
+.itp-barra { display: flex; flex-wrap: wrap; gap: .5rem; }
+.itp-tarjeta { border: 1px solid var(--borde); border-radius: var(--radio-sm); padding: .9rem 1rem; background: var(--superficie); display: grid; gap: .55rem; }
+.itp-tarjeta.abierta { border-left: 4px solid var(--azul); }
+.itp-tarjeta header { display: flex; justify-content: space-between; gap: .8rem; align-items: flex-start; }
+.itp-tarjeta header > div { display: flex; flex-direction: column; gap: .15rem; min-width: 0; }
+.itp-tarjeta header strong { font-size: 1rem; color: var(--navy); }
+.itp-tarjeta footer { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; justify-content: space-between; }
+.itp-motivo { margin: 0; color: var(--texto); line-height: 1.45; }
+.itp-obs { display: flex; flex-wrap: wrap; gap: .4rem; }
+.itp-obs span { background: var(--superficie-2); border: 1px solid var(--borde); border-radius: 999px; padding: .2rem .65rem; font-size: .8rem; color: var(--texto-suave); }
+.itp-obs strong { color: var(--navy); font-variant-numeric: tabular-nums; }
+.itp-ia { margin: 0; display: flex; gap: .5rem; align-items: flex-start; padding: .55rem .7rem; background: var(--violeta-fondo); border-radius: var(--radio-sm); font-size: .86rem; color: var(--texto); }
+.itp-ia svg { width: 18px; height: 18px; flex: none; color: var(--violeta); fill: none; stroke: currentColor; stroke-width: 2; }
+.itp-acciones { display: flex; flex-wrap: wrap; gap: .4rem; align-items: center; margin-left: auto; }
+.itp-acciones input { height: 34px; min-width: 220px; padding: 0 .7rem; border: 1px solid var(--borde); border-radius: 8px; font: inherit; font-size: .86rem; }
+.itp-detalle { max-width: 380px; font-size: .84rem; color: var(--texto-suave); overflow-wrap: anywhere; }
+.itp-pie { margin: 0; }
+.itp-aviso { display: flex; gap: .6rem; align-items: flex-start; padding: .7rem .8rem; background: var(--alerta-fondo); color: #5b3c02; border-radius: var(--radio-sm); font-size: .88rem; line-height: 1.4; margin: 0 0 .7rem; }
+.itp-aviso svg, .itp-ok svg { width: 18px; height: 18px; flex: none; fill: none; stroke: currentColor; stroke-width: 2; }
+.itp-ok { display: flex; gap: .5rem; align-items: center; padding: .6rem .8rem; background: var(--ok-fondo); color: var(--ok); border-radius: var(--radio-sm); font-size: .88rem; margin: 0 0 .7rem; font-weight: 600; }
+.itp-consent { display: flex; flex-wrap: wrap; gap: .4rem; margin-top: .55rem; }
+.itp-consent select { height: 34px; border: 1px solid var(--borde); border-radius: 8px; padding: 0 .5rem; font: inherit; font-size: .86rem; background: #fff; }
+.itp-sub { margin: .8rem 0 .25rem; font-size: .74rem; letter-spacing: .06em; text-transform: uppercase; color: var(--texto-tenue); font-weight: 700; }
+.itp-lista { margin: 0; padding-left: 1.1rem; font-size: .9rem; line-height: 1.6; color: var(--texto); }
+.modal-itp { max-width: 560px; }
+.modal-itp label { display: grid; gap: .3rem; font-size: .84rem; color: var(--texto-suave); margin-bottom: .8rem; }
+.modal-itp select#itp-socio { height: 40px; border: 1px solid var(--borde); border-radius: 10px; padding: 0 .6rem; font: inherit; }
+.itp-banda { max-width: 960px; margin: 0 auto .8rem; display: flex; gap: .5rem; align-items: center; padding: .55rem .9rem; background: var(--azul-suave); color: var(--azul-oscuro); border-radius: var(--radio-sm); font-size: .88rem; }
+.itp-banda svg { width: 18px; height: 18px; flex: none; fill: none; stroke: currentColor; stroke-width: 2; }
+#f-socio svg, #f-responder svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; margin-right: .35rem; vertical-align: -3px; }
+
+/* Panel de seguridad */
+.seg-rejilla { display: grid; grid-template-columns: repeat(auto-fit, minmax(270px, 1fr)); gap: .9rem; }
+.seg-caja { border: 1px solid var(--borde); border-radius: var(--radio-sm); padding: 1rem; display: flex; flex-direction: column; gap: .4rem; background: var(--superficie); }
+.seg-caja header { display: flex; justify-content: space-between; align-items: center; gap: .6rem; }
+.seg-caja h4 { margin: 0; font-size: .95rem; color: var(--navy); }
+.seg-caja p { margin: 0; }
+.seg-caja .btn { align-self: flex-start; margin-top: auto; }
+.seg-num { font-family: var(--serif); font-size: 1.7rem; color: var(--navy); font-variant-numeric: tabular-nums; line-height: 1.1; }
+.seg-mono { font-family: var(--mono); font-size: .76rem; color: var(--texto-suave); background: var(--superficie-2); padding: .35rem .5rem; border-radius: 6px; overflow-wrap: anywhere; }
+.seg-sello { font-size: .7rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; padding: .22rem .55rem; border: 1.5px solid currentColor; border-radius: 4px; white-space: nowrap; }
+.seg-sello.ok { color: var(--ok); }
+.seg-sello.mal { color: var(--error); }
+.seg-sello.medio { color: var(--alerta); }
+.seg-probar { display: flex; gap: .4rem; margin-top: .3rem; }
+.seg-probar input { flex: 1; min-width: 0; height: 34px; border: 1px solid var(--borde); border-radius: 8px; padding: 0 .6rem; font: inherit; font-size: .84rem; }
+.seg-titulo { margin: .4rem 0 0; font-size: .95rem; color: var(--navy); }
+.seg-msg { margin-top: .6rem; }
+.seg-msg > span { font-size: .72rem; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--texto-tenue); }
+.seg-msg pre, .seg-pre { margin: .2rem 0 0; white-space: pre-wrap; overflow-wrap: anywhere; font-family: var(--mono); font-size: .76rem; background: var(--superficie-2); padding: .5rem .6rem; border-radius: 6px; max-height: 220px; overflow: auto; color: var(--texto); }
+.ast-consulto { margin: .5rem 0 0; font-size: .78rem; }
+
+/* Traza: respuestas cortas, fuentes y detalle para el admin */
+.traza-fuentes { margin: 6px 2px 0; padding: 0; background: none; border: 0; font-size: 11.5px; color: var(--texto-tenue); display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+.traza-msg p.traza-fuentes { padding: 0; border: 0; background: none; border-radius: 0; }
+.traza-fuentes span { background: var(--azul-suave); color: var(--azul-oscuro); border-radius: 999px; padding: 2px 8px; cursor: help; }
+.traza-mas { margin: 6px 2px 0; font-size: 12.5px; }
+.traza-mas summary { cursor: pointer; color: var(--azul); font-weight: 600; }
+.traza-msg .traza-mas p { margin-top: 5px; padding: 8px 10px; background: var(--superficie); border: 1px solid var(--borde); border-radius: 10px; font-size: 12.5px; white-space: pre-line; overflow-wrap: anywhere; }
+.traza-tecnico summary { color: var(--violeta); }
+.traza-tecnico code { font-family: var(--mono); font-size: 11.5px; color: var(--violeta); }
+.traza-tecnico button { margin-top: 5px; border: 1px solid var(--azul-borde); background: var(--superficie); color: var(--azul-oscuro); border-radius: 999px; padding: 5px 10px; font-size: 12px; cursor: pointer; }
+.traza-ayuda { margin: 6px 0 0; padding: 8px 10px 8px 24px; background: var(--superficie); border: 1px solid var(--borde); border-radius: 12px; font-size: 12.5px; line-height: 1.55; color: var(--texto); }
+.traza-fila { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 6px; padding: 7px 10px; background: var(--superficie); border: 1px solid var(--borde); border-radius: 10px; font-size: 13px; }
+.traza-fila small { display: block; color: var(--texto-tenue); font-size: 11.5px; }
+.traza-fila button { border: 1px solid var(--azul-borde); background: var(--azul-suave); color: var(--azul-oscuro); border-radius: 999px; padding: 5px 10px; font-size: 12px; cursor: pointer; }
+
+@media (max-width: 640px) {
+  .itp-cuerpo { padding: 1rem; }
+  .itp-acciones { margin-left: 0; width: 100%; }
+  .itp-acciones input { flex: 1; min-width: 0; }
+}
+
+/* Los avisos no quedan debajo del botón de Traza */
+@media (min-width: 521px) { #toasts { right: 104px; } }

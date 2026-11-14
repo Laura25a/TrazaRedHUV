@@ -231,7 +231,12 @@ async function vistaFormato({ remision }) {
       <div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center">${barraDescargas(descargas)}
         <button class="btn btn-secundario btn-sm" id="f-imprimir">${icono("imprimir")}Imprimir</button>
         ${per.anotar && typeof abrirDictado === "function" ? `<button class="btn btn-voz" id="f-dictar">${icono("microfono")}Dictar llamada</button>` : ""}
+        ${typeof abrirEnvioSocio === "function" && ["admin", "medico"].includes(sesion.usuario.rol) && !r.origen_externo && r.abierta && r.estado_interop !== "enviada"
+          ? `<button class="btn btn-primario" id="f-socio">${icono("interop")}Remitir a institución socia</button>` : ""}
+        ${r.origen_externo && ["admin", "especialista"].includes(sesion.usuario.rol) ? `<button class="btn btn-primario" id="f-responder">${icono("interop")}Responder a ${esc(r.institucion_origen)}</button>` : ""}
         ${per.anotar ? `<button class="btn btn-coral" id="f-anotar">+ Anotar gestión</button>` : ""}</div>
+      ${r.origen_externo ? `<p class="itp-banda">${icono("interop")} Llegó de <strong>${esc(r.institucion_origen)}</strong> por interoperabilidad FHIR (su número: ${esc(r.referencia_externa || "—")}).</p>`
+        : r.estado_interop ? `<p class="itp-banda">${icono("interop")} Remitida a <strong>${esc(r.institucion_destino)}</strong> por interoperabilidad FHIR · ${r.estado_interop === "respondida" ? "ya respondieron" : "esperando su respuesta"}.</p>` : ""}
     </div>
     <article class="formato" aria-label="Formato de registro ${esc(r.radicado)}">
       <div class="fmt-enc">
@@ -330,6 +335,8 @@ async function vistaFormato({ remision }) {
   on("#f-imprimir", () => window.print());
   on("#f-anotar", () => formularioGestion(f, recargar));
   on("#f-dictar", () => abrirDictado(f, recargar));
+  on("#f-socio", () => abrirEnvioSocio(r.id, r.paciente_id, recargar));
+  on("#f-responder", () => ir("interop", { pestana: "recibidas" }));
   on("#f-dictar2", () => abrirDictado(f, recargar));
   on("#f-anotar2", () => formularioGestion(f, recargar));
   on("#f-cerrar", () => formularioCierre(f, recargar));

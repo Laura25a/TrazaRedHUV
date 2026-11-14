@@ -107,9 +107,12 @@ def main():
     r = requests.post(f"{API}/agente/chat", headers=medico, timeout=120,
                       json={"mensaje": "¿Qué tan grave está este paciente?", "conversacion_id": c1, "paciente_id": pa["id"]})
     j = r.json()
-    usadas = [p["herramienta"] for p in j.get("pasos", []) if p["tipo"] == "llamada"]
+    # Proyecto final: al médico le llega QUÉ se consultó ("consulto"), no la traza técnica
+    # ("pasos"), que queda para el administrador.
+    usadas = j.get("consulto", [])
     revisar("responde sobre el paciente abierto", r.status_code == 200 and j.get("estado") == "respondido", j)
-    revisar("usó consultar_paciente y predecir_urgencia", {"consultar_paciente", "predecir_urgencia"} <= set(usadas), usadas)
+    revisar("consultó los datos del paciente y el modelo de urgencia", {"datos del paciente", "modelo de urgencia"} <= set(usadas), usadas)
+    revisar("al médico no le llega la traza técnica", j.get("pasos") == [], j.get("pasos"))
     texto = str(j)
     revisar("prueba canario: sin nombre, documento ni teléfono del paciente", not any(c and c in texto for c in canarios))
 
@@ -145,9 +148,10 @@ def main():
     r = requests.post(f"{API}/agente/decidir", headers=medico, timeout=120,
                       json={"conversacion_id": c3, "decision": "approve"})
     j = r.json()
-    revisar("aprobar crea la remisión (REMISION_CREADA)", "REMISION_CREADA" in str(j), j)
+    revisar("aprobar crea la remisión (queda radicada)", "radicada" in str(j.get("respuesta", "")) or "REMISION_CREADA" in str(j), j)
 
     # Concurrencia: 10 solicitudes a la vez, cada una con su paciente, sin cruces
+    time.sleep(11)      # límite de tasa del asistente: 20 preguntas por usuario cada 10 s
     print("         10 solicitudes concurrentes…")
     def una(i):
         p = con_eps[i % len(con_eps)]

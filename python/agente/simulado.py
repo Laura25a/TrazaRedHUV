@@ -56,6 +56,9 @@ def _alterados(texto: str) -> list[str]:
 def _frase(texto: str, largo: int = 210) -> str:
     """Primera idea completa de un fragmento, sin cortarla a media palabra."""
     texto = " ".join(texto.split())
+    titulo = re.match(r"^((?:\S+ ){0,5}\S+)\. (?=[A-ZÁÉÍÓÚ])", texto)     # "Deterioro respiratorio. Los signos..."
+    if titulo and len(texto) > len(titulo.group(0)) + 40:
+        texto = texto[len(titulo.group(0)):]
     if len(texto) <= largo:
         return texto.rstrip(".") + "."
     corte = texto[:largo]
@@ -89,7 +92,8 @@ def _redactar(pregunta: str, por: dict) -> str:
     cp = por.get("consultar_paciente", "")
     alterados = _alterados(cp)
     if nivel:
-        pct = round(float(nivel.group(1).replace(",", ".")) * 100)
+        prob = float(nivel.group(1).replace(",", "."))
+        pct = min(round(prob * 100), 99) if prob < 1 else 100
         titulo = {"CRÍTICO": "Está crítico", "URGENTE": "Es urgente", "NO URGENTE": "No se ve urgente por ahora"}[nivel.group(2)]
         partes.append(f"{titulo}: el modelo estima {pct} % de probabilidad de urgencia."
                       + (f" Lo que más pesa: {', '.join(alterados)}." if alterados else ""))
@@ -151,6 +155,12 @@ class ModeloSimulado(BaseChatModel):
                 plan.append((nombre, args or {}))
 
         remitir = re.search(r"rem[ií]t|traslad|referir|enviar a otra", t)
+        # "¿a dónde lo remito?" es una PREGUNTA: se responde con las instituciones y no se
+        # propone nada. Solo una orden ("remítelo", "remite este paciente a UCI") arma la propuesta.
+        solo_destino = remitir and re.search(r"a d[oó]nde|d[oó]nde|a qu[eé] |cu[aá]l(es)? |qu[eé] (instituci|cl[ií]nica|ips|hospital)", t)
+        if solo_destino:
+            usar("buscar_ips_con_convenio", {"servicio": _servicio(t)})
+            return plan
         gravedad = re.search(r"grave|urgen|riesgo|predic|deterior|cr[ií]tic|estable|c[oó]mo est[aá]", t)
         if remitir:
             usar("cargar_skill", {"nombre": "remision-interinstitucional"})

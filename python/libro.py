@@ -58,7 +58,7 @@ def ahora() -> datetime:
 SQL_ASIENTO = """
 SELECT r.id, r.paciente_id, r.institucion_origen, r.institucion_destino,
        r.fecha_solicitud, r.motivo, r.estado, r.convenio_vigente, r.creado_por, r.activo,
-       r.institucion_acepta,
+       r.institucion_acepta, r.origen_externo, r.estado_interop, r.socio_id, r.referencia_externa,
        r.radicada_en AT TIME ZONE current_setting('TimeZone') AS radicada_en,
        r.cerrada_en  AT TIME ZONE current_setting('TimeZone') AS cerrada_en,
        p.nombre AS paciente_nombre, p.documento AS paciente_documento, p.eps,
