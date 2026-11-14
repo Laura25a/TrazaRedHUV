@@ -33,7 +33,9 @@ async function vistaInterop(params = {}) {
   } catch (e) { $("#itp-cuerpo").innerHTML = `<div class="vacio">${esc(e.message)}</div>`; }
 }
 
-const itpMotivo = (m) => esc(String(m || "").replace(/ \(propuesta del asistente.*$/, ""));
+const itpMotivo = (m) => esc(String(m || "").replace(/^\[[^\]]+\]\s*/, "").replace(/ \(propuesta del asistente.*$/, ""));
+const itpPrioridad = (m) => { const p = (String(m || "").match(/^\[([^\]]+)\]/) || [])[1]; return p ? `<span class="pildora ${/CR[IÍ]TICA|URGENTE/.test(p) ? "est-inactivo" : "est-activo"}">${esc(p.charAt(0) + p.slice(1).toLowerCase())}</span> ` : ""; };
+const itpUnidad = (u) => ({ "mm[Hg]": "mmHg", Cel: "°C", "{score}": "", "/min": "/min" }[u] ?? (u || ""));
 
 // ---------- Recibidas: la bandeja del especialista ----------
 async function itpRecibidas() {
@@ -46,9 +48,9 @@ async function itpRecibidas() {
       <header><div><strong>${esc(r.paciente_nombre)}</strong>${r.por_conciliar ? ` <span class="pildora est-pendiente" title="El paciente llegó con identificador federado y aún no se ha unido a un paciente de esta institución">Por conciliar</span>` : ""}
         <span class="tenue">desde ${esc(r.institucion_origen)} · ${esc(r.referencia_externa || "")} · ${fechaHora(r.recibida_en)}</span></div>
         <span class="pildora ${ITP_ESTADO[r.estado] || ""}">${esc(ESTADOS[r.estado] || r.estado)}</span></header>
-      <p class="itp-motivo">${itpMotivo(r.motivo)}</p>
+      <p class="itp-motivo">${itpPrioridad(r.motivo)}${itpMotivo(r.motivo)}</p>
       ${(x.observaciones || []).length ? `<div class="itp-obs">${x.observaciones.map(o =>
-        `<span title="LOINC ${esc(o.loinc)}">${esc(o.nombre)} <strong>${esc(o.valor)}</strong> ${esc(o.unidad || "")}</span>`).join("")}</div>` : ""}
+        `<span title="LOINC ${esc(o.loinc)}">${esc(o.nombre)} <strong>${esc(o.valor)}</strong> ${esc(itpUnidad(o.unidad))}</span>`).join("")}</div>` : ""}
       ${x.reporte_ia ? `<p class="itp-ia">${icono("ia")} <span><strong>Reporte de IA aprobado en origen.</strong> ${esc(x.reporte_ia.conclusion)}</span></p>` : ""}
       <footer><button class="btn btn-suave btn-sm" data-ver="${r.id}">Ver el formato</button>
         ${abierta && puede ? `<span class="itp-acciones"><input type="text" maxlength="300" placeholder="Nota (obligatoria si rechazas)" data-nota="${r.id}">

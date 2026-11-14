@@ -6,7 +6,8 @@
 .itp-tarjeta { border: 1px solid var(--borde); border-radius: var(--radio-sm); padding: .9rem 1rem; background: var(--superficie); display: grid; gap: .55rem; }
 .itp-tarjeta.abierta { border-left: 4px solid var(--azul); }
 .itp-tarjeta header { display: flex; justify-content: space-between; gap: .8rem; align-items: flex-start; }
-.itp-tarjeta header > div { display: flex; flex-direction: column; gap: .15rem; min-width: 0; }
+.itp-tarjeta header > div { display: flex; flex-direction: column; align-items: flex-start; gap: .2rem; min-width: 0; }
+.itp-motivo .pildora { vertical-align: 1px; margin-right: .2rem; }
 .itp-tarjeta header strong { font-size: 1rem; color: var(--navy); }
 .itp-tarjeta footer { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; justify-content: space-between; }
 .itp-motivo { margin: 0; color: var(--texto); line-height: 1.45; }
