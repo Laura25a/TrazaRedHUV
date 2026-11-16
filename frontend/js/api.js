@@ -103,6 +103,7 @@ const API = (() => {
     blob: (ruta) => pedir("GET", ruta, undefined, { blob: true }),
     subir: (ruta, formData) => pedir("POST", ruta, formData),
     post: (ruta, cuerpo) => pedir("POST", ruta, cuerpo),
+    patch: (ruta, cuerpo) => pedir("PATCH", ruta, cuerpo),
     put: (ruta, cuerpo) => pedir("PUT", ruta, cuerpo),
     del: (ruta) => pedir("DELETE", ruta),
 

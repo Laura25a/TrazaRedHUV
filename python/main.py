@@ -28,12 +28,13 @@ import threading
 
 from fastapi import Depends, FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, field_validator
 
 import auth
 import contabilidad
 import cripto
 import eventos
+import fhir_sync
 import historia
 import ia
 import registro
@@ -46,6 +47,7 @@ import tablero                                   # tablero de población y tende
 import recuperacion                              # eliminar/recuperar imágenes · ingeniería biomédica
 import voz                                       # bitácora por voz con IA
 import seguridad                                 # proyecto final: STRIDE (límite de tasa, guardia, panel)
+from validaciones import hoy_bogota
 import interop                                   # proyecto final: interoperabilidad con el sistema socio
 
 app = FastAPI(
@@ -186,19 +188,50 @@ def health():
 # ----------------------------------------------------------------------------
 # Pacientes
 # ----------------------------------------------------------------------------
-class PacienteCreate(BaseModel):
+class DatosFicha(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     nombre: str
-    documento: str
     genero: str
     eps: str
-    # Semana 8: datos opcionales de la ficha
     fecha_nacimiento: Optional[date] = None
     telefono: Optional[str] = None
     tipo_sangre: Optional[str] = None
     alergias: Optional[str] = None
-    # Proyecto final (R27): también se guardan cifrados
     direccion: Optional[str] = None
     correo: Optional[str] = None
+
+    @field_validator("nombre", "eps", "genero")
+    @classmethod
+    def texto_requerido(cls, valor):
+        if not valor.strip():
+            raise ValueError("El campo no puede quedar vacío")
+        return valor.strip()
+
+    @field_validator("fecha_nacimiento")
+    @classmethod
+    def nacimiento_valido(cls, valor):
+        if valor and valor > hoy_bogota():
+            raise ValueError("La fecha de nacimiento no puede ser futura")
+        return valor
+
+
+class PacienteCreate(DatosFicha):
+    documento: str
+
+    @field_validator("documento")
+    @classmethod
+    def documento_valido(cls, valor):
+        normal = cripto.normalizar_documento(valor)
+        if not normal or not normal.isalnum():
+            raise ValueError("Indica un número o identificador de documento válido")
+        return normal
+
+
+class PacientePatch(DatosFicha):
+    nombre: str = None
+    genero: str = None
+    eps: str = None
 
 
 class PacienteOut(BaseModel):
@@ -226,23 +259,20 @@ def listar_pacientes(
     q: Optional[str] = Query(None, description="Busca por documento (exacto) o por nombre"),
     db=Depends(get_db),
 ):
-    """R27: el documento está cifrado en la base, así que no se puede buscar "por un
-    pedazo" con LIKE. Si lo buscado parece un documento, se busca el documento
-    completo por su índice ciego (HMAC); si no, por nombre."""
-    cur = db.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-    if q and q.strip():
-        q = q.strip()
-        if any(c.isdigit() for c in q) and len(cripto.normalizar_documento(q)) >= 5:
-            cur.execute(f"SELECT {COLUMNAS_PACIENTE} FROM pacientes WHERE documento_idx = %s ORDER BY id;",
+    """Prioriza el documento exacto mediante su índice ciego. Luego busca por nombre."""
+    with db.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+        if q and q.strip():
+            q = q.strip()
+            cur.execute(f"SELECT {COLUMNAS_PACIENTE} FROM pacientes WHERE documento_idx = %s;",
                         (cripto.indice_ciego(q),))
-        else:
+            exactos = cur.fetchall()
+            if exactos:
+                return cripto.descifrar_pacientes(exactos)
             cur.execute(f"SELECT {COLUMNAS_PACIENTE} FROM pacientes WHERE nombre ILIKE %s ORDER BY id;",
                         (f"%{q}%",))
-    else:
-        cur.execute(f"SELECT {COLUMNAS_PACIENTE} FROM pacientes ORDER BY id;")
-    filas = cripto.descifrar_pacientes(cur.fetchall())
-    cur.close()
-    return filas
+        else:
+            cur.execute(f"SELECT {COLUMNAS_PACIENTE} FROM pacientes ORDER BY id;")
+        return cripto.descifrar_pacientes(cur.fetchall())
 
 
 @app.post("/pacientes", response_model=PacienteOut, status_code=201,
@@ -279,13 +309,44 @@ def crear_paciente(paciente: PacienteCreate, db=Depends(get_db), usuario=Depends
     # R15 · Interoperabilidad FHIR: sincronizar el paciente con HAPI FHIR.
     # Si HAPI no responde, se registra el error pero no se tumba la creación
     # del paciente en Postgres (ya está guardado y es lo importante).
-    try:
-        import fhir_sync
-        fhir_id = fhir_sync.sincronizar_paciente(fila["id"])
-        print(f"[FHIR] Patient {fhir_id} creado para paciente {fila['id']}")
-    except Exception as e:
-        print(f"[FHIR] no se pudo sincronizar el paciente {fila['id']}: {e}")
+    _sincronizar_ficha(fila["id"])
+    return fila
 
+
+def _sincronizar_ficha(paciente_id, *, corregir=False):
+    try:
+        fhir_sync.sincronizar_paciente(paciente_id, corregir=corregir)
+    except Exception as exc:
+        print(f"[FHIR] no se pudo sincronizar el paciente {paciente_id}: {exc}")
+
+
+@app.patch("/pacientes/{paciente_id}", response_model=PacienteOut,
+           dependencies=[Depends(requiere_rol("admin", "medico"))])
+def corregir_paciente(paciente_id: int, ficha: PacientePatch, db=Depends(get_db),
+                      usuario=Depends(get_usuario_actual)):
+    with db.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+        cur.execute(f"SELECT {COLUMNAS_PACIENTE} FROM pacientes WHERE id = %s FOR UPDATE;", (paciente_id,))
+        actual = cur.fetchone()
+        if actual is None:
+            raise HTTPException(404, "Paciente no encontrado")
+        anterior = cripto.descifrar_paciente(actual)
+        cambios = {k: v for k, v in ficha.model_dump(exclude_unset=True).items() if anterior[k] != v}
+        if not cambios:
+            return anterior
+
+        for campo in cambios.keys() & set(cripto.CAMPOS_CIFRADOS):
+            cambios[campo] = cripto.cifrar(cambios[campo], cripto.aad_paciente(paciente_id, campo))
+        asignaciones = ", ".join(f"{campo} = %s" for campo in cambios)
+        try:
+            cur.execute(f"UPDATE pacientes SET {asignaciones} WHERE id = %s RETURNING {COLUMNAS_PACIENTE};",
+                        (*cambios.values(), paciente_id))
+        except psycopg2.errors.CheckViolation as exc:
+            raise HTTPException(422, exc.diag.message_primary) from exc
+        fila = cripto.descifrar_paciente(cur.fetchone())
+
+    registrar_auditoria(db, usuario["id"], "paciente_corregido", "pacientes", paciente_id,
+                        "Campos: " + ", ".join(cambios))
+    _sincronizar_ficha(paciente_id, corregir=True)
     return fila
 
 

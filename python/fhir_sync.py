@@ -25,12 +25,15 @@ def get_db():
 
 def paciente_a_fhir(paciente: dict) -> dict:
     """pacientes -> Patient"""
-    return {
+    recurso = {
         "resourceType": "Patient",
         "identifier": [{"system": "urn:trazared:documento", "value": paciente["documento"]}],
         "name": [{"text": paciente["nombre"]}],
         "gender": {"F": "female", "M": "male"}.get(paciente["genero"].upper(), "unknown"),
     }
+    if paciente.get("fecha_nacimiento"):
+        recurso["birthDate"] = paciente["fecha_nacimiento"].isoformat()
+    return recurso
 
 
 def remision_a_fhir(remision: dict, patient_fhir_id: str) -> dict:
@@ -69,12 +72,12 @@ def observacion_a_fhir(observacion: dict, encounter_fhir_id: str, patient_fhir_i
 
 def crear_recurso_fhir(recurso: dict) -> dict:
     tipo = recurso["resourceType"]
-    r = requests.post(f"{FHIR_BASE_URL}/{tipo}", json=recurso, headers=HEADERS)
+    r = requests.post(f"{FHIR_BASE_URL}/{tipo}", json=recurso, headers=HEADERS, timeout=10)
     r.raise_for_status()
     return r.json()
 
 
-def sincronizar_paciente(paciente_id: int) -> str:
+def sincronizar_paciente(paciente_id: int, *, corregir: bool = False) -> str:
     conn = get_db()
     cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
     cur.execute("SELECT * FROM pacientes WHERE id = %s;", (paciente_id,))
@@ -82,8 +85,14 @@ def sincronizar_paciente(paciente_id: int) -> str:
     cur.close(); conn.close()
     if paciente is None:
         raise ValueError("Paciente no encontrado en Postgres")
-    resultado = crear_recurso_fhir(paciente_a_fhir(paciente))
-    return resultado["id"]  # id asignado por HAPI FHIR
+    recurso = paciente_a_fhir(paciente)
+    if corregir:
+        respuesta = requests.put(f"{FHIR_BASE_URL}/Patient",
+                                 params={"identifier": f"urn:trazared:documento|{paciente['documento']}"},
+                                 json=recurso, headers=HEADERS, timeout=10)
+        respuesta.raise_for_status()
+        return respuesta.json()["id"]
+    return crear_recurso_fhir(recurso)["id"]
 
 
 def sincronizar_remision(remision_id: int, patient_fhir_id: str) -> str:

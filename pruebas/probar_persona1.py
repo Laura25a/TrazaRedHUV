@@ -87,7 +87,7 @@ revisar("gestiones de contacto (MongoDB)", gest.status_code == 200, gest.status_
 
 print("\n5. Soft delete y restauración")
 nueva = requests.post(f"{API}/remisiones", headers=medico, json={
-    "paciente_id": pacientes[0]["id"], "institucion_origen": "HUV", "institucion_destino": "Prueba P1",
+    "paciente_id": pacientes[0]["id"], "institucion_origen": "Hospital Universitario del Valle", "institucion_destino": "Clínica Imbanaco",
     "fecha_solicitud": "2026-10-07", "motivo": "prueba persona 1", "estado": "pendiente",
     "convenio_vigente": True}).json()
 revisar("el médico elimina su remisión (204)",
@@ -235,7 +235,7 @@ pac = requests.post(f"{API}/pacientes", headers=medico, json={
     "nombre": "Paciente auditoria", "documento": f"98{sufijo}", "genero": "M", "eps": "Coosalud"})
 rem_nueva = requests.post(f"{API}/remisiones", headers=medico, json={
     "paciente_id": pac.json().get("id") if pac.status_code == 201 else pacientes[0]["id"],
-    "institucion_origen": "Hospital Universitario del Valle", "institucion_destino": "Clínica de prueba",
+    "institucion_origen": "Hospital Universitario del Valle", "institucion_destino": "Clínica Imbanaco",
     "fecha_solicitud": "2026-10-07", "motivo": "Prueba de auditoría", "estado": "pendiente",
     "convenio_vigente": True})
 revisar("se crearon usuario, paciente y remisión de prueba",

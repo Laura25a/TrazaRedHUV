@@ -27,6 +27,7 @@ TARIFAS: son valores de REFERENCIA del proyecto (no son el tarifario real del
 HUV). Se pueden cambiar con variables de entorno sin tocar el código.
 """
 import json
+from contextlib import closing
 import math
 import os
 from datetime import datetime, timezone
@@ -39,7 +40,8 @@ from pymongo import ReturnDocument
 
 import exportes
 import libro
-from auth import con_zona, db_mongo, get_db, registrar_auditoria, requiere_rol
+import psycopg2
+from auth import PG_CONNECTION_STRING, con_zona, db_mongo, get_db, registrar_auditoria, requiere_rol
 
 router = APIRouter(tags=["Contabilidad"])
 coleccion_facturas = db_mongo["facturas"]
@@ -259,12 +261,14 @@ def _siguiente_numero() -> str:
 def facturar_remision(remision_id: int, db=Depends(get_db),
                       usuario=Depends(requiere_rol("admin", "contable"))):
     """Factura a la EPS lo liquidado de una remisión CERRADA (una sola factura vigente)."""
+    with db.cursor() as cur:
+        cur.execute("SELECT id FROM remisiones WHERE id = %s FOR UPDATE;", (remision_id,))
     fila = liquidacion_de(db, remision_id)
     if fila["abierta"]:
         raise HTTPException(409, "La remisión sigue abierta: se factura cuando se cierra el asiento")
     if fila["estado_cobro"] in ("facturada", "pagada", "glosada"):
         raise HTTPException(409, f"Ya tiene la factura {fila['factura'].get('numero')} ({fila['estado_cobro_texto']})")
-    ahora = datetime.utcnow()
+    ahora = datetime.now(timezone.utc)
     doc = {
         "numero": _siguiente_numero(),
         "paciente_id": fila["paciente_id"],
@@ -303,7 +307,7 @@ def _cambiar_factura(factura_id: str, nuevo: str, usuario: dict, db, motivo: Opt
         raise HTTPException(409, "La factura está anulada")
     if doc.get("estado_pago") == "pagada":
         raise HTTPException(409, "La factura ya está pagada")
-    ahora = datetime.utcnow()
+    ahora = datetime.now(timezone.utc)
     cambios = {"estado_pago": nuevo, f"{nuevo}_en": ahora}
     if motivo:
         cambios[f"motivo_{nuevo}"] = motivo
@@ -411,7 +415,7 @@ def rips_json(db=Depends(get_db), usuario=Depends(requiere_rol("admin", "contabl
 class FacturaCreate(BaseModel):
     paciente_id: int
     servicio: str                    # "consulta" | "analisis_ia" | "remision"
-    valor: float
+    valor: float = Field(gt=0, allow_inf_nan=False)
     moneda: str = "COP"
     estado_pago: str = "pendiente"   # "pendiente" | "pagada" | "anulada"
     reporte_id: Optional[int] = None # solo para análisis de IA (R19)
@@ -484,10 +488,48 @@ def crear_factura(
         raise HTTPException(status_code=422,
                             detail=f"estado_pago debe ser uno de: {', '.join(ESTADOS_VALIDOS)}")
 
+    if factura.servicio == "consulta" and (factura.reporte_id is not None or factura.remision_id is not None):
+        raise HTTPException(422, "Una consulta no lleva referencias de análisis o remisión")
+    if factura.servicio == "analisis_ia" and (factura.reporte_id is None or factura.remision_id is not None):
+        raise HTTPException(422, "El análisis IA requiere un reporte y no admite radicado")
+    if factura.servicio == "remision" and (factura.remision_id is None or factura.reporte_id is not None):
+        raise HTTPException(422, "La factura de remisión requiere un radicado y no admite reporte")
+
+    with db.cursor() as cur:
+        cur.execute("SELECT id FROM pacientes WHERE id = %s FOR KEY SHARE;", (factura.paciente_id,))
+        if cur.fetchone() is None:
+            raise HTTPException(404, "Paciente no encontrado")
+        if factura.servicio == "remision":
+            cur.execute("SELECT paciente_id FROM remisiones WHERE id = %s;", (factura.remision_id,))
+            referencia = cur.fetchone()
+            if referencia is None:
+                raise HTTPException(404, "Remisión no encontrada")
+            if referencia[0] != factura.paciente_id:
+                raise HTTPException(422, "La remisión pertenece a otro paciente")
+        elif factura.servicio == "analisis_ia":
+            cur.execute("SELECT pg_advisory_xact_lock(197731, %s);", (factura.reporte_id,))
+            cur.execute("SELECT paciente_id, estado FROM reportes_ia WHERE id = %s FOR SHARE;", (factura.reporte_id,))
+            referencia = cur.fetchone()
+            if referencia is None:
+                raise HTTPException(404, "Reporte no encontrado")
+            if referencia[0] != factura.paciente_id:
+                raise HTTPException(422, "El reporte pertenece a otro paciente")
+            if referencia[1] != "aprobado":
+                raise HTTPException(409, "El reporte debe estar aprobado")
+
+    if factura.servicio == "remision":
+        if factura.estado_pago != "pendiente" or factura.moneda != "COP":
+            raise HTTPException(422, "La factura de remisión se emite pendiente y en COP")
+        return facturar_remision(factura.remision_id, db, usuario)
+    if factura.servicio == "analisis_ia":
+        if coleccion_facturas.find_one({"servicio": "analisis_ia", "reporte_id": factura.reporte_id,
+                                       "estado_pago": {"$ne": "anulada"}}):
+            raise HTTPException(409, "El análisis ya tiene una factura vigente")
+
     datos = factura.model_dump()
     datos["numero"] = _siguiente_numero()
-    datos["fecha"] = datetime.utcnow()
-    datos["creado_en"] = datetime.utcnow()
+    datos["fecha"] = datetime.now(timezone.utc)
+    datos["creado_en"] = datetime.now(timezone.utc)
     datos["creado_por"] = usuario["id"]
     resultado = coleccion_facturas.insert_one(datos)
     nuevo = coleccion_facturas.find_one({"_id": resultado.inserted_id})
@@ -512,24 +554,26 @@ def marcar_pagada(
 
 # ── Función para facturación automática (R19) ────────────────────────────
 def crear_factura_ia(paciente_id: int, reporte_id: int, valor: float = 30000):
-    """Crea una factura automática al aprobar un reporte de IA (R19).
-
-    La llama ia.py cuando el clínico aprueba un reporte. No requiere usuario
-    (es automática), por eso no valida rol.
-    """
-    datos = {
-        "numero": _siguiente_numero(),
-        "paciente_id": paciente_id,
-        "servicio": "analisis_ia",
-        "valor": valor,
-        "moneda": "COP",
-        "estado_pago": "pendiente",
-        "reporte_id": reporte_id,
-        "remision_id": None,
-        "fecha": datetime.utcnow(),
-        "creado_en": datetime.utcnow(),
-        "creado_por": None,
-        "automatica": True,
-    }
-    resultado = coleccion_facturas.insert_one(datos)
-    return str(resultado.inserted_id)
+    """Emite la factura de un reporte aprobado. Un evento repetido reutiliza la vigente."""
+    with closing(psycopg2.connect(PG_CONNECTION_STRING)) as db:
+        with db.cursor() as cur:
+            cur.execute("SELECT pg_advisory_xact_lock(197731, %s);", (reporte_id,))
+            existente = coleccion_facturas.find_one({"servicio": "analisis_ia", "reporte_id": reporte_id,
+                                                      "estado_pago": {"$ne": "anulada"}})
+            if existente:
+                return str(existente["_id"])
+            cur.execute("""SELECT id FROM reportes_ia
+                           WHERE id = %s AND paciente_id = %s AND estado = 'aprobado' FOR SHARE;""",
+                        (reporte_id, paciente_id))
+            if cur.fetchone() is None:
+                raise ValueError("El reporte aprobado no corresponde al paciente")
+        ahora = datetime.now(timezone.utc)
+        resultado = coleccion_facturas.insert_one({
+            "numero": _siguiente_numero(), "paciente_id": paciente_id, "servicio": "analisis_ia",
+            "valor": valor, "moneda": "COP", "estado_pago": "pendiente", "reporte_id": reporte_id,
+            "remision_id": None, "fecha": ahora, "creado_en": ahora, "creado_por": None,
+            "automatica": True, "origen": "automatico",
+        })
+        registrar_auditoria(db, None, "factura_creada", "facturas", reporte_id,
+                            "Factura automática por reporte de IA")
+        return str(resultado.inserted_id)

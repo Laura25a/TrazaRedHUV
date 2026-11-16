@@ -10,7 +10,7 @@ la bandeja del especialista y la ruta para aceptar. Al remitir y al aceptar se
 llama a eventos.publicar() para que avise (R19).
 """
 import json
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from typing import List, Optional
 
 import cripto
@@ -18,11 +18,13 @@ import psycopg2
 import psycopg2.extras
 from bson import ObjectId
 from fastapi import APIRouter, Depends, HTTPException, Query
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from auth import ROLES_CLINICOS, con_zona, db_mongo, get_db, get_usuario_actual, registrar_auditoria, requiere_rol
+from causas import causa_por_reglas
 from eventos import publicar
 import fhir_sync
+from validaciones import bloquear_remision, hoy_bogota, institucion_del_catalogo
 
 router = APIRouter(tags=["Remisiones"])
 
@@ -32,14 +34,34 @@ def sin_contable(usuario: dict):
     if usuario["rol"] in ("contable", "director", "biomedico"):
         raise HTTPException(status_code=403, detail=f"El rol {usuario['rol']} no tiene acceso a datos clínicos individuales")
 
-class RemisionCreate(BaseModel):
-    paciente_id: int
+class DatosRemision(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     institucion_origen: str
     institucion_destino: str
     fecha_solicitud: date
     motivo: str
-    estado: str
     convenio_vigente: bool
+
+    @field_validator("institucion_origen", "institucion_destino", "motivo")
+    @classmethod
+    def texto_requerido(cls, valor):
+        if not valor.strip():
+            raise ValueError("El campo no puede quedar vacío")
+        return valor.strip()
+
+
+class RemisionCreate(DatosRemision):
+    paciente_id: int
+    estado: str = "pendiente"
+
+
+class RemisionPatch(DatosRemision):
+    institucion_origen: str = None
+    institucion_destino: str = None
+    fecha_solicitud: date = None
+    motivo: str = None
+    convenio_vigente: bool = None
 
 
 class RemisionOut(BaseModel):
@@ -162,78 +184,94 @@ def obtener_remision(remision_id: int, db=Depends(get_db), usuario=Depends(get_u
     return fila
 
 
+@router.get("/instituciones", dependencies=[Depends(requiere_rol(*ROLES_CLINICOS))])
+def listar_instituciones(db=Depends(get_db)):
+    with db.cursor() as cur:
+        cur.execute("SELECT nombre FROM instituciones ORDER BY nombre;")
+        return [fila[0] for fila in cur.fetchall()]
+
+
 @router.post("/remisiones", response_model=RemisionOut, status_code=201,
           dependencies=[Depends(requiere_rol("admin", "medico"))])
 def crear_remision(remision: RemisionCreate, db=Depends(get_db), usuario=Depends(get_usuario_actual)):
-    cur = db.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-    try:
-        cur.execute(
-            """INSERT INTO remisiones
-                   (paciente_id, institucion_origen, institucion_destino,
-                    fecha_solicitud, motivo, estado, convenio_vigente, creado_por)
-               VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-               RETURNING id, paciente_id, institucion_origen, institucion_destino,
-                         fecha_solicitud, motivo, estado, convenio_vigente, creado_por, activo;""",
-            (remision.paciente_id, remision.institucion_origen, remision.institucion_destino,
-             remision.fecha_solicitud, remision.motivo, remision.estado,
-             remision.convenio_vigente, usuario["id"]),
-        )
-    except psycopg2.errors.ForeignKeyViolation:
-        db.rollback(); cur.close()
-        raise HTTPException(status_code=400, detail="paciente_id no existe")
-    except psycopg2.errors.CheckViolation:
-        db.rollback(); cur.close()
-        raise HTTPException(status_code=422, detail="estado inválido")
-    fila = cur.fetchone()
-    db.commit()
-    cur.close()
+    if remision.estado != "pendiente":
+        raise HTTPException(422, "Una remisión nueva debe quedar pendiente")
+    with db.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+        datos = preparar_correccion(cur, remision.model_dump(), limite=hoy_bogota())
+        try:
+            cur.execute(
+                """INSERT INTO remisiones
+                       (paciente_id, institucion_origen, institucion_destino,
+                        fecha_solicitud, motivo, estado, convenio_vigente, creado_por)
+                   VALUES (%(paciente_id)s, %(institucion_origen)s, %(institucion_destino)s,
+                           %(fecha_solicitud)s, %(motivo)s, 'pendiente', %(convenio_vigente)s, %(usuario)s)
+                   RETURNING *;""",
+                {**datos, "usuario": usuario["id"]},
+            )
+        except psycopg2.errors.CheckViolation as exc:
+            raise HTTPException(422, exc.diag.message_primary) from exc
+        fila = cur.fetchone()
     registrar_auditoria(db, usuario["id"], "remision_creada", "remisiones", fila["id"],
                         f"paciente {fila['paciente_id']}")
     return fila
 
 
+def preparar_correccion(cur, datos, limite, paciente_id=None):
+    for campo in ("institucion_origen", "institucion_destino"):
+        if campo in datos:
+            datos[campo] = institucion_del_catalogo(cur, datos[campo])
+    if "fecha_solicitud" in datos:
+        fecha = datos["fecha_solicitud"]
+        cur.execute("SELECT fecha_nacimiento FROM pacientes WHERE id = %s FOR SHARE;",
+                    (paciente_id if paciente_id is not None else datos["paciente_id"],))
+        paciente = cur.fetchone()
+        if paciente is None:
+            raise HTTPException(404, "Paciente no encontrado")
+        if fecha > limite:
+            raise HTTPException(422, "La solicitud no puede ser posterior a la radicación ni a hoy")
+        if paciente["fecha_nacimiento"] and fecha < paciente["fecha_nacimiento"]:
+            raise HTTPException(422, "La solicitud no puede ser anterior al nacimiento")
+    return datos
+
+
+@router.patch("/remisiones/{remision_id}", response_model=RemisionOut,
+              dependencies=[Depends(requiere_rol("admin", "medico"))])
+def corregir_remision(remision_id: int, remision: RemisionPatch, db=Depends(get_db),
+                      usuario=Depends(get_usuario_actual)):
+    actual = bloquear_remision(db, remision_id, usuario)
+    return _guardar_correccion(db, usuario, actual, remision.model_dump(exclude_unset=True))
+
+
 @router.put("/remisiones/{remision_id}", response_model=RemisionOut,
           dependencies=[Depends(requiere_rol("admin", "medico"))])
-def actualizar_remision(remision_id: int, remision: RemisionCreate, db=Depends(get_db), usuario=Depends(get_usuario_actual)):
-    cur = db.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+def actualizar_remision(remision_id: int, remision: RemisionCreate, db=Depends(get_db),
+                        usuario=Depends(get_usuario_actual)):
+    actual = bloquear_remision(db, remision_id, usuario)
+    if remision.paciente_id != actual["paciente_id"] or remision.estado != actual["estado"]:
+        raise HTTPException(409, "La corrección no cambia el paciente ni el estado del radicado")
+    return _guardar_correccion(db, usuario, actual, remision.model_dump(exclude={"paciente_id", "estado"}))
 
-    cur.execute("SELECT * FROM remisiones WHERE id = %s;", (remision_id,))
-    actual = cur.fetchone()
-    if actual is None:
-        cur.close()
-        raise HTTPException(status_code=404, detail="Remisión no encontrada")
 
-    if usuario["rol"] == "medico" and actual["creado_por"] != usuario["id"]:
-        cur.close()
-        raise HTTPException(status_code=403, detail="Solo puedes editar remisiones que tú creaste")
-
-    cur.execute(
-        "INSERT INTO remisiones_historial (remision_id, dato_anterior, modificado_por) VALUES (%s, %s, %s);",
-        (remision_id, json.dumps(dict(actual), default=str), usuario["id"]),
-    )
-
-    try:
+def _guardar_correccion(db, usuario, actual, datos):
+    cambios = {campo: valor for campo, valor in datos.items() if valor != actual[campo]}
+    if not cambios:
+        return actual
+    remision_id = actual["id"]
+    with db.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+        radicada = actual["radicada_en"]
+        limite = min(hoy_bogota(), radicada.date()) if radicada else hoy_bogota()
+        preparar_correccion(cur, cambios, limite, actual["paciente_id"])
+        cambios = {campo: valor for campo, valor in cambios.items() if valor != actual[campo]}
+        if not cambios:
+            return actual
         cur.execute(
-            """UPDATE remisiones
-                  SET paciente_id = %s, institucion_origen = %s, institucion_destino = %s,
-                      fecha_solicitud = %s, motivo = %s, estado = %s, convenio_vigente = %s
-                WHERE id = %s
-                RETURNING id, paciente_id, institucion_origen, institucion_destino,
-                          fecha_solicitud, motivo, estado, convenio_vigente, creado_por, activo;""",
-            (remision.paciente_id, remision.institucion_origen, remision.institucion_destino,
-             remision.fecha_solicitud, remision.motivo, remision.estado,
-             remision.convenio_vigente, remision_id),
+            "INSERT INTO remisiones_historial (remision_id, dato_anterior, modificado_por) VALUES (%s, %s, %s);",
+            (remision_id, json.dumps(dict(actual), default=str), usuario["id"]),
         )
-    except psycopg2.errors.ForeignKeyViolation:
-        db.rollback(); cur.close()
-        raise HTTPException(status_code=400, detail="paciente_id no existe")
-    except psycopg2.errors.CheckViolation:
-        db.rollback(); cur.close()
-        raise HTTPException(status_code=422, detail="estado inválido")
-
-    fila = cur.fetchone()
-    db.commit()
-    cur.close()
+        asignaciones = ", ".join(f"{campo} = %s" for campo in cambios)
+        cur.execute(f"UPDATE remisiones SET {asignaciones} WHERE id = %s RETURNING *;",
+                    (*cambios.values(), remision_id))
+        fila = cur.fetchone()
     registrar_auditoria(db, usuario["id"], "soft_edit", "remisiones", remision_id)
     return fila
 
@@ -332,7 +370,7 @@ class Contacto(BaseModel):
 
 class GestionContactoCreate(BaseModel):
     remision_id: int
-    contactos: List[Contacto] = []
+    contactos: List[Contacto] = Field(default_factory=list)
 
 
 @router.get("/gestiones-contacto", dependencies=[Depends(requiere_rol(*ROLES_CLINICOS))])
@@ -356,53 +394,74 @@ def obtener_gestion(gestion_id: str):
     return documento_a_dict(doc)
 
 
-@router.post("/gestiones-contacto", status_code=201, dependencies=[Depends(requiere_rol("admin", "medico"))])
-def crear_gestion(gestion: GestionContactoCreate):
+@router.post("/gestiones-contacto", status_code=201)
+def crear_gestion(gestion: GestionContactoCreate, db=Depends(get_db),
+                   usuario=Depends(requiere_rol("admin", "medico"))):
+    from registro import registrar_contactos
+
+    asiento = bloquear_remision(db, gestion.remision_id, usuario, exigir_abierta=True)
     datos = gestion.model_dump()
-    datos["actualizado_en"] = datetime.utcnow()
+    datos["actualizado_en"] = datetime.now(timezone.utc)
+    if coleccion_gestiones.find_one({"remision_id": gestion.remision_id}):
+        raise HTTPException(409, "Ya hay una bitácora para esta remisión. Agrega contactos desde el registro")
+    datos["contactos"] = contactos_legados(datos["contactos"], usuario)
     resultado = coleccion_gestiones.insert_one(datos)
-    nuevo = coleccion_gestiones.find_one({"_id": resultado.inserted_id})
-    return documento_a_dict(nuevo)
+    if datos["contactos"]:
+        registrar_contactos(db, usuario, asiento, datos["contactos"])
+    return documento_a_dict(coleccion_gestiones.find_one({"_id": resultado.inserted_id}))
 
 
-@router.put("/gestiones-contacto/{gestion_id}", dependencies=[Depends(requiere_rol("admin", "medico"))])
-def actualizar_gestion(gestion_id: str, gestion: GestionContactoCreate):
+@router.put("/gestiones-contacto/{gestion_id}")
+def actualizar_gestion(gestion_id: str, gestion: GestionContactoCreate, db=Depends(get_db),
+                       usuario=Depends(requiere_rol("admin", "medico"))):
     try:
         oid = ObjectId(gestion_id)
     except Exception:
-        raise HTTPException(status_code=400, detail="id inválido")
+        raise HTTPException(400, "id inválido")
+    from registro import registrar_contactos
+
+    asiento = bloquear_remision(db, gestion.remision_id, usuario, exigir_abierta=True)
     actual = coleccion_gestiones.find_one({"_id": oid})
     if actual is None:
-        raise HTTPException(status_code=404, detail="Gestión de contacto no encontrada")
-    # Libro de radicación: la bitácora NO se edita. Se acepta el PUT solo si
-    # conserva intactos los contactos que ya estaban y agrega nuevos al final.
+        raise HTTPException(404, "Gestión de contacto no encontrada")
+    if actual["remision_id"] != gestion.remision_id:
+        raise HTTPException(409, "La bitácora pertenece a otro radicado")
     previos = actual.get("contactos") or []
     nuevos = gestion.model_dump()["contactos"]
-    clave = lambda c: (str(c.get("institucion_contactada")), str(c.get("respuesta")), str(c.get("medio")))
-    if len(nuevos) < len(previos) or [clave(c) for c in nuevos[:len(previos)]] != [clave(c) for c in previos]:
-        raise HTTPException(status_code=409,
-                            detail="La bitácora no se edita ni se borra: solo se agregan contactos al final "
-                                   "(usa POST /registro/remisiones/{id}/gestiones)")
-    datos = {"remision_id": gestion.remision_id,
-             "contactos": previos + nuevos[len(previos):],
-             "actualizado_en": datetime.utcnow()}
-    coleccion_gestiones.update_one({"_id": oid}, {"$set": datos})
-    nuevo = coleccion_gestiones.find_one({"_id": oid})
-    return documento_a_dict(nuevo)
+
+    def clave(contacto):
+        fecha = con_zona(contacto["fecha"])
+        return (fecha.replace(microsecond=fecha.microsecond // 1000 * 1000),
+                contacto["institucion_contactada"], contacto["respuesta"],
+                contacto["medio"], contacto["contactado_por"])
+
+    if [clave(c) for c in nuevos[:len(previos)]] != [clave(c) for c in previos]:
+        raise HTTPException(409, "La bitácora solo admite agregar contactos al final")
+    pendientes = contactos_legados(nuevos[len(previos):], usuario)
+    if pendientes:
+        coleccion_gestiones.update_one({"_id": oid}, {
+            "$push": {"contactos": {"$each": pendientes}},
+            "$set": {"actualizado_en": datetime.now(timezone.utc)},
+        })
+        registrar_contactos(db, usuario, asiento, pendientes)
+    return documento_a_dict(coleccion_gestiones.find_one({"_id": oid}))
 
 
-@router.delete("/gestiones-contacto/{gestion_id}", status_code=204,
-            dependencies=[Depends(requiere_rol("admin"))])
-def borrar_gestion(gestion_id: str):
-    try:
-        oid = ObjectId(gestion_id)
-    except Exception:
-        raise HTTPException(status_code=400, detail="id inválido")
-    resultado = coleccion_gestiones.delete_one({"_id": oid})
-    if resultado.deleted_count == 0:
-        raise HTTPException(status_code=404, detail="Gestión de contacto no encontrada")
-    
-    # =====================================================
+def contactos_legados(contactos, usuario):
+    ahora = datetime.now(timezone.utc)
+    return [{**c, "causa": causa_por_reglas(c["respuesta"]), "causa_origen": "reglas",
+             "registrado_por": usuario["id"], "registrado_en": ahora} for c in contactos]
+
+
+@router.delete("/gestiones-contacto/{gestion_id}")
+def borrar_gestion(gestion_id: str, usuario=Depends(requiere_rol("admin"))):
+    if not ObjectId.is_valid(gestion_id):
+        raise HTTPException(400, "id inválido")
+    if coleccion_gestiones.find_one({"_id": ObjectId(gestion_id)}, {"_id": 1}) is None:
+        raise HTTPException(404, "Gestión de contacto no encontrada")
+    raise HTTPException(409, "La bitácora es permanente y se conserva al anular el radicado")
+
+
 # R08 · Remisión entre médicos (médico → especialista)
 # =====================================================
 # La tabla `remisiones` del Corte 1 es para traslados a instituciones.

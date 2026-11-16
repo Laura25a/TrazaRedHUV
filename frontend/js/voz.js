@@ -53,7 +53,7 @@ function abrirDictado(f, recargar) {
       <form class="voz-paso oculto" id="voz-2" novalidate>
         <div class="voz-ia" id="voz-ia"></div>
         <div class="campo"><label for="v-ins">Institución contactada</label><input id="v-ins" name="institucion_contactada" list="dl-v-ins" required>
-          ${typeof datalist === "function" && typeof INSTITUCIONES !== "undefined" ? datalist("dl-v-ins", INSTITUCIONES) : ""}</div>
+          ${datalist("dl-v-ins", [r.institucion_destino].filter(Boolean))}</div>
         <div class="fila"><div class="campo"><label for="v-med">Medio</label><select id="v-med" name="medio"><option value="telefono">Teléfono</option>
             <option value="plataforma">Plataforma de referencia</option><option value="correo">Correo</option><option value="presencial">Presencial</option></select></div>
           <div class="campo"><label for="v-por">Contactado por</label><input id="v-por" name="contactado_por" required></div></div>
@@ -68,6 +68,7 @@ function abrirDictado(f, recargar) {
       </form>
     </div></div>`;
   document.body.appendChild(fondo);
+  agregarInstitucionesDelCatalogo(fondo, "#dl-v-ins");
   const $m = (s) => $(s, fondo);
   const cerrar = () => { vozDetener(); fondo.remove(); };
   $$("[data-cerrar]", fondo).forEach(b => b.addEventListener("click", cerrar));

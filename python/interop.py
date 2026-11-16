@@ -36,7 +36,7 @@ import os
 import re
 import time
 import uuid
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from typing import Optional
 
 import psycopg2
@@ -51,6 +51,7 @@ from pydantic import BaseModel, Field
 import auth
 import cripto
 import seguridad
+from validaciones import hoy_bogota
 from auth import (PG_CONNECTION_STRING, ROLES_CLINICOS, get_db, get_usuario_actual, registrar_auditoria,
                   requiere_rol)
 
@@ -470,18 +471,27 @@ def _recibir_bundle(cabeceras: dict, cuerpo: bytes, ip: str):
         cur = conn.cursor()
         paciente_id = paciente_por_federado(cur, partes["federado"])
         conciliado = paciente_id is not None
+        nacimiento = partes["nacimiento"]
+        if nacimiento:
+            try:
+                nacimiento = date.fromisoformat(nacimiento)
+                if nacimiento > hoy_bogota():
+                    raise ValueError
+            except (TypeError, ValueError) as exc:
+                raise Rechazo(422, "invalid", "Patient.birthDate debe ser una fecha válida y no futura") from exc
         if not conciliado:      # 202: se recibe, pero el paciente queda "por conciliar" con su identificador federado
             cur.execute("""INSERT INTO pacientes (nombre, documento, genero, eps, fecha_nacimiento, id_federado, por_conciliar)
                            VALUES (%s, '', %s, %s, %s, %s, TRUE) RETURNING id;""",
                         (partes["nombre"] or f"Paciente por conciliar {partes['federado'][:8]}",
-                         GENERO.get(partes["genero"], "O"), "Por conciliar", partes["nacimiento"] or None,
+                         GENERO.get(partes["genero"], "O"), "Por conciliar", nacimiento or None,
                          partes["federado"]))
             paciente_id = cur.fetchone()[0]
             cripto.cifrar_fila_paciente(cur, paciente_id, {"documento": f"PC-{partes['federado'][:16]}"})
         cur.execute("""INSERT INTO remisiones (paciente_id, institucion_origen, institucion_destino, fecha_solicitud,
                                                motivo, estado, convenio_vigente, origen_externo, socio_id,
                                                referencia_externa, estado_interop)
-                       VALUES (%s, %s, %s, CURRENT_DATE, %s, 'pendiente', FALSE, TRUE, %s, %s, 'recibida')
+                       VALUES (%s, registrar_institucion(%s), registrar_institucion(%s),
+                               (now() AT TIME ZONE 'America/Bogota')::date, %s, 'pendiente', FALSE, TRUE, %s, %s, 'recibida')
                        RETURNING id;""",
                     (paciente_id, socio["nombre"], INSTITUCION,
                      f"[{PRIORIDAD_TXT[partes['prioridad']]}] {motivo}", socio["id"], partes["referencia"]))
@@ -521,6 +531,8 @@ def _recibir_bundle(cabeceras: dict, cuerpo: bytes, ip: str):
                          "estado": "pendiente", "referencia": partes["referencia"], "paciente_conciliado": conciliado}})
     except Rechazo as r:
         return _rechazar(conn, socio, mensaje_id, "Bundle", r, ip)
+    except psycopg2.errors.CheckViolation as exc:
+        return _rechazar(conn, socio, mensaje_id, "Bundle", Rechazo(422, "invalid", exc.diag.message_primary), ip)
     except psycopg2.errors.UniqueViolation:
         return _rechazar(conn, socio, mensaje_id, "Bundle", Rechazo(409, "duplicate", "Mensaje repetido"), ip)
     finally:
@@ -559,16 +571,20 @@ def _recibir_task(cabeceras: dict, cuerpo: bytes, ip: str):
         if errores:
             raise Rechazo(422, "invalid", errores)
         cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-        cur.execute("""SELECT r.id, r.paciente_id, r.creado_por, r.estado FROM interop_mensajes m
+        cur.execute("""SELECT r.id, r.paciente_id, r.creado_por, r.estado, r.activo FROM interop_mensajes m
                        JOIN remisiones r ON r.id = m.remision_id
                        WHERE m.socio_id = %s AND m.direccion = 'saliente' AND m.tipo = 'Bundle'
-                         AND m.referencia_externa = %s ORDER BY m.id DESC LIMIT 1;""", (socio["id"], referencia))
+                         AND m.referencia_externa = %s ORDER BY m.id DESC LIMIT 1 FOR UPDATE OF r;""", (socio["id"], referencia))
         rem = cur.fetchone()
         if rem is None:
             raise Rechazo(422, "not-found", f"No hay una remisión enviada a {socio['nombre']} con el número {referencia}")
         nuevo = ESTADO_DE_TASK[t["status"]]
+        if not rem["activo"] or (rem["estado"] != nuevo and rem["estado"] not in ("pendiente", "en_gestion")):
+            raise Rechazo(409, "conflict", "La remisión ya no admite cambios de estado del socio")
         nota, _ = seguridad.neutralizar(str((t.get("statusReason") or {}).get("text")
                                             or ((t.get("note") or [{}])[0].get("text") if t.get("note") else "") or "")[:300])
+        if rem["estado"] != nuevo:
+            _guardar_historial(cur, rem["id"], None)
         cur.execute("""UPDATE remisiones SET estado = %s, estado_interop = 'respondida',
                               institucion_acepta = CASE WHEN %s = 'aceptada' THEN %s ELSE institucion_acepta END,
                               cerrada_en = CASE WHEN %s = 'rechazada' THEN now() ELSE cerrada_en END
@@ -815,8 +831,15 @@ def vista_previa(remision_id: int, socio_id: int = Query(...), db=Depends(get_db
             "bundle": bundle if consent else None}
 
 
-def _cargar_para_envio(cur, remision_id: int, socio_id: int):
-    cur.execute("SELECT * FROM remisiones WHERE id = %s AND activo;", (remision_id,))
+def _guardar_historial(cur, remision_id, usuario_id):
+    cur.execute("""INSERT INTO remisiones_historial (remision_id, dato_anterior, modificado_por)
+                   SELECT id, to_jsonb(r), %s FROM remisiones r WHERE id = %s;""",
+                (usuario_id, remision_id))
+
+
+def _cargar_para_envio(cur, remision_id: int, socio_id: int, bloquear=False):
+    bloqueo = " FOR UPDATE" if bloquear else ""
+    cur.execute("SELECT * FROM remisiones WHERE id = %s AND activo" + bloqueo, (remision_id,))
     rem = cur.fetchone()
     if rem is None:
         raise HTTPException(status_code=404, detail="Remisión no encontrada")
@@ -836,7 +859,9 @@ def enviar_remision(remision_id: int, body: EnviarIn, db=Depends(get_db),
     """R30/R32 · El médico remite a la institución socia. Sin consentimiento vigente
     del paciente para ESA institución no sale nada (403)."""
     cur = db.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-    rem, pac, socio = _cargar_para_envio(cur, remision_id, body.socio_id)
+    rem, pac, socio = _cargar_para_envio(cur, remision_id, body.socio_id, bloquear=True)
+    if rem["estado"] not in ("pendiente", "en_gestion"):
+        raise HTTPException(409, "La remisión ya no está pendiente de gestión")
     consent = _consentimiento_vigente(cur, pac["id"], socio["id"])
     if consent is None:
         cur.close()
@@ -853,7 +878,8 @@ def enviar_remision(remision_id: int, body: EnviarIn, db=Depends(get_db),
                        remision_id, pac["id"], _radicado(rem), detalle=texto,
                        recurso={"recursos": {t: tipos.count(t) for t in dict.fromkeys(tipos)}, "consentimiento_id": consent["id"]})
     if ok:
-        cur.execute("""UPDATE remisiones SET socio_id = %s, estado_interop = 'enviada', institucion_destino = %s,
+        _guardar_historial(cur, remision_id, usuario["id"])
+        cur.execute("""UPDATE remisiones SET socio_id = %s, estado_interop = 'enviada', institucion_destino = registrar_institucion(%s),
                               estado = CASE WHEN estado = 'pendiente' THEN 'en_gestion' ELSE estado END
                        WHERE id = %s;""", (socio["id"], socio["nombre"], remision_id))
     db.commit()
@@ -884,16 +910,20 @@ def responder_remision(remision_id: int, body: ResponderIn, db=Depends(get_db),
     if body.decision == "rechazar" and not (body.nota or "").strip():
         raise HTTPException(status_code=422, detail="Escribe el motivo del rechazo")
     cur = db.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-    cur.execute("SELECT * FROM remisiones WHERE id = %s AND origen_externo AND activo;", (remision_id,))
+    cur.execute("SELECT * FROM remisiones WHERE id = %s AND origen_externo AND activo FOR UPDATE;", (remision_id,))
     rem = cur.fetchone()
     if rem is None:
         cur.close()
         raise HTTPException(status_code=404, detail="Remisión recibida no encontrada")
-    if rem["estado"] not in ("pendiente", "en_gestion") and rem["estado_interop"] == "respondida":
+    nuevo = "aceptada" if body.decision == "aceptar" else "rechazada"
+    if rem["estado"] not in ("pendiente", "en_gestion") and (
+        rem["estado"] != nuevo or rem["estado_interop"] == "respondida"
+    ):
         cur.close()
         raise HTTPException(status_code=409, detail=f"Esta remisión ya fue respondida ({rem['estado']})")
     socio = _socio(cur, socio_id=rem["socio_id"])
-    nuevo = "aceptada" if body.decision == "aceptar" else "rechazada"
+    if rem["estado"] != nuevo:
+        _guardar_historial(cur, remision_id, usuario["id"])
     cur.execute("""UPDATE remisiones SET estado = %s,
                           institucion_acepta = CASE WHEN %s = 'aceptada' THEN %s ELSE institucion_acepta END,
                           cerrada_en = CASE WHEN %s = 'rechazada' THEN now() ELSE cerrada_en END
@@ -1047,7 +1077,7 @@ def _crear_socio(cur, nombre: str, url_base: Optional[str], admin_id: int, de_pr
     client_secret, secreto_firma = cripto.secreto_nuevo(), cripto.secreto_nuevo()
     cur.execute("""INSERT INTO sistemas_socios (nombre, client_id, client_secret_hash, secreto_firma, url_base,
                                                 creado_por, de_prueba)
-                   VALUES (%s, %s, %s, %s, %s, %s, %s) RETURNING *;""",
+                   VALUES (registrar_institucion(%s), %s, %s, %s, %s, %s, %s) RETURNING *;""",
                 (nombre.strip(), client_id, auth.hash_password(client_secret),
                  _guardar_secreto(client_id, "secreto_firma", secreto_firma), _url_valida(url_base), admin_id, de_prueba))
     return {"socio": cur.fetchone(), "client_secret": client_secret, "secreto_firma": secreto_firma}
@@ -1112,7 +1142,8 @@ def actualizar_socio(socio_id: int, body: SocioCambios, db=Depends(get_db), admi
     datos = body.model_dump(exclude_unset=True)
     for campo in ("nombre", "cliente_saliente", "activo"):
         if campo in datos and datos[campo] is not None:
-            cambios.append(f"{campo} = %s"); valores.append(datos[campo].strip() if isinstance(datos[campo], str) else datos[campo])
+            cambios.append("nombre = registrar_institucion(%s)" if campo == "nombre" else f"{campo} = %s")
+            valores.append(datos[campo].strip() if isinstance(datos[campo], str) else datos[campo])
     if "url_base" in datos:
         cambios.append("url_base = %s"); valores.append(_url_valida(datos["url_base"]))
     for campo in ("secreto_saliente", "firma_saliente"):

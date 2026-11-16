@@ -303,7 +303,8 @@ def proponer_remision(institucion_destino: str, motivo: str, prioridad: str,
         convenio = bool((cur.fetchone() or {}).get("convenio"))
         cur.execute("""INSERT INTO remisiones (paciente_id, institucion_origen, institucion_destino,
                                                fecha_solicitud, motivo, estado, convenio_vigente, creado_por)
-                       VALUES (%s, %s, %s, CURRENT_DATE, %s, 'pendiente', %s, %s) RETURNING id;""",
+                       VALUES (%s, %s, %s, (now() AT TIME ZONE 'America/Bogota')::date,
+                               %s, 'pendiente', %s, %s) RETURNING id;""",
                     (ctx.paciente_id, INSTITUCION_ORIGEN, institucion_destino, motivo_final, convenio, ctx.usuario_id))
         remision_id = cur.fetchone()["id"]
         cur.execute("""UPDATE agente_propuestas SET estado = 'aprobada', decidida_en = now(), remision_id = %s

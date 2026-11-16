@@ -206,7 +206,7 @@ CREATE INDEX IF NOT EXISTS idx_notificaciones_usuario ON notificaciones (usuario
 -- se guardan, así nunca se desincronizan.
 ALTER TABLE remisiones ADD COLUMN IF NOT EXISTS radicada_en TIMESTAMP;
 UPDATE remisiones SET radicada_en = fecha_solicitud::timestamp WHERE radicada_en IS NULL;
-ALTER TABLE remisiones ALTER COLUMN radicada_en SET DEFAULT now();
+ALTER TABLE remisiones ALTER COLUMN radicada_en SET DEFAULT (now() AT TIME ZONE 'America/Bogota');
 
 -- cerrada_en: cuándo se cerró el asiento (trasladado o rechazada). Con esto el
 -- libro sabe cuánto duró cada remisión y la contabilidad sabe cuándo facturar.
@@ -406,3 +406,169 @@ CREATE TABLE IF NOT EXISTS consentimientos (
     revocado_por INTEGER REFERENCES usuarios(id)
 );
 CREATE INDEX IF NOT EXISTS idx_consentimientos_paciente ON consentimientos (paciente_id, socio_id, vigente);
+
+-- Integridad de ficha y radicación.
+CREATE OR REPLACE FUNCTION clave_institucion(nombre TEXT) RETURNS TEXT
+LANGUAGE sql IMMUTABLE STRICT AS $$
+    SELECT CASE clave
+        WHEN 'huv' THEN 'hospital universitario del valle'
+        ELSE clave
+    END
+    FROM (SELECT translate(lower(btrim(regexp_replace(nombre, '[[:space:]]+', ' ', 'g'))),
+                           'áéíóúüÁÉÍÓÚÜ', 'aeiouuaeiouu') AS clave) normalizada
+$$;
+
+CREATE TABLE IF NOT EXISTS instituciones (
+    nombre TEXT PRIMARY KEY,
+    clave TEXT GENERATED ALWAYS AS (clave_institucion(nombre)) STORED UNIQUE,
+    CHECK (clave <> '')
+);
+
+INSERT INTO instituciones (nombre) VALUES
+    ('Hospital Universitario San José (Popayán)'),
+    ('Hospital Francisco de Paula Santander (Santander de Quilichao)'),
+    ('Hospital Local de Villa Rica'),
+    ('ESE Norte 2 (Caloto)'),
+    ('Hospital Departamental Tomás Uribe Uribe (Tuluá)'),
+    ('Hospital San Rafael (Buga)'),
+    ('Hospital Raúl Orejuela Bueno (Palmira)'),
+    ('Hospital Departamental de Buenaventura'),
+    ('Hospital Universitario del Valle'),
+    ('Fundación Valle del Lili'),
+    ('Clínica Imbanaco'),
+    ('Clínica de Occidente'),
+    ('Clínica Nuestra Señora de los Remedios'),
+    ('Clínica Farallones'),
+    ('Hospital San Juan de Dios Cali'),
+    ('Clínica Colombia Cali'),
+    ('Clínica Versalles'),
+    ('Clínica Sebastián de Belalcázar')
+ON CONFLICT DO NOTHING;
+
+INSERT INTO instituciones (nombre)
+SELECT DISTINCT btrim(regexp_replace(nombre, '[[:space:]]+', ' ', 'g'))
+FROM (
+    SELECT institucion_origen AS nombre FROM remisiones
+    UNION SELECT institucion_destino FROM remisiones
+    UNION SELECT nombre FROM sistemas_socios
+) nombres
+WHERE clave_institucion(nombre) <> ''
+ORDER BY 1
+ON CONFLICT DO NOTHING;
+
+-- Conservar registros legados sin institución hasta que se corrijan.
+UPDATE remisiones r SET institucion_origen = i.nombre
+FROM instituciones i WHERE clave_institucion(r.institucion_origen) = i.clave
+AND r.institucion_origen <> i.nombre;
+UPDATE remisiones r SET institucion_destino = i.nombre
+FROM instituciones i WHERE clave_institucion(r.institucion_destino) = i.clave
+AND r.institucion_destino <> i.nombre;
+
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT FROM pg_constraint WHERE conname = 'fk_remision_institucion_origen'
+                   AND conrelid = 'remisiones'::regclass) THEN
+        ALTER TABLE remisiones ADD CONSTRAINT fk_remision_institucion_origen
+            FOREIGN KEY (institucion_origen) REFERENCES instituciones(nombre) NOT VALID;
+        ALTER TABLE remisiones ADD CONSTRAINT fk_remision_institucion_destino
+            FOREIGN KEY (institucion_destino) REFERENCES instituciones(nombre) NOT VALID;
+    END IF;
+END $$;
+
+CREATE INDEX IF NOT EXISTS idx_remision_paciente_fecha ON remisiones (paciente_id, fecha_solicitud);
+CREATE INDEX IF NOT EXISTS idx_remision_institucion_origen ON remisiones (institucion_origen);
+CREATE INDEX IF NOT EXISTS idx_remision_institucion_destino ON remisiones (institucion_destino);
+
+-- Los importadores y la interoperabilidad pueden inscribir instituciones de sus fuentes.
+CREATE OR REPLACE FUNCTION registrar_institucion(valor TEXT) RETURNS TEXT
+LANGUAGE plpgsql AS $$
+DECLARE canonica TEXT;
+BEGIN
+    IF clave_institucion(valor) = '' THEN
+        RAISE check_violation USING MESSAGE = 'La institución es obligatoria';
+    END IF;
+    SELECT nombre INTO canonica FROM instituciones WHERE clave = clave_institucion(valor);
+    IF NOT FOUND THEN
+        INSERT INTO instituciones (nombre)
+        VALUES (btrim(regexp_replace(valor, '[[:space:]]+', ' ', 'g')))
+        ON CONFLICT DO NOTHING;
+        SELECT nombre INTO canonica FROM instituciones WHERE clave = clave_institucion(valor);
+    END IF;
+    RETURN canonica;
+END $$;
+
+CREATE OR REPLACE FUNCTION validar_fecha_remision() RETURNS trigger
+LANGUAGE plpgsql AS $$
+DECLARE nacimiento DATE;
+DECLARE hoy DATE := (now() AT TIME ZONE 'America/Bogota')::date;
+BEGIN
+    IF TG_OP = 'UPDATE' THEN
+        IF NEW.paciente_id <> OLD.paciente_id THEN
+            RAISE check_violation USING MESSAGE = 'El paciente del radicado es inmutable';
+        END IF;
+        IF NEW.fecha_solicitud IS NOT DISTINCT FROM OLD.fecha_solicitud
+           AND NEW.radicada_en IS NOT DISTINCT FROM OLD.radicada_en THEN
+            RETURN NEW;
+        END IF;
+    END IF;
+    SELECT fecha_nacimiento INTO nacimiento FROM pacientes WHERE id = NEW.paciente_id FOR SHARE;
+    IF NEW.fecha_solicitud > LEAST(hoy, NEW.radicada_en::date) THEN
+        RAISE check_violation USING MESSAGE = 'La solicitud no puede ser posterior a la radicación ni a hoy';
+    END IF;
+    IF NEW.fecha_solicitud < nacimiento THEN
+        RAISE check_violation USING MESSAGE = 'La solicitud no puede ser anterior al nacimiento';
+    END IF;
+    RETURN NEW;
+END $$;
+
+CREATE OR REPLACE TRIGGER validar_fecha_remision
+BEFORE INSERT OR UPDATE OF fecha_solicitud, radicada_en, paciente_id ON remisiones
+FOR EACH ROW EXECUTE FUNCTION validar_fecha_remision();
+
+CREATE OR REPLACE FUNCTION validar_fecha_paciente() RETURNS trigger
+LANGUAGE plpgsql AS $$
+BEGIN
+    IF TG_OP = 'UPDATE' AND NEW.fecha_nacimiento IS NOT DISTINCT FROM OLD.fecha_nacimiento THEN
+        RETURN NEW;
+    END IF;
+    IF NEW.fecha_nacimiento > (now() AT TIME ZONE 'America/Bogota')::date THEN
+        RAISE check_violation USING MESSAGE = 'La fecha de nacimiento no puede ser futura';
+    END IF;
+    IF EXISTS (SELECT FROM remisiones WHERE paciente_id = NEW.id AND fecha_solicitud < NEW.fecha_nacimiento) THEN
+        RAISE check_violation USING MESSAGE = 'El nacimiento no puede ser posterior a una solicitud del paciente';
+    END IF;
+    RETURN NEW;
+END $$;
+
+CREATE OR REPLACE TRIGGER validar_fecha_paciente
+BEFORE INSERT OR UPDATE OF fecha_nacimiento ON pacientes
+FOR EACH ROW EXECUTE FUNCTION validar_fecha_paciente();
+
+CREATE OR REPLACE FUNCTION validar_transicion_remision() RETURNS trigger
+LANGUAGE plpgsql AS $$
+BEGIN
+    IF NEW.estado = OLD.estado THEN RETURN NEW; END IF;
+    IF NOT OLD.activo OR NOT (
+        (OLD.estado = 'pendiente' AND NEW.estado IN ('en_gestion', 'aceptada', 'completada', 'rechazada'))
+        OR (OLD.estado = 'en_gestion' AND NEW.estado IN ('aceptada', 'completada', 'rechazada'))
+        OR (OLD.estado = 'aceptada' AND NEW.estado IN ('completada', 'rechazada'))
+    ) THEN
+        RAISE check_violation USING MESSAGE = 'La transición de estado no está permitida';
+    END IF;
+    RETURN NEW;
+END $$;
+
+CREATE OR REPLACE TRIGGER validar_transicion_remision
+BEFORE UPDATE OF estado ON remisiones
+FOR EACH ROW EXECUTE FUNCTION validar_transicion_remision();
+
+-- La bitácora documental conserva el id del radicado aunque se anule.
+CREATE OR REPLACE FUNCTION impedir_borrado_remision() RETURNS trigger
+LANGUAGE plpgsql AS $$
+BEGIN
+    RAISE check_violation USING MESSAGE = 'Anula el radicado para conservar su historial y bitácora';
+END $$;
+
+CREATE OR REPLACE TRIGGER impedir_borrado_remision
+BEFORE DELETE ON remisiones
+FOR EACH ROW EXECUTE FUNCTION impedir_borrado_remision();

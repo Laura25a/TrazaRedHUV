@@ -177,21 +177,10 @@ def _facturar_analisis(evento: dict) -> None:
     """R19: al aprobarse un reporte de IA se crea SOLA la factura en MongoDB,
     ligada al reporte por reporte_id (colección facturas de la Persona 3)."""
     try:
-        from auth import db_mongo
-        reporte_id = evento.get("reporte_id")
-        doc = {
-            "paciente_id": evento.get("paciente_id"),
-            "servicio": "analisis_ia",
-            "valor": VALOR_ANALISIS_IA,
-            "fecha": datetime.now(timezone.utc),
-            "estado_pago": "pendiente",
-            "reporte_id": reporte_id,
-            "origen": "automatico",
-        }
-        db_mongo["facturas"].insert_one(doc)
-        print(f"[evento] factura automática creada para el reporte {reporte_id}")
-        _auditar(None, "factura_creada", "facturas", reporte_id,
-                 f"factura automática por reporte de IA {reporte_id}")
+        from contabilidad import crear_factura_ia
+
+        reporte_id = evento["reporte_id"]
+        crear_factura_ia(evento["paciente_id"], reporte_id, VALOR_ANALISIS_IA)
     except Exception as e:
         print(f"[evento] no se pudo facturar el reporte: {e}")
 

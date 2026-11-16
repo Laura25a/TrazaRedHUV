@@ -132,12 +132,6 @@ const CIUDADES = {
   "Hospital Departamental de Buenaventura": "Buenaventura, Valle del Cauca",
 };
 const ciudadDe = inst => CIUDADES[inst] || "Cali, Valle del Cauca";
-const INSTITUCIONES = [
-  "Hospital Universitario del Valle", "Fundación Valle del Lili", "Clínica Imbanaco", "Clínica de Occidente",
-  "Clínica Nuestra Señora de los Remedios", "Clínica Farallones", "Hospital San Juan de Dios Cali",
-  "Clínica Colombia Cali", "Clínica Versalles", "Clínica Sebastián de Belalcázar",
-  "Hospital Universitario San José (Popayán)", ...Object.keys(CIUDADES).filter(k => !k.includes("San José")),
-];
 const EPS = ["Emssanar", "Coosalud", "Nueva EPS", "Asmet Salud", "SOS", "Sanitas", "Sura", "Salud Total"];
 
 // Número de radicado del libro (igual que la API: REM-<año>-<id con 6 dígitos>)
@@ -546,22 +540,27 @@ async function subirImagen(e, p) {
 // VISTA: PACIENTES
 // ==========================================================================
 async function vistaPacientes() {
+  const puedeCorregir = ["admin", "medico"].includes(sesion.usuario.rol);
   $("#contenido").innerHTML = `<div class="pagina">
     <div class="pagina-cabeza"><div><h2>Pacientes</h2><p>Busca por número de documento o por nombre.</p></div>
-      <button class="btn btn-primario" id="btn-nuevo">+ Nuevo paciente</button></div>
+      ${puedeCorregir ? '<button class="btn btn-primario" id="btn-nuevo">+ Nuevo paciente</button>' : ""}</div>
     <section class="tarjeta"><div class="filtros"><div class="buscar">${icono("buscar")}<input type="search" id="p-buscar" placeholder="Documento o nombre…" autocomplete="off"></div>
       <span class="total" id="p-total"></span></div><div class="tabla-scroll" id="p-tabla">${cargando("Cargando pacientes…")}</div></section></div>`;
-  $("#btn-nuevo").addEventListener("click", formularioPaciente);
+  $("#btn-nuevo")?.addEventListener("click", () => formularioPaciente());
   const buscar = async (q) => {
     try {
       const filas = await API.get(`/pacientes${q ? `?q=${encodeURIComponent(q)}` : ""}`);
       $("#p-total").textContent = `${filas.length} paciente${filas.length === 1 ? "" : "s"}`;
-      $("#p-tabla").innerHTML = filas.length ? `<table><thead><tr><th>Paciente</th><th>Edad</th><th>EPS</th><th>Tipo de sangre</th><th>Teléfono</th></tr></thead>
+      $("#p-tabla").innerHTML = filas.length ? `<table><thead><tr><th>Paciente</th><th>Edad</th><th>EPS</th><th>Tipo de sangre</th><th>Teléfono</th>${puedeCorregir ? "<th>Acciones</th>" : ""}</tr></thead>
         <tbody>${filas.slice(0, 300).map(p => `<tr class="clic" data-pac="${p.id}">
           <td><div class="persona"><span class="avatar">${esc(iniciales(p.nombre))}</span><div>${esc(p.nombre)}<span class="sub">CC ${esc(p.documento)} · ${esc({ F: "Femenino", M: "Masculino" }[p.genero] || p.genero)}</span></div></div></td>
-          <td class="num">${edad(p.fecha_nacimiento) ?? "—"}</td><td>${esc(p.eps)}</td><td>${esc(p.tipo_sangre || "—")}</td><td class="num">${esc(p.telefono || "—")}</td></tr>`).join("")}</tbody></table>
+          <td class="num">${edad(p.fecha_nacimiento) ?? "—"}</td><td>${esc(p.eps)}</td><td>${esc(p.tipo_sangre || "—")}</td><td class="num">${esc(p.telefono || "—")}</td>${puedeCorregir ? `<td><button class="btn btn-secundario" data-corregir-pac="${p.id}" aria-label="Corregir ficha de ${esc(p.nombre)}">Corregir ficha</button></td>` : ""}</tr>`).join("")}</tbody></table>
         ${filas.length > 300 ? `<div class="vacio">Se muestran los primeros 300. Afina la búsqueda.</div>` : ""}`
         : `<div class="vacio">No se encontró ningún paciente con “${esc(q)}”.</div>`;
+      $$("[data-corregir-pac]").forEach(b => b.addEventListener("click", e => {
+        e.stopPropagation();
+        formularioPaciente(filas.find(p => p.id === +b.dataset.corregirPac));
+      }));
       $$("[data-pac]").forEach(tr => tr.addEventListener("click", async () => {
         const id = +tr.dataset.pac;
         const rems = (await remisiones()).filter(r => r.paciente_id === id && r.activo !== false)
@@ -779,32 +778,75 @@ async function vistaAuditoria() {
 // ==========================================================================
 const datalist = (id, items) => `<datalist id="${id}">${items.map(i => `<option value="${esc(i)}">`).join("")}</datalist>`;
 
+async function agregarInstitucionesDelCatalogo(contenedor, selector) {
+  const lista = $(selector, contenedor);
+  try {
+    const catalogo = await API.get("/instituciones");
+    const opciones = new Set([...lista.options].map(opcion => opcion.value));
+    for (const nombre of catalogo) {
+      if (!opciones.has(nombre)) {
+        lista.append(new Option(nombre, nombre));
+        opciones.add(nombre);
+      }
+    }
+  } catch {
+    // El campo de institución sigue disponible para escribir el nombre.
+  }
+}
+
+
 async function formularioRemision(r = null) {
-  let lista;
-  try { lista = await pacientes(); } catch (e) { toast(e.message, "error"); return; }
+  let lista, instituciones;
+  try { [lista, instituciones] = await Promise.all([pacientes(), API.get("/instituciones")]); }
+  catch (e) { toast(e.message, "error"); return; }
   const etq = p => `${p.documento} — ${p.nombre}`;
   const actual = r ? lista.find(p => p.id === r.paciente_id) : null;
+  const buscarPaciente = valor => lista.find(p => etq(p) === valor)
+    || lista.find(p => p.documento === valor.trim().replace(/[\s.\-]/g, "").toUpperCase());
+  const maxFecha = r?.radicada_en ? [hoyISO(), String(r.radicada_en).slice(0, 10)].sort()[0] : hoyISO();
+  const opciones = (valor) => [...new Set([valor, ...instituciones].filter(Boolean))]
+    .map(i => `<option value="${esc(i)}" ${i === valor ? "selected" : ""}>${esc(i)}</option>`).join("");
   abrirFormulario({
-    titulo: r ? `Anotar corrección · ${radicadoDe(r)}` : "Radicar remisión en el libro", textoBoton: r ? "Anotar corrección" : "Radicar",
+    titulo: r ? `Anotar corrección · ${radicadoDe(r)}` : "Radicar remisión en el libro",
+    textoBoton: r ? "Anotar corrección" : "Radicar",
     campos: `<div class="campo"><label for="m-pac">Paciente (documento o nombre)</label>
-        <input id="m-pac" name="paciente" list="dl-pac" required value="${actual ? esc(etq(actual)) : ""}" placeholder="Escribe para buscar…">${datalist("dl-pac", lista.map(etq))}</div>
-      <div class="fila"><div class="campo"><label for="m-ori">Institución de origen</label><input id="m-ori" name="institucion_origen" list="dl-inst" required value="${esc(r ? r.institucion_origen : "Hospital Universitario del Valle")}"></div>
-        <div class="campo"><label for="m-des">Institución de destino</label><input id="m-des" name="institucion_destino" list="dl-inst" required value="${esc(r ? r.institucion_destino : "")}"></div></div>
-      ${datalist("dl-inst", INSTITUCIONES)}
-      <div class="fila"><div class="campo"><label for="m-fec">Fecha de solicitud</label><input id="m-fec" type="date" name="fecha_solicitud" required value="${esc(r ? String(r.fecha_solicitud).slice(0, 10) : hoyISO())}"></div>
-        <div class="campo"><label>Estado</label><input disabled value="${esc(r ? ESTADOS[r.estado] : "Pendiente (avanza solo con la bitácora)")}"></div></div>
-      ${r ? `<p class="tenue" style="margin:-.3rem 0 .9rem">La versión anterior queda guardada y la corrección aparece en el recorrido del asiento. El estado no se cambia aquí: avanza con las gestiones y el cierre.</p>` : ""}
-      <div class="campo"><label for="m-mot">Motivo (diagnóstico; lo que requiere)</label><textarea id="m-mot" name="motivo" required placeholder="Neumonía adquirida en la comunidad; requiere valoración por neumología">${esc(r ? r.motivo : "")}</textarea></div>
-      <label class="check"><input type="checkbox" name="convenio_vigente" ${r && r.convenio_vigente ? "checked" : ""}> Hay convenio vigente con la institución de destino</label>`,
+        <input id="m-pac" name="paciente" list="dl-pac" required ${r ? "disabled" : ""} value="${actual ? esc(etq(actual)) : ""}" placeholder="Escribe para buscar…">${r ? "" : datalist("dl-pac", lista.map(etq))}</div>
+      ${r ? "" : '<label class="check oculto" id="m-confirmacion"><input type="checkbox" name="identidad_confirmada"><span></span></label>'}
+      <div class="fila"><div class="campo"><label for="m-ori">Institución de origen</label><select id="m-ori" name="institucion_origen" required>${r && !r.institucion_origen ? '<option value="">Selecciona una institución</option>' : ""}${opciones(r ? r.institucion_origen : "Hospital Universitario del Valle")}</select></div>
+        <div class="campo"><label for="m-des">Institución de destino</label><select id="m-des" name="institucion_destino" required><option value="">Selecciona una institución</option>${opciones(r?.institucion_destino)}</select></div></div>
+      <div class="fila"><div class="campo"><label for="m-fec">Fecha de solicitud</label><input id="m-fec" type="date" name="fecha_solicitud" required max="${esc(maxFecha)}" value="${esc(r ? String(r.fecha_solicitud).slice(0, 10) : hoyISO())}"></div>
+        <div class="campo"><label>Estado</label><input disabled value="${esc(r ? ESTADOS[r.estado] : "Pendiente (avanza con la bitácora)")}"></div></div>
+      <div class="campo"><label for="m-mot">Motivo (diagnóstico y requerimiento)</label><textarea id="m-mot" name="motivo" required>${esc(r?.motivo || "")}</textarea></div>
+      <label class="check"><input type="checkbox" name="convenio_vigente" ${r?.convenio_vigente ? "checked" : ""}> Hay convenio vigente con la institución de destino</label>`,
+    alAbrir(form) {
+      const fecha = $("#m-fec", form);
+      fecha.min = actual?.fecha_nacimiento || "";
+      if (r) return;
+      const confirmacion = $("#m-confirmacion", form);
+      $("#m-pac", form).addEventListener("input", e => {
+        const ficha = buscarPaciente(e.target.value);
+        fecha.min = ficha?.fecha_nacimiento || "";
+        $("input", confirmacion).checked = false;
+        confirmacion.classList.toggle("oculto", !ficha);
+        $("span", confirmacion).textContent = ficha ? `Confirmo la ficha de ${etq(ficha)}` : "";
+      });
+    },
     async alGuardar(d) {
-      const p = lista.find(x => etq(x) === d.paciente) || lista.find(x => x.documento === d.paciente.trim());
-      if (!p) throw new Error("Escoge un paciente de la lista (o créalo primero en Pacientes).");
-      for (const [c, n] of [["institucion_origen", "la institución de origen"], ["institucion_destino", "la institución de destino"], ["motivo", "el motivo"]])
-        if (!String(d[c] || "").trim()) throw new Error(`Falta ${n}.`);
-      const cuerpo = { paciente_id: p.id, institucion_origen: d.institucion_origen.trim(), institucion_destino: d.institucion_destino.trim(),
-        fecha_solicitud: d.fecha_solicitud, motivo: d.motivo.trim(), estado: r ? r.estado : "pendiente", convenio_vigente: d.convenio_vigente };
-      const g = r ? await API.put(`/remisiones/${r.id}`, cuerpo) : await API.post("/remisiones", cuerpo);
-      toast(r ? `Corrección anotada en ${radicadoDe(g)} (la versión anterior queda en el registro)` : `Remisión radicada: ${radicadoDe(g)}`, "ok");
+      const p = r ? actual : buscarPaciente(d.paciente || "");
+      if (!r && (!p || !d.identidad_confirmada)) throw new Error("Selecciona el paciente y confirma su nombre y documento.");
+      const cuerpo = { institucion_origen: d.institucion_origen, institucion_destino: d.institucion_destino,
+        fecha_solicitud: d.fecha_solicitud, motivo: d.motivo, convenio_vigente: d.convenio_vigente };
+      const cambios = r ? Object.fromEntries(Object.entries(cuerpo).filter(([k, v]) => r[k] !== v)) : cuerpo;
+      for (const k of ["institucion_origen", "institucion_destino", "motivo"]) {
+        if (k in cambios && !cambios[k].trim()) throw new Error("Completa las instituciones y el motivo.");
+      }
+      if (!r || "fecha_solicitud" in cambios) {
+        if (!d.fecha_solicitud || d.fecha_solicitud > maxFecha || (p?.fecha_nacimiento && d.fecha_solicitud < p.fecha_nacimiento))
+          throw new Error("La solicitud debe estar entre el nacimiento y la fecha de radicación.");
+      }
+      const g = r ? await API.patch(`/remisiones/${r.id}`, cambios)
+        : await API.post("/remisiones", { ...cuerpo, paciente_id: p.id });
+      toast(r ? `Corrección guardada en ${radicadoDe(g)}` : `Remisión radicada: ${radicadoDe(g)}`, "ok");
       remisionesCache = null;
       actualizarNotificaciones();
       ir("ficha", { remision: g.id });
@@ -833,24 +875,32 @@ function formularioVital(r, recargar) {
   });
 }
 
-function formularioPaciente() {
+function formularioPaciente(p = null) {
+  const valor = k => esc(p?.[k] || "");
+  const opciones = (k, lista, vacio) => [...new Set([...(vacio ? [""] : []), ...lista, ...(p?.[k] ? [p[k]] : [])])]
+    .map(v => `<option value="${esc(v)}" ${v === p?.[k] ? "selected" : ""}>${esc(k === "genero" ? ({F: "Femenino", M: "Masculino", O: "Otro"}[v] || v) : (v || "—"))}</option>`).join("");
   abrirFormulario({
-    titulo: "Nuevo paciente", textoBoton: "Crear paciente",
-    campos: `<div class="campo"><label for="m-nom">Nombre completo</label><input id="m-nom" name="nombre" required></div>
-      <div class="fila-3"><div class="campo"><label for="m-doc">Documento</label><input id="m-doc" name="documento" required inputmode="numeric"></div>
-        <div class="campo"><label for="m-gen">Género</label><select id="m-gen" name="genero"><option value="F">Femenino</option><option value="M">Masculino</option></select></div>
-        <div class="campo"><label for="m-eps">EPS</label><input id="m-eps" name="eps" list="dl-eps" required>${datalist("dl-eps", EPS)}</div></div>
-      <div class="fila"><div class="campo"><label for="m-nac">Fecha de nacimiento</label><input id="m-nac" name="fecha_nacimiento" type="date"></div>
-        <div class="campo"><label for="m-tel">Teléfono</label><input id="m-tel" name="telefono" inputmode="tel" maxlength="15"></div></div>
-      <div class="fila"><div class="campo"><label for="m-san">Tipo de sangre</label><select id="m-san" name="tipo_sangre"><option value="">—</option>${["O+", "O-", "A+", "A-", "B+", "B-", "AB+", "AB-"].map(t => `<option>${t}</option>`).join("")}</select></div>
-        <div class="campo"><label for="m-ale">Alergias</label><input id="m-ale" name="alergias" placeholder="Sin alergias conocidas"></div></div>`,
+    titulo: p ? "Corregir ficha de paciente" : "Nuevo paciente", textoBoton: p ? "Guardar corrección" : "Crear paciente",
+    campos: `<div class="campo"><label for="m-nom">Nombre completo</label><input id="m-nom" name="nombre" value="${valor("nombre")}" required></div>
+      <div class="fila-3"><div class="campo"><label for="m-doc">Documento</label><input id="m-doc" name="documento" value="${valor("documento")}" required ${p ? "disabled" : ""}></div>
+        <div class="campo"><label for="m-gen">Género</label><select id="m-gen" name="genero">${opciones("genero", ["F", "M", "O"], false)}</select></div>
+        <div class="campo"><label for="m-eps">EPS</label><input id="m-eps" name="eps" list="dl-eps" value="${valor("eps")}" required>${datalist("dl-eps", EPS)}</div></div>
+      <div class="fila"><div class="campo"><label for="m-nac">Fecha de nacimiento</label><input id="m-nac" name="fecha_nacimiento" type="date" max="${hoyISO()}" value="${valor("fecha_nacimiento")}"></div>
+        <div class="campo"><label for="m-tel">Teléfono</label><input id="m-tel" name="telefono" inputmode="tel" maxlength="15" value="${valor("telefono")}"></div></div>
+      <div class="fila"><div class="campo"><label for="m-san">Tipo de sangre</label><select id="m-san" name="tipo_sangre">${opciones("tipo_sangre", ["O+", "O-", "A+", "A-", "B+", "B-", "AB+", "AB-"], true)}</select></div>
+        <div class="campo"><label for="m-ale">Alergias</label><input id="m-ale" name="alergias" value="${valor("alergias")}"></div></div>`,
     async alGuardar(d) {
-      if (!d.nombre.trim() || !d.documento.trim() || !d.eps.trim()) throw new Error("Completa nombre, documento y EPS.");
-      const cuerpo = { nombre: d.nombre.trim(), documento: d.documento.trim(), genero: d.genero, eps: d.eps.trim() };
-      for (const k of ["fecha_nacimiento", "telefono", "tipo_sangre", "alergias"]) if (String(d[k] || "").trim()) cuerpo[k] = d[k].trim();
-      const p = await API.post("/pacientes", cuerpo);
+      const documento = d.documento?.replace(/[\s.\-]/g, "");
+      if (!d.nombre.trim() || !d.eps.trim() || (!p && !/^[\p{L}\p{N}]+$/u.test(documento || "")))
+        throw new Error("Completa nombre, EPS y un documento válido.");
+      const cuerpo = { nombre: d.nombre.trim(), genero: d.genero, eps: d.eps.trim() };
+      for (const k of ["fecha_nacimiento", "telefono", "tipo_sangre", "alergias"]) cuerpo[k] = d[k]?.trim() || null;
+      const cambios = p ? Object.fromEntries(Object.entries(cuerpo).filter(([k, v]) => (p[k] || null) !== v)) : cuerpo;
+      if ("fecha_nacimiento" in cambios && d.fecha_nacimiento > hoyISO()) throw new Error("La fecha de nacimiento no puede ser futura.");
+      const ficha = p ? await API.patch(`/pacientes/${p.id}`, cambios)
+        : await API.post("/pacientes", { ...cuerpo, documento });
       pacientesCache = null;
-      toast(`Paciente ${p.nombre} creado`, "ok");
+      toast(p ? "Ficha corregida" : `Paciente ${ficha.nombre} creado`, "ok");
       vistaPacientes();
     },
   });

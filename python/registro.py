@@ -39,6 +39,7 @@ from auth import ROLES_CLINICOS, get_db, get_usuario_actual, registrar_auditoria
 from causas import CAUSAS, causa_de, causa_por_reglas
 from eventos import ids_con_rol, publicar
 from ia import ML_URL, seudonimo
+from validaciones import bloquear_remision
 
 router = APIRouter(tags=["Registro de remisiones"])
 
@@ -438,7 +439,8 @@ def formato_remision(db, usuario: dict, remision_id: int, recalcular=True) -> di
     if usuario["rol"] == "admin":
         costos = contabilidad.liquidacion_de(db, remision_id)
     rol = usuario["rol"]
-    puede_anotar = rol in ("admin", "medico") and a["abierta"] and a.get("activo") is not False
+    puede_anotar = (rol == "admin" or (rol == "medico" and a.get("creado_por") == usuario["id"])) \
+        and a["abierta"] and a.get("activo") is not False
     return {
         "remision": a,
         "paciente": {"id": p.get("id"), "nombre": p.get("nombre"), "documento": p.get("documento"),
@@ -588,7 +590,6 @@ def _cambiar_estado(db, usuario, a: dict, nuevo: str, motivo: str, extra_sql="",
     cur.execute("INSERT INTO remisiones_historial (remision_id, dato_anterior, modificado_por) VALUES (%s, %s, %s);",
                 (a["id"], json.dumps(dict(actual), default=str), usuario["id"]))
     cur.execute(f"UPDATE remisiones SET estado = %s{extra_sql} WHERE id = %s;", (nuevo, *extra_vals, a["id"]))
-    db.commit()
     cur.close()
     registrar_auditoria(db, usuario["id"], "cambio_estado", "remisiones", a["id"],
                         f"{ESTADOS_TEXTO.get(a['estado'])} → {ESTADOS_TEXTO.get(nuevo)} · {motivo}")
@@ -597,10 +598,9 @@ def _cambiar_estado(db, usuario, a: dict, nuevo: str, motivo: str, extra_sql="",
 @router.post("/registro/remisiones/{remision_id}/gestiones", status_code=201)
 def anotar_gestion(remision_id: int, g: GestionIn, db=Depends(get_db),
                    usuario=Depends(requiere_rol("admin", "medico"))):
-    a, contactos = _asiento(db, usuario, remision_id)
-    if not a["abierta"] or a.get("activo") is False:
-        raise HTTPException(409, "El asiento está cerrado: no se le pueden anotar gestiones")
     k = clasificar_respuesta(g.respuesta)
+    bloquear_remision(db, remision_id, usuario, exigir_abierta=True)
+    a, contactos = _asiento(db, usuario, remision_id)
     ahora = datetime.now(timezone.utc)
     contacto = {"fecha": ahora, "medio": g.medio, "institucion_contactada": g.institucion_contactada.strip(),
                 "contactado_por": (g.contactado_por or usuario["nombre"]).strip(), "respuesta": g.respuesta.strip(),
@@ -612,27 +612,33 @@ def anotar_gestion(remision_id: int, g: GestionIn, db=Depends(get_db),
         col.update_one({"_id": doc["_id"]}, {"$push": {"contactos": contacto}, "$set": {"actualizado_en": ahora}})
     else:
         col.insert_one({"remision_id": remision_id, "contactos": [contacto], "actualizado_en": ahora})
-    registrar_auditoria(db, usuario["id"], "gestion_anotada", "remisiones", remision_id,
-                        f"{contacto['institucion_contactada']} · {k['etiqueta']}")
-
-    # El estado avanza solo con lo que dice la bitácora (y queda en historial y auditoría)
-    nuevo = None
-    if k["causa"] == "acepta" and a["estado"] in ("pendiente", "en_gestion"):
-        _cambiar_estado(db, usuario, a, "aceptada", f"{contacto['institucion_contactada']} acepta",
-                        ", institucion_acepta = %s", (contacto["institucion_contactada"],))
-        nuevo = "aceptada"
-        if a.get("creado_por"):
-            publicar([a["creado_por"]], {"tipo": "remision_aceptada", "remision_id": remision_id,
-                                         "paciente_id": a["paciente_id"],
-                                         "mensaje": f"{a['radicado']}: {contacto['institucion_contactada']} aceptó al paciente"})
-    elif a["estado"] == "pendiente":
-        _cambiar_estado(db, usuario, a, "en_gestion", "primera gestión anotada")
-        nuevo = "en_gestion"
-
+    nuevo = registrar_contactos(db, usuario, a, [contacto])
     a, contactos = _asiento(db, usuario, remision_id)
     pron = pronosticar(db, a, contactos, usuario["id"])
     return {"contacto": {**contacto, "registrado_en": ahora}, "clasificacion": k,
             "estado": nuevo or a["estado"], "estado_cambio": nuevo is not None, "pronostico": pron}
+
+
+def registrar_contactos(db, usuario, asiento, contactos):
+    """Avanza el radicado bajo el bloqueo adquirido antes de escribir en Mongo."""
+    aceptado = next((c for c in contactos if c.get("causa") == "acepta"), None)
+    nuevo = None
+    if aceptado and asiento["estado"] in ("pendiente", "en_gestion"):
+        institucion = aceptado["institucion_contactada"]
+        nuevo = "aceptada"
+        _cambiar_estado(db, usuario, asiento, nuevo, f"{institucion} acepta",
+                        ", institucion_acepta = %s", (institucion,))
+    elif contactos and asiento["estado"] == "pendiente":
+        nuevo = "en_gestion"
+        _cambiar_estado(db, usuario, asiento, nuevo, "primera gestión anotada")
+    registrar_auditoria(db, usuario["id"], "gestion_anotada", "remisiones", asiento["id"],
+                        f"Contactos agregados: {len(contactos)}")
+    if nuevo == "aceptada" and asiento.get("creado_por"):
+        publicar([asiento["creado_por"]], {
+            "tipo": "remision_aceptada", "remision_id": asiento["id"], "paciente_id": asiento["paciente_id"],
+            "mensaje": f"{libro.radicado(asiento['id'], asiento['radicada_en'])}: {institucion} aceptó al paciente",
+        })
+    return nuevo
 
 
 class CierreIn(BaseModel):
@@ -644,9 +650,8 @@ class CierreIn(BaseModel):
 @router.post("/registro/remisiones/{remision_id}/cierre")
 def cerrar_asiento(remision_id: int, c: CierreIn, db=Depends(get_db),
                    usuario=Depends(requiere_rol("admin", "medico"))):
+    bloquear_remision(db, remision_id, usuario, exigir_abierta=True)
     a, contactos = _asiento(db, usuario, remision_id)
-    if not a["abierta"] or a.get("activo") is False:
-        raise HTTPException(409, "El asiento ya está cerrado")
     nuevo = "completada" if c.resultado == "trasladado" else "rechazada"
     institucion = (c.institucion_acepta or a.get("institucion_acepta") or "").strip() or None
     if nuevo == "completada" and not institucion:

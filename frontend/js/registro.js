@@ -379,7 +379,7 @@ async function vistaFormato({ remision }) {
 function formularioGestion(f, recargar) {
   const r = f.remision;
   const sugeridas = (f.pronostico && f.pronostico.instituciones_sugeridas || []).map(s => s.institucion);
-  const lista = [...new Set([...sugeridas, ...INSTITUCIONES])];
+  const lista = [...new Set([...sugeridas, r.institucion_destino].filter(Boolean))];
   abrirFormulario({
     titulo: `Anotar gestión · ${r.radicado}`, textoBoton: "Anotar en la bitácora",
     campos: `<p class="tenue" style="margin:-.2rem 0 .9rem">Lo que se anota queda firmado con tu usuario y la hora, y no se puede editar ni borrar.</p>
@@ -392,6 +392,7 @@ function formularioGestion(f, recargar) {
       <div class="campo"><label for="g-res">Respuesta de la institución</label><input id="g-res" name="respuesta" required maxlength="500" placeholder="Ej.: Sin cupo en UCI / Aceptan, enviar en ambulancia"></div>
       <p class="prevista-causa" id="g-prev" aria-live="polite"></p>`,
     alAbrir(form) {
+      agregarInstitucionesDelCatalogo(form, "#dl-g-ins");
       const res = $("#g-res", form), prev = $("#g-prev", form);
       res.addEventListener("input", debounce(async () => {
         const t = res.value.trim();
@@ -424,9 +425,10 @@ function formularioCierre(f, recargar) {
         <option value="trasladado" ${r.estado === "aceptada" ? "selected" : ""}>Efectiva · el paciente fue trasladado</option>
         <option value="rechazada" ${r.estado !== "aceptada" ? "selected" : ""}>Fallida · no se logró el traslado</option></select></div>
       <div class="campo" id="c-campo-inst"><label for="c-ins">Institución que recibió al paciente</label>
-        <input id="c-ins" name="institucion_acepta" list="dl-c-ins" value="${esc(r.institucion_acepta || "")}">${datalist("dl-c-ins", INSTITUCIONES)}</div>
+        <input id="c-ins" name="institucion_acepta" list="dl-c-ins" value="${esc(r.institucion_acepta || "")}">${datalist("dl-c-ins", [r.institucion_acepta || r.institucion_destino].filter(Boolean))}</div>
       <div class="campo"><label for="c-nota">Nota de cierre (opcional)</label><input id="c-nota" name="nota" maxlength="300" placeholder="Ej.: traslado en ambulancia medicalizada TAM-12"></div>`,
     alAbrir(form) {
+      agregarInstitucionesDelCatalogo(form, "#dl-c-ins");
       const s = $("#c-res", form);
       const f2 = () => $("#c-campo-inst", form).classList.toggle("oculto", s.value !== "trasladado");
       s.addEventListener("change", f2); f2();

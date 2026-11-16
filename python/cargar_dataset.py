@@ -389,7 +389,7 @@ def cargar(con_mongo=True):
             """INSERT INTO remisiones (paciente_id, institucion_origen, institucion_destino,
                    fecha_solicitud, motivo, estado, convenio_vigente, creado_por,
                    radicada_en, cerrada_en, institucion_acepta)
-               VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id;""",
+               VALUES (%s, registrar_institucion(%s), registrar_institucion(%s), %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id;""",
             (paciente_id, r["institucion_origen"], r["institucion_destino"], r["fecha_solicitud"],
              r["motivo"], r["estado"], r["convenio_vigente"] == "True", medico_id,
              radicada_en, cerrada_en, acepta),
