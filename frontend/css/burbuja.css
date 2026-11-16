@@ -7,12 +7,12 @@
 .traza-boton {
   width: 66px; height: 66px; padding: 0; border: 0; border-radius: 50%; background: none; cursor: pointer;
   display: block; position: relative; filter: drop-shadow(0 8px 18px rgba(21, 68, 143, .35));
-  animation: traza-flota 4s ease-in-out infinite; transition: transform var(--t);
+  transition: transform var(--t);
 }
 .traza-boton:hover { transform: scale(1.06); }
 .traza-boton:focus-visible { outline: 3px solid var(--azul-claro); outline-offset: 4px; }
-.traza-boton .traza-cara { width: 100%; height: 100%; display: block; }
-.traza-boton.activo { animation: none; }
+.traza-boton .traza-cara { width: 100%; height: 100%; display: block; animation: traza-flota 4s ease-in-out infinite; }
+.traza-boton.activo .traza-cara { animation: none; }
 .traza-boton::after {                      /* anillo al escuchar */
   content: ""; position: absolute; inset: -6px; border-radius: 50%; border: 3px solid #2b8fc9; opacity: 0; pointer-events: none;
 }
@@ -130,6 +130,6 @@
   .traza-globo { display: none; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .traza-boton, .traza-cara .traza-ojos, .hablando .traza-cara .traza-boca { animation: none; }
+  .traza-boton .traza-cara, .traza-cara .traza-ojos, .hablando .traza-cara .traza-boca { animation: none; }
 }
 @media print { #traza { display: none; } }

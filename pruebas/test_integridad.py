@@ -270,7 +270,9 @@ def test_navegador_ficha_identidad_y_correccion(entorno, autorizaciones):
 
     main, api, _ = entorno
     h = autorizaciones["auditor"]
-    comprobar(paciente(api, h, "9010788221", nombre="Paciente de navegador"), 201)
+    ficha = comprobar(paciente(api, h, "9010788221", nombre="Paciente de navegación"), 201)
+    anulado = comprobar(api.post("/remisiones", json=datos_remision(ficha["id"]), headers=h), 201)
+    comprobar(api.delete(f"/remisiones/{anulado['id']}", headers=h), 204)
 
     with socket.socket() as puerto:
         puerto.bind(("127.0.0.1", 0))
@@ -282,13 +284,13 @@ def test_navegador_ficha_identidad_y_correccion(entorno, autorizaciones):
         try:
             with sync_playwright() as control:
                 navegador = control.chromium.launch()
-                pagina = navegador.new_page()
+                pagina = navegador.new_page(permissions=["clipboard-read", "clipboard-write"])
                 pagina.goto(base + "/app/")
                 pagina.locator("#login-usuario").fill("auditor@pruebas.test")
                 pagina.locator("#login-clave").fill(CLAVE_PRUEBA)
                 pagina.locator("#form-login button[type=submit]").click()
                 pagina.locator('[data-seccion="pacientes"]').click()
-                pagina.get_by_role("button", name="Corregir ficha de Paciente de navegador").click()
+                pagina.get_by_role("button", name="Corregir ficha de Paciente de navegación").click()
                 expect(pagina.locator("#m-doc")).to_be_disabled()
                 pagina.locator("#m-nac").fill("2999-01-01")
                 pagina.get_by_role("button", name="Guardar corrección").click()
@@ -300,13 +302,45 @@ def test_navegador_ficha_identidad_y_correccion(entorno, autorizaciones):
                 assert respuesta.value.status == 200
                 expect(pagina.get_by_text("6010000012")).to_be_visible()
                 pagina.get_by_role("link", name="Libro de radicación").click()
+                abiertos = pagina.locator('[data-vista="abiertas"]')
+                cantidad = abiertos.inner_text()
+                with pagina.expect_response(lambda r: "incluir_inactivas=true" in r.url):
+                    pagina.locator("#l-inact").check()
+                expect(abiertos).to_have_text(cantidad)
+                fila_anulada = pagina.locator(f"#l-tabla tr[data-id=\"{anulado['id']}\"]")
+                expect(fila_anulada).to_have_count(0)
+                pagina.locator('[data-vista="todas"]').click()
+                expect(fila_anulada).to_contain_text("Anulado")
+                filtro = pagina.get_by_role("searchbox", name="Buscar en el libro")
+                filtro.fill("sin coincidencia de prueba")
+                expect(fila_anulada).to_have_count(0)
+                filtro.fill("")
+                expect(fila_anulada).to_be_visible()
+
                 pagina.locator("#btn-radicar").click()
-                pagina.locator("#m-pac").fill("9.010.788.221")
+                dialogo = pagina.get_by_role("dialog", name="Radicar remisión en el libro")
+                expect(dialogo).to_be_visible()
+                pagina.keyboard.press("Escape")
+                expect(dialogo).to_have_count(0)
+                expect(pagina.locator("#btn-radicar")).to_be_focused()
+                pagina.locator("#btn-radicar").click()
+                paciente_input = dialogo.get_by_label("Paciente (documento o nombre)")
+                confirmacion = dialogo.get_by_role("checkbox", name="Confirmo la ficha", exact=False)
+                pagina.evaluate("navigator.clipboard.writeText('9.010.788.221')")
+                paciente_input.press("Control+v")
+                expect(confirmacion).to_be_visible()
+                confirmacion.check()
+                paciente_input.fill("")
+                expect(confirmacion).to_be_hidden()
+                paciente_input.fill("de navegacion")
+                dialogo.get_by_role("button", name="9010788221 — Paciente de navegación").click()
+                expect(confirmacion).to_be_focused()
+                expect(confirmacion).not_to_be_checked()
                 pagina.locator("#m-des").select_option(LILI)
                 pagina.locator("#m-mot").fill("Solicitud probada en navegador")
                 pagina.get_by_role("button", name="Radicar", exact=True).click()
                 expect(pagina.locator(".error-form")).to_contain_text("confirma su nombre y documento")
-                pagina.get_by_role("checkbox", name="Confirmo la ficha", exact=False).check()
+                confirmacion.check()
                 fecha = pagina.locator("#m-fec")
                 correcta = fecha.input_value()
                 fecha.fill("1999-01-01")
@@ -340,6 +374,11 @@ def test_navegador_ficha_identidad_y_correccion(entorno, autorizaciones):
                 assert respuesta.value.status == 200
                 assert respuesta.value.json()["estado"] == "rechazada"
                 expect(pagina.locator("#f-cerrar")).to_have_count(0)
+                pagina.get_by_role("button", name="Abrir a Traza, la asistente").click(timeout=3000)
+                traza = pagina.get_by_role("dialog", name="Traza, asistente de TrazaRed")
+                expect(traza).to_be_visible()
+                traza.get_by_role("button", name="Cerrar").click()
+                expect(traza).to_be_hidden()
                 navegador.close()
         finally:
             servidor.should_exit = True

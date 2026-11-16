@@ -377,15 +377,33 @@ document.addEventListener("keydown", (e) => { if (e.key === "Escape") { const c 
 function abrirFormulario({ titulo, campos, textoBoton = "Guardar", alGuardar, alAbrir }) {
   const fondo = document.createElement("div");
   fondo.className = "fondo-modal";
-  fondo.innerHTML = `<form class="modal" novalidate>
+  fondo.innerHTML = `<form class="modal" role="dialog" aria-label="${esc(titulo)}" aria-modal="true" novalidate>
       <div class="modal-cabeza"><h3>${esc(titulo)}</h3><button type="button" class="btn-icono" data-cerrar aria-label="Cerrar">${icono("x")}</button></div>
       <div class="modal-cuerpo"><p class="error-form oculto"></p>${campos}</div>
       <div class="modal-pie"><button type="button" class="btn btn-secundario" data-cerrar>Cancelar</button>
         <button type="submit" class="btn btn-primario">${esc(textoBoton)}</button></div></form>`;
   document.body.appendChild(fondo);
   const form = $("form", fondo);
-  fondo.addEventListener("mousedown", (e) => { if (e.target === fondo) fondo.remove(); });
-  $$("[data-cerrar]", fondo).forEach(b => b.addEventListener("click", () => fondo.remove()));
+  const focoAnterior = document.activeElement;
+  const cerrar = () => {
+    fondo.remove();
+    if (focoAnterior?.isConnected) focoAnterior.focus();
+  };
+  fondo.addEventListener("mousedown", (e) => { if (e.target === fondo) cerrar(); });
+  $$("[data-cerrar]", fondo).forEach(b => b.addEventListener("click", cerrar));
+  form.addEventListener("keydown", e => {
+    if (e.key === "Escape") {
+      e.stopPropagation();
+      cerrar();
+    }
+    if (e.key !== "Tab") return;
+    const controles = $$("button, input, select, textarea, a[href], [tabindex]", form)
+      .filter(c => !c.disabled && c.tabIndex >= 0 && c.getClientRects().length);
+    const primero = controles[0], ultimo = controles.at(-1);
+    if (e.shiftKey ? document.activeElement !== primero : document.activeElement !== ultimo) return;
+    e.preventDefault();
+    (e.shiftKey ? ultimo : primero).focus();
+  });
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
     const err = $(".error-form", form), btn = $("button[type=submit]", form);
@@ -394,12 +412,12 @@ function abrirFormulario({ titulo, campos, textoBoton = "Guardar", alGuardar, al
       const d = Object.fromEntries(new FormData(form));
       $$("input[type=checkbox]", form).forEach(c => { d[c.name] = c.checked; });
       await alGuardar(d, form);
-      fondo.remove();
+      cerrar();
     } catch (x) { err.textContent = x.message; err.classList.remove("oculto"); } finally { btn.disabled = false; }
   });
   if (alAbrir) alAbrir(form);
-  const primero = $("input, select, textarea", form);
-  if (primero) primero.focus();
+  const primero = $("input:enabled, select:enabled, textarea:enabled", form) || $("[data-cerrar]", form);
+  primero.focus();
 }
 
 const kpi = (ic, tono, valor, etiqueta) => `<div class="tarjeta kpi"><span class="kpi-icono ${tono}">${icono(ic)}</span>
@@ -801,8 +819,10 @@ async function formularioRemision(r = null) {
   catch (e) { toast(e.message, "error"); return; }
   const etq = p => `${p.documento} — ${p.nombre}`;
   const actual = r ? lista.find(p => p.id === r.paciente_id) : null;
+  const documento = valor => valor.trim().replace(/[\s.\-]/g, "").toUpperCase();
+  const normalizarNombre = valor => valor.normalize("NFD").replace(/\p{M}/gu, "").trim().toLowerCase();
   const buscarPaciente = valor => lista.find(p => etq(p) === valor)
-    || lista.find(p => p.documento === valor.trim().replace(/[\s.\-]/g, "").toUpperCase());
+    || lista.find(p => p.documento === documento(valor));
   const maxFecha = r?.radicada_en ? [hoyISO(), String(r.radicada_en).slice(0, 10)].sort()[0] : hoyISO();
   const opciones = (valor) => [...new Set([valor, ...instituciones].filter(Boolean))]
     .map(i => `<option value="${esc(i)}" ${i === valor ? "selected" : ""}>${esc(i)}</option>`).join("");
@@ -810,7 +830,8 @@ async function formularioRemision(r = null) {
     titulo: r ? `Anotar corrección · ${radicadoDe(r)}` : "Radicar remisión en el libro",
     textoBoton: r ? "Anotar corrección" : "Radicar",
     campos: `<div class="campo"><label for="m-pac">Paciente (documento o nombre)</label>
-        <input id="m-pac" name="paciente" list="dl-pac" required ${r ? "disabled" : ""} value="${actual ? esc(etq(actual)) : ""}" placeholder="Escribe para buscar…">${r ? "" : datalist("dl-pac", lista.map(etq))}</div>
+        <input id="m-pac" name="paciente" autocomplete="off" required ${r ? "disabled" : ""} value="${actual ? esc(etq(actual)) : ""}" placeholder="Escribe o pega el documento o el nombre…">
+        ${r ? "" : '<div id="m-resultados" class="oculto" role="group" aria-label="Pacientes encontrados"></div>'}</div>
       ${r ? "" : '<label class="check oculto" id="m-confirmacion"><input type="checkbox" name="identidad_confirmada"><span></span></label>'}
       <div class="fila"><div class="campo"><label for="m-ori">Institución de origen</label><select id="m-ori" name="institucion_origen" required>${r && !r.institucion_origen ? '<option value="">Selecciona una institución</option>' : ""}${opciones(r ? r.institucion_origen : "Hospital Universitario del Valle")}</select></div>
         <div class="campo"><label for="m-des">Institución de destino</label><select id="m-des" name="institucion_destino" required><option value="">Selecciona una institución</option>${opciones(r?.institucion_destino)}</select></div></div>
@@ -823,13 +844,38 @@ async function formularioRemision(r = null) {
       fecha.min = actual?.fecha_nacimiento || "";
       if (r) return;
       const confirmacion = $("#m-confirmacion", form);
-      $("#m-pac", form).addEventListener("input", e => {
-        const ficha = buscarPaciente(e.target.value);
+      const campo = $("#m-pac", form), resultados = $("#m-resultados", form);
+      const casilla = $("input", confirmacion);
+      function mostrarFicha(ficha) {
         fecha.min = ficha?.fecha_nacimiento || "";
-        $("input", confirmacion).checked = false;
+        casilla.checked = false;
         confirmacion.classList.toggle("oculto", !ficha);
         $("span", confirmacion).textContent = ficha ? `Confirmo la ficha de ${etq(ficha)}` : "";
-      });
+      }
+      function buscar() {
+        const ficha = buscarPaciente(campo.value);
+        mostrarFicha(ficha);
+        resultados.replaceChildren();
+        const nombre = normalizarNombre(campo.value), doc = documento(campo.value);
+        if (!ficha && nombre.length >= 2) {
+          const coincidencias = lista.filter(p => normalizarNombre(p.nombre).includes(nombre)
+            || (doc && p.documento.startsWith(doc))).slice(0, 6);
+          for (const paciente of coincidencias) {
+            const boton = document.createElement("button");
+            boton.type = "button";
+            boton.className = "btn btn-secundario btn-sm";
+            boton.textContent = etq(paciente);
+            boton.addEventListener("click", () => {
+              campo.value = etq(paciente);
+              buscar();
+              casilla.focus();
+            });
+            resultados.append(boton);
+          }
+        }
+        resultados.classList.toggle("oculto", !resultados.childElementCount);
+      }
+      campo.addEventListener("input", buscar);
     },
     async alGuardar(d) {
       const p = r ? actual : buscarPaciente(d.paciente || "");

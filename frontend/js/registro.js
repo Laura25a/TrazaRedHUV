@@ -148,8 +148,9 @@ async function vistaLibro(params = {}) {
     ...meses.slice(0, 5).map(m => `<button class="${estadoLibro.mes === m ? "activa" : ""}" data-mes="${m}">${esc(nombreMes(m))}</button>`)].join("");
   $$("#tomos button").forEach(b => b.addEventListener("click", () => { estadoLibro.mes = b.dataset.mes; estadoLibro.mostrar = 120; $$("#tomos button").forEach(x => x.classList.toggle("activa", x === b)); pintar(); }));
 
-  const enRiesgo = a => a.abierta && (a.sin_movimiento || (a.probabilidad_efectiva != null && a.probabilidad_efectiva < 0.4));
-  const vistas = { abiertas: a => a.abierta, cerradas: a => !a.abierta, riesgo: enRiesgo, todas: () => true };
+  const abierta = a => a.activo !== false && a.abierta;
+  const enRiesgo = a => abierta(a) && (a.sin_movimiento || (a.probabilidad_efectiva != null && a.probabilidad_efectiva < 0.4));
+  const vistas = { abiertas: abierta, cerradas: a => a.activo !== false && !a.abierta, riesgo: enRiesgo, todas: () => true };
 
   function pintar() {
     const t = estadoLibro.q.trim().toLowerCase();
@@ -174,7 +175,8 @@ async function vistaLibro(params = {}) {
       <th>Gestiones</th><th>Pronóstico IA</th><th>Cierre</th><th>Asentó</th></tr></thead><tbody>${visibles.map(a => {
         const [d, h] = partesFecha(a.radicada_en);
         const um = a.ultimo_movimiento;
-        const cierre = a.abierta ? `${horasTxt(a.horas_abierta)} abierta` : partesFecha(a.cerrada_en).join(" · ");
+        const cierre = a.activo === false ? "Anulado"
+          : a.abierta ? `${horasTxt(a.horas_abierta)} abierta` : partesFecha(a.cerrada_en).join(" · ");
         return `<tr class="clic ${enRiesgo(a) ? "riesgo" : ""} ${a.activo === false ? "inactiva" : ""}" data-id="${a.id}" tabindex="0">
           <td><span class="asiento-num">${String(a.id).padStart(6, "0")}</span><span class="sub-mono">${esc(a.radicado)}</span></td>
           <td class="col-fecha">${d}<span class="sub-mono">${h}</span></td>
@@ -183,7 +185,7 @@ async function vistaLibro(params = {}) {
           <td><div class="marcas">${a.marcas.map(m => marcaHTML(m)).join("") || `<span class="tenue">Sin contactos</span>`}</div>
             ${um ? `<span class="sub" title="${esc(um.respuesta)}">${esc(um.institucion || "")} · ${esc(hace(um.fecha))}</span>` : ""}
             ${a.sin_movimiento ? `<span class="sub" style="color:var(--error);font-weight:600">${horasTxt(a.horas_sin_movimiento)} sin movimiento</span>` : ""}</td>
-          <td>${a.abierta ? barraIA(a.probabilidad_efectiva) : `<span class="tenue">—</span>`}</td>
+          <td>${abierta(a) ? barraIA(a.probabilidad_efectiva) : `<span class="tenue">—</span>`}</td>
           <td>${selloHTML(a.estado)}<span class="sub-mono" style="margin-top:.3rem">${esc(cierre)}</span></td>
           <td><span class="asento">${esc(a.asento_nombre || "—")}</span><span class="sub-mono">${esc(ROLES[a.asento_rol] || "")}</span></td></tr>`;
       }).join("")}</tbody></table>
