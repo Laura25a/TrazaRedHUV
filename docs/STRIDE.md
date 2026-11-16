@@ -58,7 +58,7 @@ flowchart LR
     NAV -- "F1 · HTTPS" --> CF --> NGINX
     SOCIO -- "F6 · HTTPS: token de sistema + firma HMAC + FHIR" --> CF
     NGINX -- "F2 · /api" --> API
-    NGINX -- "F7 · /fhir" --> HAPI
+    API -- "F7 · FHIR interno" --> HAPI
     API -- "F3 · SQL parametrizado" --> PG
     API --> MONGO
     API -- "token + rol + auditoría" --> PACS
@@ -77,7 +77,7 @@ flowchart LR
 | API → servicio de IA (F4) | Variables clínicas | API: seudonimización (R12) |
 | API → LLM (F5) | Prompt, pregunta, resultados de herramientas | API: seudonimización, saneo de la pregunta, datos delimitados, registro del payload (R24) |
 | Sistema socio ↔ API (F6) | Bundle, Task y Observation FHIR | API: client credentials, firma HMAC, perfil FHIR, consentimiento (R29–R32) |
-| Internet → HAPI (F7) | Recursos FHIR (heredado del Corte 2, R15/R21) | Nginx: límite y bloqueo de `/fhir/Subscription` |
+| API → HAPI (F7) | Recursos FHIR sincronizados | Red Docker. Exportación pública solo por la API autorizada |
 | HAPI → API (F8) | Aviso de la Subscription | API: `X-Webhook-Secret` + validación del recurso (R29) |
 
 ## 3. Tabla de amenazas
@@ -103,7 +103,7 @@ Formato de cada fila: **componente · amenaza · control · evidencia · riesgo 
 | T3 | Recurso FHIR (F6, F8) | Meter un recurso mal formado o con códigos inventados | Validación del **perfil** antes de escribir (LOINC, SNOMED, UCUM, `status`); todo en una transacción: un rechazo no deja nada a medias; respuesta 422 con `OperationOutcome` | R30 · `interop._validar_bundle` · prueba «LOINC fuera del perfil → 422» | El catálogo LOINC aceptado es corto (signos vitales y glucosa): un código válido pero no listado se rechaza | Res. 866/2021 |
 | T4 | Campo cifrado (F3) | Pegar el documento cifrado de un paciente en la fila de otro, o cambiarle un carácter | **AES-256-GCM** con dato asociado `pacientes:{id}:{campo}`: si el valor se movió o se alteró, no descifra | R27 · `cripto.cifrar` / `descifrar` | Quien tenga la llave **y** la base puede descifrar y volver a cifrar | Ley 1581/2012 arts. 5 y 6 |
 | T5 | Bitácora y registros clínicos | Borrar o reescribir una gestión o una remisión | Bitácora inalterable (409), anulación lógica con restauración, historial de correcciones, reportes rechazados conservados | R09, R11 · `registro.py`, `remisiones.py` | El administrador de la base puede escribir por fuera de la API; lo detecta la auditoría encadenada (R1) | Res. 1995/1999 |
-| T6 | Suscripciones de HAPI (F7) | Crear desde internet una Subscription que reenvíe datos a un servidor ajeno, o borrar la nuestra | Nginx responde 403 a `/fhir/Subscription` desde afuera; la API la crea por la red interna | `docker/nginx.conf` | El resto de `/fhir` sigue abierto (ver I6) | Ley 1581/2012 art. 4 f |
+| T6 | Suscripciones de HAPI (F7) | Crear desde internet una Subscription que reenvíe datos a un servidor ajeno, o borrar la nuestra | Nginx responde 404 a `/fhir/Subscription`; la API la crea por la red interna | `docker/nginx.conf` | El resto de `/fhir` sigue abierto (ver I6) | Ley 1581/2012 art. 4 f |
 
 ### R · Repudiation (repudio) — ¿alguien puede negar una acción?
 
@@ -120,10 +120,10 @@ Formato de cada fila: **componente · amenaza · control · evidencia · riesgo 
 |---|---|---|---|---|---|---|
 | I1 | Base de datos (F3) | Un atacante copia toda la base (respaldo robado, inyección) | **Cifrado de campos**: documento, teléfono, dirección y correo en AES-256-GCM; la llave vive en el `.env`, nunca en el repositorio ni en la base. Búsqueda por documento con **índice ciego** (HMAC), sin descifrar | R27 · `cripto.py` · panel Seguridad «600 de 600» · prueba «búsqueda con índice ciego» | Con la base **sin** el `.env` se leen los datos clínicos, el nombre y la EPS, pero no documento, teléfono, dirección ni correo. El nombre no se cifra (se busca por coincidencia parcial) | Ley 1581/2012 arts. 5 y 6 |
 | I2 | LLM y servicio de IA (F4, F5) | Enviar datos personales a un tercero (el proveedor del modelo) | **Seudonimización**: al modelo solo le llega un alias (`PX-…`) y variables clínicas. La pregunta del clínico se **sanea** (nombre, documento, teléfono, correo y dirección se reemplazan) y el clínico va como `rol-id`. El payload exacto queda guardado para auditarlo | R12, R24 · `seguridad.sanear_para_llm`, `harness.RegistroLLM` · prueba «canarios» | El texto libre del motivo de remisión podría traer un nombre escrito a mano por el médico; el saneo cubre el nombre del paciente abierto, no cualquier nombre | Ley 1581/2012 art. 4 b y f |
-| I3 | API (F2) | Un rol ve lo que no le toca (el contable abre la historia; un paciente ve a otro) | Control por rol **en el backend** en cada ruta; el contable, el director y el biomédico reciben 403 en datos clínicos; el paciente solo ve lo suyo | R01, R03 · prueba «el contable no accede a pacientes» | Los roles son gruesos: todo médico ve a todo paciente (no hay «solo mis pacientes») | Ley 1581/2012 art. 4 f |
-| I4 | Canal en vivo (F1) | Que un evento clínico le llegue a quien no debe | El canal SSE filtra por destinatario y nunca entrega eventos clínicos a paciente ni contable (incluye los externos) | R17 · `eventos.EVENTOS_CLINICOS` | El token viaja en la URL del `EventSource` (queda en registros del proxy); vence en 30 min | Ley 1581/2012 art. 4 f |
+| I3 | API (F2) | Un rol ve lo que no le toca (el contable abre la historia; un paciente ve a otro) | Control por rol **en el backend** en cada ruta; el contable, el director y el biomédico reciben 403 en datos clínicos; el paciente solo ve lo suyo | R01, R03 · prueba «el contable no accede a pacientes» | El directorio de pacientes sigue disponible para radicar. Historia y anexos requieren asignación clínica | Ley 1581/2012 art. 4 f |
+| I4 | Canal en vivo (F1) | Que un evento clínico le llegue a quien no debe | El canal SSE filtra por destinatario y nunca entrega eventos clínicos a paciente ni contable (incluye los externos) | R17 · `eventos.EVENTOS_CLINICOS` | El token viaja en Authorization. Una conexión que pierde acceso se cierra en la siguiente revisión de sesión (hasta 15 s) | Ley 1581/2012 art. 4 f |
 | I5 | Envío al socio (F6) | Compartir más datos de los necesarios, o sin permiso del paciente | **Consentimiento** registrado por institución (sin él: 403) y **minimización**: el Bundle no lleva documento, teléfono, correo, dirección, EPS, alergias ni tipo de sangre; el paciente se nombra con un **identificador federado** (HMAC) | R32 · `interop.armar_bundle` · pruebas «sin consentimiento → 403», «el Bundle no lleva documento» | El nombre del paciente sí viaja (el especialista lo necesita para atenderlo). El secreto federado por defecto es el de la demo de clase: debe cambiarse (`SECRETO_FEDERADO`) | Ley 1581/2012 arts. 5, 6 y 9 |
-| I6 | HAPI FHIR (F7) | Leer `Patient` desde internet sin autenticarse | **Riesgo aceptado y documentado**: el tester del Corte 2 (R15, R21) consulta `/fhir` sin token, y HAPI guarda el documento como identificador. Mitigación: límite de peticiones, `/fhir/Subscription` bloqueado y solo se sincroniza lo necesario | R15, R21 (heredados) | **Alto**. Plan: poner `/fhir` detrás del mismo token de la API y guardar en HAPI el identificador federado en vez del documento | Ley 1581/2012 art. 4 g |
+| I6 | HAPI FHIR (F7) | Leer `Patient` desde internet sin autenticarse | Nginx devuelve 404 para HAPI. El Bundle del asiento se descarga por la API con JWT | `docker/nginx.conf`, `registro.fhir_bundle` | HAPI conserva nombre y documento internamente y tiene un puerto de diagnóstico en loopback | Ley 1581/2012 art. 4 g |
 | I7 | Secretos | Subir una clave al repositorio | Solo se publica `.env.example`; `.gitignore` excluye `*.env`; los secretos de los socios se guardan cifrados y se muestran una sola vez | R03 · `.gitignore`, `interop._guardar_secreto` | Un secreto que llegó a un commit **no se arregla borrándolo**: hay que **rotarlo** (el historial lo conserva) | Ley 1581/2012 art. 17 d |
 
 ### D · Denial of service — ¿se puede tumbar el servicio?
@@ -174,9 +174,10 @@ apruebe, rige la Ley 1581 de 2012. Conviene verificar su estado antes de sustent
 
 ## 6. Riesgos aceptados (resumen)
 
-1. `/fhir` público sin autenticación, con el documento como identificador en HAPI (I6). Heredado del Corte 2 por el contrato del tester.
+1. HAPI conserva el documento como identificador y se debe proteger su almacenamiento y el acceso local (I6).
 2. El nombre del paciente no se cifra en reposo (I1) y viaja al socio (I5).
 3. Firma simétrica con el socio: trazabilidad cruzada, no no repudio ante terceros (T2, R4).
 4. Límite de tasa en memoria y por IP: no resiste un ataque distribuido (D1).
 5. Secretos derivados de `SECRET_KEY` cuando no se definen las variables propias: cómodo para desarrollo; en producción cada llave va en su variable (`.env.example`).
-6. Credenciales internas de Docker en `docker-compose.yml` (red aislada; hallazgo S-07 del Corte 2).
+6. Requiere rotación de cualquier credencial ya distribuida o guardada en el historial del repositorio (I7).
+7. La auditoría y los cambios de PostgreSQL comparten transacción. Las gestiones que escriben en Mongo y los llamados externos conservan riesgo de fallo parcial.

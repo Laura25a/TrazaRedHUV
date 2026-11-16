@@ -264,6 +264,63 @@ def test_restricciones_sql_sin_api(entorno, autorizaciones):
             cur.execute("UPDATE remisiones SET estado='pendiente' WHERE id=%s", (rem["id"],))
 
 
+def test_seguridad_alta_acceso_transporte_y_auditoria(entorno, autorizaciones, monkeypatch):
+    import interop
+    import registro
+
+    _, api, pg = entorno
+    admin, medico, colega = (autorizaciones[n] for n in ("auditor", "medico", "colega"))
+    correo = "seguridad@pruebas.test"
+    alta = {"nombre": "Cuenta de seguridad", "correo": correo, "rol": "medico"}
+    debil = secrets.token_hex(8)
+    respuesta = api.post("/usuarios", headers=admin, json={**alta, "contrasena": debil})
+    comprobar(respuesta, 422)
+    assert debil not in respuesta.text
+    fuerte = secrets.token_hex(8) + "Aa1!"
+    comprobar(api.post("/usuarios", headers=admin, json={**alta, "contrasena": fuerte}), 201)
+
+    ficha = comprobar(paciente(api, admin), 201)
+    asiento = comprobar(api.post("/remisiones", headers=medico, json=datos_remision(ficha["id"])), 201)
+    radicado = asiento["id"]
+    signos = {"remision_id": radicado, "tipo": "Pulso", "valor": 70, "unidad": "lat/min"}
+    comprobar(api.post("/observaciones", headers=colega, json=signos), 403)
+    comprobar(api.post("/observaciones", headers=medico, json=signos), 201)
+    comprobar(api.get(f"/pacientes/{ficha['id']}/historia", headers=colega), 404)
+    comprobar(api.patch(f"/pacientes/{ficha['id']}", headers=colega,
+                        json={"telefono": "6010000058"}), 404)
+    comprobar(api.get(f"/pacientes/{ficha['id']}/historia", headers=medico), 200)
+    comprobar(api.post(f"/interop/remisiones/{radicado}/enviar", headers=colega, json={"socio_id": 1}), 403)
+    comprobar(api.post("/interop/socios", headers=admin, json={"nombre": "Socio prueba",
+                                                              "url_base": "http://socio.test"}), 422)
+    comprobar(api.post("/interop/socios", headers=admin, json={"nombre": "Socio seguro",
+                                                              "url_base": "https://socio.test"}), 201)
+    with monkeypatch.context() as parche:
+        def sin_red(*args, **kwargs):
+            pytest.fail("Una URL HTTP persistida no debe abrir una conexión")
+        parche.setattr(interop.requests, "post", sin_red)
+        with pytest.raises(interop.HTTPException) as error:
+            interop._token_saliente({"url_base": "http://socio.test", "id": 1}, "remisiones")
+        assert error.value.status_code == 422
+    comprobar(api.get("/eventos/stream", params={"token": admin["Authorization"].split()[1]}), 401)
+
+    registrar = registro.registrar_auditoria
+    with monkeypatch.context() as parche:
+        def fallar_sello(db, usuario, accion, *args, **kwargs):
+            if accion == "cierre_remision":
+                raise RuntimeError("Fallo simulado del sello")
+            return registrar(db, usuario, accion, *args, **kwargs)
+        parche.setattr(registro, "registrar_auditoria", fallar_sello)
+        with pytest.raises(RuntimeError, match="Fallo simulado del sello"):
+            api.post(f"/registro/remisiones/{radicado}/cierre", headers=medico, json={"resultado": "rechazada"})
+    with closing(psycopg2.connect(pg)) as db, db.cursor() as cur:
+        cur.execute("SELECT estado FROM remisiones WHERE id = %s", (radicado,))
+        assert cur.fetchone() == ("pendiente",)
+        cur.execute("SELECT COUNT(*) FROM auditoria WHERE registro_id = %s AND accion = 'cambio_estado'", (radicado,))
+        assert cur.fetchone() == (0,)
+    comprobar(api.post(f"/registro/remisiones/{radicado}/cierre", headers=medico,
+                       json={"resultado": "rechazada"}), 200)
+
+
 def test_navegador_ficha_identidad_y_correccion(entorno, autorizaciones):
     import uvicorn
     from playwright.sync_api import expect, sync_playwright
@@ -288,7 +345,21 @@ def test_navegador_ficha_identidad_y_correccion(entorno, autorizaciones):
                 pagina.goto(base + "/app/")
                 pagina.locator("#login-usuario").fill("auditor@pruebas.test")
                 pagina.locator("#login-clave").fill(CLAVE_PRUEBA)
-                pagina.locator("#form-login button[type=submit]").click()
+                with pagina.expect_request(lambda r: r.url.endswith("/eventos/stream")) as canal:
+                    pagina.locator("#form-login button[type=submit]").click()
+                assert canal.value.header_value("authorization").startswith("Bearer ")
+                pagina.wait_for_function("Eventos.conectado()")
+                pagina.locator('[data-seccion="usuarios"]').click()
+                pagina.locator("#btn-nuevo-usr").click()
+                pagina.locator('[name="nombre"]').last.fill("Alta desde navegador")
+                pagina.locator('[name="correo"]').last.fill("navegacion@pruebas.test")
+                pagina.locator("#m-ucl").fill(secrets.token_hex(8))
+                pagina.get_by_role("button", name="Crear usuario", exact=True).click()
+                expect(pagina.locator(".error-form")).to_contain_text("mayúscula")
+                pagina.locator("#m-ucl").fill(secrets.token_hex(8) + "Aa1!")
+                with pagina.expect_response(lambda r: r.url.endswith("/usuarios") and r.request.method == "POST") as alta:
+                    pagina.get_by_role("button", name="Crear usuario", exact=True).click()
+                assert alta.value.status == 201
                 pagina.locator('[data-seccion="pacientes"]').click()
                 pagina.get_by_role("button", name="Corregir ficha de Paciente de navegación").click()
                 expect(pagina.locator("#m-doc")).to_be_disabled()

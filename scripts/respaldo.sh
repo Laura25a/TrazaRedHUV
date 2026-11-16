@@ -10,7 +10,7 @@ fi
 
 raiz=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
 archivos=(trazared.dump hapi.dump mongo.archive orthanc.tar modelo.tar)
-compose=(docker compose --project-directory "$raiz/docker" -f "$raiz/docker/docker-compose.yml")
+compose=(docker compose --env-file "${TRAZARED_COMPOSE_ENV:-$raiz/pass.env}" --project-directory "$raiz/docker" -f "$raiz/docker/docker-compose.yml")
 if [[ -n "${TRAZARED_COMPOSE_OVERRIDE:-}" ]]; then
     compose+=(-f "$TRAZARED_COMPOSE_OVERRIDE")
 fi
@@ -34,6 +34,22 @@ volumen() {
     compose run --rm --no-deps -T --user 0 --entrypoint tar "$servicio" "$@"
 }
 
+mongo_herramienta() {
+    local herramienta=$1
+    shift
+    compose exec -T mongo sh -ec '
+        umask 077
+        config=$(mktemp)
+        limpiar() { rm -f -- "$config"; }
+        trap limpiar EXIT
+        printf "uri: mongodb://%s:%s@127.0.0.1:27017/?authSource=admin\n" \
+            "$MONGO_INITDB_ROOT_USERNAME" "$MONGO_INITDB_ROOT_PASSWORD" > "$config"
+        herramienta=$1
+        shift
+        "$herramienta" --config "$config" "$@"
+    ' sh "$herramienta" "$@"
+}
+
 if [[ "$1" == crear ]]; then
     destino=$(realpath -m -- "$2")
     [[ ! -e "$destino" ]] || fallar "El directorio de destino ya existe."
@@ -41,7 +57,7 @@ if [[ "$1" == crear ]]; then
     trap 'rm -rf -- "$provisional"' EXIT
     postgres db pg_dump -Fc -U trazared -d trazared > "$provisional/trazared.dump"
     postgres fhir-db pg_dump -Fc -U hapi -d hapi > "$provisional/hapi.dump"
-    compose exec -T mongo mongodump --db trazared_huv --archive --gzip > "$provisional/mongo.archive"
+    mongo_herramienta mongodump --db trazared_huv --archive --gzip > "$provisional/mongo.archive"
     volumen orthanc -C /var/lib/orthanc/db -cpf - . > "$provisional/orthanc.tar"
     volumen ml -C /app/modelo -cpf - . > "$provisional/modelo.tar"
     (cd "$provisional" && sha256sum -- "${archivos[@]}" > SHA256SUMS)
@@ -62,13 +78,13 @@ done
 # existe por el init de Postgres, pero todavía no debe contener datos de la API.
 [[ $(postgres db psql -XAt -v ON_ERROR_STOP=1 -U trazared -d trazared -c     "SELECT NOT (EXISTS (SELECT FROM pacientes) OR EXISTS (SELECT FROM usuarios) OR EXISTS (SELECT FROM remisiones) OR EXISTS (SELECT FROM auditoria));") == t ]]     || fallar "Postgres TrazaRed ya contiene datos."
 [[ $(postgres fhir-db psql -XAt -v ON_ERROR_STOP=1 -U hapi -d hapi -c     "SELECT NOT EXISTS (SELECT FROM pg_tables WHERE schemaname = 'public');") == t ]]     || fallar "La base de HAPI ya contiene tablas."
-[[ $(compose exec -T mongo mongosh --quiet trazared_huv --eval 'db.getCollectionNames().length') == 0 ]]     || fallar "MongoDB ya contiene colecciones de TrazaRed."
+[[ $(compose exec -T mongo mongosh --quiet trazared_huv --eval 'db.getSiblingDB("admin").auth(process.env.MONGO_INITDB_ROOT_USERNAME, process.env.MONGO_INITDB_ROOT_PASSWORD); db.getCollectionNames().length') == 0 ]]     || fallar "MongoDB ya contiene colecciones de TrazaRed."
 archivos_pacs=$(volumen orthanc -C /var/lib/orthanc/db -cf - . | tar -tf - | sed '/^\.\/$/d')
 [[ -z "$archivos_pacs" ]]     || fallar "El volumen de Orthanc ya contiene archivos."
 
 postgres db pg_restore --single-transaction --clean --if-exists --exit-on-error -U trazared -d trazared < "$origen/trazared.dump"
 postgres fhir-db pg_restore --single-transaction --exit-on-error -U hapi -d hapi < "$origen/hapi.dump"
-compose exec -T mongo mongorestore --archive --gzip --stopOnError --nsInclude 'trazared_huv.*' < "$origen/mongo.archive"
+mongo_herramienta mongorestore --archive --gzip --stopOnError --nsInclude 'trazared_huv.*' < "$origen/mongo.archive"
 volumen orthanc -C /var/lib/orthanc/db -xpf - < "$origen/orthanc.tar"
 volumen ml -C /app/modelo -xpf - < "$origen/modelo.tar"
 echo "Restauración terminada. Levanta los servicios después de recuperar la configuración y las llaves."

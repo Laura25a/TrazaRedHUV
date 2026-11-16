@@ -77,7 +77,7 @@ flowchart LR
     internet((Internet)) -->|HTTPS trazared.kogcake.com| cf[cloudflared<br/>túnel]
     cf --> front[front · nginx<br/>interfaz + protecciones]
     front -->|/api| api[api · FastAPI]
-    front -->|/fhir| hapi[hapi-fhir · FHIR R4]
+    api -->|FHIR interno| hapi[hapi-fhir · FHIR R4]
     hapi --> fhirdb[(fhir-db · Postgres)]
     api --> db[(db · PostgreSQL)]
     api --> mongo[(mongo · MongoDB)]
@@ -279,6 +279,19 @@ flowchart TD
 | Signo vital u observación | `Observation` | LOINC y unidades UCUM |
 | Remisión de médico a especialista | `ServiceRequest` | SNOMED CT (306206005, remisión a servicio) |
 
+Para esta configuración local, genera valores hexadecimales aleatorios e independientes para
+las cuatro variables `TRAZARED_*_PASSWORD` de la plantilla. Si ya existen los volúmenes de
+PostgreSQL, configura inicialmente las claves vigentes de ambos motores. Las variables de
+inicialización de PostgreSQL y MongoDB se aplican a volúmenes vacíos. Para migrar un Mongo
+existente, respáldalo con la configuración anterior y restáuralo en un volumen nuevo, ya
+inicializado con autenticación. Conserva el volumen anterior hasta verificar el respaldo.
+El script de respaldo lee `pass.env` por defecto y acepta `TRAZARED_COMPOSE_ENV` para otro archivo.
+
+La interfaz HTTP local escucha en loopback. Para acceso remoto, usa el túnel HTTPS.
+HAPI intercambia recursos con la API en la red Docker. Desde el navegador, la descarga FHIR
+autorizada está en el detalle del asiento. El puerto local de HAPI está reservado para diagnóstico
+en el equipo que ejecuta Docker.
+
 Al arrancar, la API crea una suscripción en el servidor FHIR para enterarse cuando llega
 una observación nueva. Cada remisión se puede descargar como un `Bundle` FHIR R4 completo
 desde su formato. El mapeo campo por campo está en
@@ -334,7 +347,7 @@ copy .env.example pass.env
 
 `pass.env` (o `.env`) nunca se sube al repositorio. Docker lo lee al **crear** el
 contenedor: si lo agregas o lo cambias después, recrea la API con
-`docker compose up -d --force-recreate api`. Variables opcionales: `TUNNEL_TOKEN` para el
+`docker compose --env-file ../pass.env up -d --force-recreate api`. Variables opcionales: `TUNNEL_TOKEN` para el
 dominio fijo, `ESCALAMIENTO_SEGUNDOS` (600 por defecto), `VALOR_ANALISIS_IA` (80 000 COP por
 defecto), `PRONOSTICO_CADA_MIN` (cada cuánto la IA vuelve a pronosticar, 30 por defecto;
 0 lo apaga) y las tarifas de referencia de la contabilidad (`TARIFA_ESTANCIA_URGENCIAS_HORA`,
@@ -345,8 +358,8 @@ defecto), `PRONOSTICO_CADA_MIN` (cada cuánto la IA vuelve a pronosticar, 30 por
 
 ```powershell
 cd docker
-docker compose up -d --build
-docker compose ps
+docker compose --env-file ../pass.env up -d --build
+docker compose --env-file ../pass.env ps
 ```
 
 Al arrancar, la API crea las tablas, un usuario de prueba por rol y la suscripción FHIR, y
@@ -558,3 +571,11 @@ Cuando abres una ficha, Traza ya sabe de qué paciente hablas y sugiere la sigui
 
 Búsqueda, navegación, conteos y resúmenes se resuelven en el navegador con la API del
 sistema: nombres y documentos no van a ningún modelo de lenguaje. Respeta el rol de cada usuario.
+
+
+### Contrato del tester con credenciales
+
+`tester.yaml` usa referencias de entorno para los secretos. Si el tester del docente
+requiere un YAML con valores ya resueltos, carga las variables en el entorno y ejecuta
+`python scripts/preparar_tester.py RUTA_PRIVADA.yml`. El archivo se crea con acceso
+solo para el dueño y se entrega por el canal privado.

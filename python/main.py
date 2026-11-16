@@ -27,6 +27,9 @@ import os
 import threading
 
 from fastapi import Depends, FastAPI, HTTPException, Query, Request
+from fastapi.encoders import jsonable_encoder
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, ConfigDict, field_validator
 
@@ -47,7 +50,7 @@ import tablero                                   # tablero de población y tende
 import recuperacion                              # eliminar/recuperar imágenes · ingeniería biomédica
 import voz                                       # bitácora por voz con IA
 import seguridad                                 # proyecto final: STRIDE (límite de tasa, guardia, panel)
-from validaciones import hoy_bogota
+from validaciones import exigir_asignacion_clinica, hoy_bogota
 import interop                                   # proyecto final: interoperabilidad con el sistema socio
 
 app = FastAPI(
@@ -98,6 +101,12 @@ async def cabeceras_de_seguridad(request, call_next):
 app.middleware("http")(seguridad.limite_de_tasa)
 
 # Cada módulo trae sus rutas en un "router"; aquí se conectan a la app.
+@app.exception_handler(RequestValidationError)
+async def errores_validacion(request: Request, exc: RequestValidationError):
+    errores = [{k: v for k, v in error.items() if k != "input"} for error in exc.errors()]
+    return JSONResponse(status_code=422, content=jsonable_encoder({"detail": errores}))
+
+
 app.include_router(auth.router)
 app.include_router(remisiones.router)
 app.include_router(historia.router)
@@ -121,7 +130,7 @@ def _suscripcion_fhir_al_arrancar():
     idempotente (reemplaza la Subscription anterior)."""
     try:
         import fhir_sync
-        fhir_sync.crear_subscription_fhir()
+        fhir_sync.crear_subscription_fhir(max_intentos=60, espera_seg=5)
     except Exception as e:              # sin FHIR arriba, la API igual sirve
         print(f"[FHIR] no se pudo crear la Subscription al arrancar: {e}")
 
@@ -169,7 +178,10 @@ def inicio():
 def health():
     """Estado de las dependencias (lo usa la interfaz para los indicadores)."""
     import pacs
-    estado = {"api": "ok", "postgres": "error", "mongo": "error", "pacs": "error"}
+    import requests
+    from fhir_sync import FHIR_BASE_URL
+
+    estado = {"api": "ok", "postgres": "error", "mongo": "error", "pacs": "error", "fhir": "error"}
     try:
         conn = psycopg2.connect(PG_CONNECTION_STRING, connect_timeout=3)
         conn.close()
@@ -182,6 +194,11 @@ def health():
     except Exception:
         pass
     estado["pacs"] = "ok" if pacs.is_alive() else "error"
+    try:
+        if requests.get(f"{FHIR_BASE_URL.rstrip('/')}/metadata", timeout=2).ok:
+            estado["fhir"] = "ok"
+    except requests.RequestException:
+        pass
     return estado
 
 
@@ -300,7 +317,6 @@ def crear_paciente(paciente: PacienteCreate, db=Depends(get_db), usuario=Depends
         db.rollback(); cur.close()
         raise HTTPException(status_code=409, detail="Ya existe un paciente con ese documento")
     fila = cripto.descifrar_paciente(cur.fetchone())
-    db.commit()
     cur.close()
 
     # R13: sin datos personales en el detalle; el id basta para rastrearlo
@@ -324,6 +340,7 @@ def _sincronizar_ficha(paciente_id, *, corregir=False):
            dependencies=[Depends(requiere_rol("admin", "medico"))])
 def corregir_paciente(paciente_id: int, ficha: PacientePatch, db=Depends(get_db),
                       usuario=Depends(get_usuario_actual)):
+    exigir_asignacion_clinica(db, paciente_id, usuario)
     with db.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
         cur.execute(f"SELECT {COLUMNAS_PACIENTE} FROM pacientes WHERE id = %s FOR UPDATE;", (paciente_id,))
         actual = cur.fetchone()
@@ -395,6 +412,7 @@ MAX_IMAGEN = 15 * 1024 * 1024   # 15 MB
 def listar_imagenes(paciente_id: int, db=Depends(get_db),
                     usuario=Depends(requiere_rol(*ROLES_CLINICOS))):
     paciente = obtener_paciente_visible(db, paciente_id, usuario)
+    exigir_asignacion_clinica(db, paciente_id, usuario)
     ocultas = recuperacion.ids_eliminadas(db)          # borrado lógico: siguen en el PACS, no en la ficha
     return {"imagenes": [i for i in pacs.list_images(paciente["documento"]) if i["instance_id"] not in ocultas]}
 
@@ -410,6 +428,7 @@ def subir_imagen(
 ):
     from PIL import Image
     paciente = obtener_paciente_visible(db, paciente_id, usuario)
+    exigir_asignacion_clinica(db, paciente_id, usuario)
 
     datos = archivo.file.read(MAX_IMAGEN + 1)
     if len(datos) > MAX_IMAGEN:
@@ -454,6 +473,7 @@ def ver_imagen(instance_id: str, db=Depends(get_db),
     if fila is None:
         raise HTTPException(status_code=404, detail="Imagen no encontrada")
     obtener_paciente_visible(db, fila[0], usuario)
+    exigir_asignacion_clinica(db, fila[0], usuario)
     png = pacs.orthanc("GET", f"/instances/{instance_id}/preview").content
     registrar_auditoria(db, usuario["id"], "imagen_vista", "pacientes", fila[0], f"instancia {instance_id}")
     return Response(content=png, media_type="image/png",
@@ -616,7 +636,7 @@ async def recibir_observacion_fhir(
 
 
 @app.post("/fhir/observacion/simular", tags=["R21 FHIR reactivo"], status_code=201)
-def simular_observacion(body: SimularObservacionIn,
+def simular_observacion(body: SimularObservacionIn, db=Depends(get_db),
                         usuario=Depends(requiere_rol("admin", "medico"))):
     """R21: simula la llegada de una Observation desde otro sistema.
 
@@ -625,6 +645,8 @@ def simular_observacion(body: SimularObservacionIn,
     la notificación en vivo. Sirve para probar desde la interfaz sin Postman.
     """
     import fhir_sync
+
+    exigir_asignacion_clinica(db, body.paciente_id, usuario)
     try:
         resultado = fhir_sync.sincronizar_observacion_fhir(
             paciente_id=body.paciente_id,

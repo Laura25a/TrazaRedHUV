@@ -215,7 +215,6 @@ def registrar_incidente(db, tipo: str, usuario_id: Optional[int], ip: Optional[s
                                VALUES (%s, %s, %s, now() + make_interval(mins => %s));""",
                             (clase, str(valor), motivo, GUARDIA_BLOQUEO_MIN))
         bloqueado = True
-    db.commit()
     cur.close()
     registrar_auditoria(db, usuario_id, "inyeccion_detectada" if tipo.startswith("inyeccion") else tipo,
                         "incidentes_seguridad", incidente_id,
@@ -377,7 +376,6 @@ def levantar_bloqueo(bloqueo_id: int, db=Depends(get_db), admin=Depends(requiere
     cur.execute("""UPDATE bloqueos_temporales SET levantado_por = %s, levantado_en = now()
                    WHERE id = %s AND levantado_en IS NULL RETURNING tipo, valor;""", (admin["id"], bloqueo_id))
     fila = cur.fetchone()
-    db.commit()
     cur.close()
     if fila is None:
         raise HTTPException(status_code=404, detail="Bloqueo no encontrado o ya levantado")
@@ -391,7 +389,6 @@ def rotar_llave(db=Depends(get_db), admin=Depends(requiere_rol("admin"))):
     """Vuelve a cifrar con la llave vigente lo que esté con una versión anterior
     (después de agregar LLAVE_CIFRADO_V2 al .env y reiniciar la API)."""
     r = cripto.cifrar_pendientes(db)
-    db.commit()
     registrar_auditoria(db, admin["id"], "llave_rotada", "pacientes", None,
                         f"recifrados={r['recifrados']} cifrados={r['cifrados']} version=v{r['version']}")
     return r

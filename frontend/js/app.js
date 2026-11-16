@@ -957,8 +957,8 @@ function formularioUsuario() {
     titulo: "Nuevo usuario", textoBoton: "Crear usuario",
     campos: `<div class="campo"><label for="m-un">Nombre</label><input id="m-un" name="nombre" required></div>
       <div class="fila"><div class="campo"><label for="m-uc">Usuario (correo)</label><input id="m-uc" name="correo" required maxlength="50" placeholder="nombre@huv.gov.co"></div>
-        <div class="campo"><label for="m-ucl">Contraseña</label><input id="m-ucl" name="contrasena" type="password" required minlength="6"></div></div>
-      <p class="tenue" style="margin:-.4rem 0 .9rem">El usuario solo admite letras, números y . _ - @ (máximo 50). La contraseña, mínimo 6 caracteres.</p>
+        <div class="campo"><label for="m-ucl">Contraseña</label><input id="m-ucl" name="contrasena" type="password" autocomplete="new-password" required minlength="8" maxlength="72"></div></div>
+      <p class="tenue" style="margin:-.4rem 0 .9rem">El usuario solo admite letras, números y . _ - @ (máximo 50). Usa entre 8 y 72 caracteres, con mayúscula, minúscula, número y carácter especial.</p>
       <div class="fila"><div class="campo"><label for="m-ur">Rol</label><select id="m-ur" name="rol">${Object.entries(ROLES).map(([k, v]) => `<option value="${k}">${v}</option>`).join("")}</select></div>
         <div class="campo oculto" id="c-eps"><label for="m-ue">EPS</label><input id="m-ue" name="eps_nombre" list="dl-eps2">${datalist("dl-eps2", EPS)}</div>
         <div class="campo oculto" id="c-pac"><label for="m-up">Documento del paciente</label><input id="m-up" name="documento_paciente" inputmode="numeric"></div></div>`,

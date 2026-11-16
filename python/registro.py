@@ -592,7 +592,8 @@ def _cambiar_estado(db, usuario, a: dict, nuevo: str, motivo: str, extra_sql="",
     cur.execute(f"UPDATE remisiones SET estado = %s{extra_sql} WHERE id = %s;", (nuevo, *extra_vals, a["id"]))
     cur.close()
     registrar_auditoria(db, usuario["id"], "cambio_estado", "remisiones", a["id"],
-                        f"{ESTADOS_TEXTO.get(a['estado'])} → {ESTADOS_TEXTO.get(nuevo)} · {motivo}")
+                        f"{ESTADOS_TEXTO.get(a['estado'])} → {ESTADOS_TEXTO.get(nuevo)} · {motivo}",
+                        confirmar=False)
 
 
 @router.post("/registro/remisiones/{remision_id}/gestiones", status_code=201)
@@ -673,7 +674,8 @@ def cerrar_asiento(remision_id: int, c: CierreIn, db=Depends(get_db),
 
 @router.post("/registro/remisiones/{remision_id}/pronostico")
 def recalcular_pronostico(remision_id: int, db=Depends(get_db),
-                          usuario=Depends(requiere_rol(*ROLES_CLINICOS))):
+                          usuario=Depends(requiere_rol("admin", "medico"))):
+    bloquear_remision(db, remision_id, usuario, exigir_abierta=True)
     a, contactos = _asiento(db, usuario, remision_id)
     p = pronosticar(db, a, contactos, usuario["id"])
     if p is None:

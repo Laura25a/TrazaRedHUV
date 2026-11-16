@@ -31,6 +31,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from pydantic import BaseModel, Field
 
 import pacs
+from validaciones import exigir_asignacion_clinica
 from auth import PG_CONNECTION_STRING, get_db, mongo_client, registrar_auditoria, requiere_rol
 from eventos import ids_con_rol, publicar
 
@@ -78,6 +79,7 @@ def _paciente_de_instancia(db, instance_id: str) -> dict:
 def eliminar_imagen(instance_id: str, body: Motivo, db=Depends(get_db),
                     usuario=Depends(requiere_rol("admin", "medico"))):
     paciente = _paciente_de_instancia(db, instance_id)
+    exigir_asignacion_clinica(db, paciente["id"], usuario)
     if instance_id in ids_eliminadas(db):
         raise HTTPException(status_code=409, detail="La imagen ya está eliminada")
     t = pacs.orthanc("GET", f"/instances/{instance_id}/simplified-tags").json()
@@ -87,7 +89,6 @@ def eliminar_imagen(instance_id: str, body: Motivo, db=Depends(get_db),
     cur.execute("""INSERT INTO imagenes_eliminadas (instance_id, paciente_id, descripcion, modalidad, motivo, eliminada_por)
                    VALUES (%s, %s, %s, %s, %s, %s) RETURNING id;""",
                 (instance_id, paciente["id"], descripcion, modalidad, body.motivo.strip(), usuario["id"]))
-    db.commit()
     cur.close()
     registrar_auditoria(db, usuario["id"], "imagen_eliminada", "pacientes", paciente["id"],
                         f"instancia {instance_id} · {descripcion} · motivo: {body.motivo.strip()[:120]}")
@@ -149,7 +150,6 @@ def restaurar_imagen(instance_id: str, body: Motivo, db=Depends(get_db),
                    RETURNING id, paciente_id, descripcion;""",
                 (usuario["id"], body.motivo.strip(), instance_id))
     fila = cur.fetchone()
-    db.commit()
     cur.close()
     if fila is None:
         raise HTTPException(status_code=404, detail="Esa imagen no está en la papelera")

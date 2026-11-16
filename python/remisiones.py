@@ -290,7 +290,6 @@ def soft_delete_remision(remision_id: int, db=Depends(get_db), usuario=Depends(g
         raise HTTPException(status_code=403, detail="Solo puedes eliminar remisiones que tú creaste")
 
     cur.execute("UPDATE remisiones SET activo = FALSE WHERE id = %s;", (remision_id,))
-    db.commit()
     cur.close()
     registrar_auditoria(db, usuario["id"], "soft_delete", "remisiones", remision_id)
 
@@ -306,7 +305,6 @@ def restaurar_remision(remision_id: int, db=Depends(get_db), usuario=Depends(get
         (remision_id,),
     )
     fila = cur.fetchone()
-    db.commit()
     cur.close()
     if fila is None:
         raise HTTPException(status_code=404, detail="Remisión no encontrada")
@@ -329,7 +327,9 @@ def listar_observaciones(remision_id: Optional[int] = Query(None), db=Depends(ge
 
 @router.post("/observaciones", response_model=ObservacionOut, status_code=201,
           dependencies=[Depends(requiere_rol("admin", "medico"))])
-def crear_observacion(observacion: ObservacionCreate, db=Depends(get_db)):
+def crear_observacion(observacion: ObservacionCreate, db=Depends(get_db),
+                      usuario=Depends(get_usuario_actual)):
+    bloquear_remision(db, observacion.remision_id, usuario, exigir_abierta=True)
     cur = db.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
     try:
         cur.execute(
@@ -343,8 +343,8 @@ def crear_observacion(observacion: ObservacionCreate, db=Depends(get_db)):
         db.rollback(); cur.close()
         raise HTTPException(status_code=400, detail="remision_id no existe")
     fila = cur.fetchone()
-    db.commit()
     cur.close()
+    registrar_auditoria(db, usuario["id"], "observacion_creada", "remisiones", observacion.remision_id)
     return fila
 
 

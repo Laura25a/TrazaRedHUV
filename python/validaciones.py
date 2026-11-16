@@ -34,3 +34,21 @@ def bloquear_remision(db, remision_id, usuario, exigir_abierta=False):
     if exigir_abierta and fila["estado"] in ("completada", "rechazada"):
         raise HTTPException(409, "El asiento está cerrado")
     return fila
+
+
+def exigir_asignacion_clinica(db, paciente_id: int, usuario: dict) -> None:
+    """La historia y los anexos requieren un caso a cargo o una remisión interna asignada."""
+    if usuario["rol"] not in ("medico", "especialista"):
+        return
+    usuario_id = usuario["id"]
+    with db.cursor(cursor_factory=psycopg2.extensions.cursor) as cur:
+        cur.execute(
+            """SELECT EXISTS (
+                   SELECT 1 FROM remisiones WHERE paciente_id = %s AND activo AND creado_por = %s
+                   UNION ALL
+                   SELECT 1 FROM remisiones_medicas
+                    WHERE paciente_id = %s AND (medico_id = %s OR especialista_id = %s)
+               );""", (paciente_id, usuario_id, paciente_id, usuario_id, usuario_id),
+        )
+        if not cur.fetchone()[0]:
+            raise HTTPException(404, "Paciente no encontrado")

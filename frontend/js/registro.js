@@ -233,7 +233,7 @@ async function vistaFormato({ remision }) {
       <div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center">${barraDescargas(descargas)}
         <button class="btn btn-secundario btn-sm" id="f-imprimir">${icono("imprimir")}Imprimir</button>
         ${per.anotar && typeof abrirDictado === "function" ? `<button class="btn btn-voz" id="f-dictar">${icono("microfono")}Dictar llamada</button>` : ""}
-        ${typeof abrirEnvioSocio === "function" && ["admin", "medico"].includes(sesion.usuario.rol) && !r.origen_externo && r.abierta && r.estado_interop !== "enviada"
+        ${typeof abrirEnvioSocio === "function" && per.anotar && !r.origen_externo && r.estado_interop !== "enviada"
           ? `<button class="btn btn-primario" id="f-socio">${icono("interop")}Remitir a institución socia</button>` : ""}
         ${r.origen_externo && ["admin", "especialista"].includes(sesion.usuario.rol) ? `<button class="btn btn-primario" id="f-responder">${icono("interop")}Responder a ${esc(r.institucion_origen)}</button>` : ""}
         ${per.anotar ? `<button class="btn btn-coral" id="f-anotar">+ Anotar gestión</button>` : ""}</div>
@@ -289,7 +289,7 @@ async function vistaFormato({ remision }) {
       </section>
 
       ${ia || f.resultado_ia ? `<section class="fmt-sec"><h3 class="ia">4. Apoyo de IA · orientativo, no reemplaza el criterio del equipo
-          ${r.abierta && per.anexos_clinicos ? `<button class="btn btn-sm btn-suave" id="f-recalcular">Recalcular</button>` : ""}</h3>
+          ${per.anotar ? `<button class="btn btn-sm btn-suave" id="f-recalcular">Recalcular</button>` : ""}</h3>
         <div class="ia-grid">
           <div><small>Probabilidad de que termine efectiva</small>
             <div style="display:flex;align-items:baseline;gap:.6rem;flex-wrap:wrap"><span class="grande ${claseIA(ia ? ia.probabilidad_efectiva : 0)}">${ia ? Math.round(100 * ia.probabilidad_efectiva) : "—"}%</span>

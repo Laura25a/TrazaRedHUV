@@ -195,8 +195,12 @@ class UsuarioCreate(BaseModel):
     @field_validator("contrasena")
     @classmethod
     def validar_contrasena(cls, v: str) -> str:
-        if len(v) < 6 or len(v) > 72:
-            raise ValueError("La contraseña debe tener entre 6 y 72 caracteres")
+        if not 8 <= len(v) <= 72:
+            raise ValueError("La contraseña debe tener entre 8 y 72 caracteres")
+        if not (any(c.isupper() for c in v) and any(c.islower() for c in v)
+                and any(c.isdecimal() for c in v) and any(c.isprintable() and not c.isalnum()
+                                                             and not c.isspace() for c in v)):
+            raise ValueError("Incluye mayúscula, minúscula, número y carácter especial")
         return v
 
 
@@ -312,7 +316,7 @@ def _ultima_huella(cur) -> str:
 
 
 def registrar_auditoria(db, usuario_id: Optional[int], accion: str, tabla: str,
-                        registro_id: Optional[int], detalle: Optional[str] = None):
+                        registro_id: Optional[int], detalle: Optional[str] = None, *, confirmar: bool = True):
     cur = db.cursor(cursor_factory=psycopg2.extensions.cursor)
     cur.execute("SELECT pg_advisory_xact_lock(%s);", (_CANDADO_AUDITORIA,))   # se suelta al confirmar
     anterior = _ultima_huella(cur)
@@ -326,7 +330,8 @@ def registrar_auditoria(db, usuario_id: Optional[int], accion: str, tabla: str,
     huella = cripto.sellar(anterior, cripto.contenido_auditoria(
         reg_id, usuario_id, accion, tabla, registro_id, detalle, fecha_txt))
     cur.execute("UPDATE auditoria SET hash_anterior = %s, hash = %s WHERE id = %s;", (anterior, huella, reg_id))
-    db.commit()
+    if confirmar:
+        db.commit()
     cur.close()
     return reg_id
 
@@ -408,7 +413,7 @@ def login(form: OAuth2PasswordRequestForm = Depends(), db=Depends(get_db)):
     cur = db.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
     cur.execute(
         """SELECT id, contrasena_hash, rol, activo, bloqueado, intentos_fallidos
-           FROM usuarios WHERE correo = %s;""",
+           FROM usuarios WHERE correo = %s FOR UPDATE;""",
         (correo,),
     )
     usuario = cur.fetchone()
@@ -446,12 +451,11 @@ def login(form: OAuth2PasswordRequestForm = Depends(), db=Depends(get_db)):
             (MAX_INTENTOS, usuario["id"]),
         )
         estado = cur.fetchone()
-        db.commit()
         cur.close()
         restantes = max(MAX_INTENTOS - estado["intentos_fallidos"], 0)
         registrar_auditoria(db, usuario["id"], "login_fallido", "usuarios", usuario["id"],
                             f"{correo}: contraseña incorrecta (intento {estado['intentos_fallidos']} "
-                            f"de {MAX_INTENTOS}, le quedan {restantes})")
+                            f"de {MAX_INTENTOS}, le quedan {restantes})", confirmar=not estado["bloqueado"])
         if estado["bloqueado"]:
             registrar_auditoria(db, usuario["id"], "bloqueo_usuario", "usuarios", usuario["id"],
                                 f"{correo}: bloqueado al llegar a {MAX_INTENTOS} intentos fallidos")
@@ -473,9 +477,9 @@ def login(form: OAuth2PasswordRequestForm = Depends(), db=Depends(get_db)):
     cur.execute("UPDATE usuarios SET intentos_fallidos = 0 WHERE id = %s;", (usuario["id"],))
     if hash_nuevo:      # la contraseña estaba en bcrypt: queda en Argon2id sin que el usuario haga nada
         cur.execute("UPDATE usuarios SET contrasena_hash = %s WHERE id = %s;", (hash_nuevo, usuario["id"]))
-    db.commit()
     cur.close()
-    registrar_auditoria(db, usuario["id"], "login_exitoso", "usuarios", usuario["id"], correo)
+    registrar_auditoria(db, usuario["id"], "login_exitoso", "usuarios", usuario["id"], correo,
+                        confirmar=not bool(hash_nuevo))
     if hash_nuevo:
         registrar_auditoria(db, usuario["id"], "hash_actualizado", "usuarios", usuario["id"],
                             "contraseña migrada a Argon2id")
@@ -535,7 +539,6 @@ def desbloquear_usuario(usuario_id: int, db=Depends(get_db), admin=Depends(requi
         (usuario_id,),
     )
     fila = cur.fetchone()
-    db.commit()
     cur.close()
     if fila is None:
         raise HTTPException(status_code=404, detail="Usuario no encontrado")
@@ -618,7 +621,6 @@ def crear_usuario(usuario: UsuarioCreate, db=Depends(get_db), admin=Depends(get_
         db.rollback(); cur.close()
         raise HTTPException(status_code=400, detail="paciente_id no existe")
     fila = cur.fetchone()
-    db.commit()
     cur.close()
     registrar_auditoria(db, admin["id"], "usuario_creado", "usuarios", fila["id"], f"rol {fila['rol']}")
     return fila

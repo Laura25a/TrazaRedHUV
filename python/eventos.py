@@ -304,25 +304,18 @@ threading.Thread(target=_vigilar_alertas, daemon=True).start()
 
 # ── Endpoints del contrato (tester.yaml) ──────────────────────────────────
 @router.get("/eventos/stream")
-async def canal_eventos(request: Request, token: Optional[str] = Query(None)):
-    """R17 · Canal en tiempo real (SSE).
+async def canal_eventos(request: Request):
+    """Canal SSE autenticado mediante la cabecera Authorization."""
+    authorization = request.headers.get("Authorization")
 
-    El EventSource del navegador no envía cabeceras, por eso el token también
-    se admite como ?token=. Sin token válido: 401. Cada usuario solo recibe los
-    eventos de los que es destinatario (alcance por rol)."""
-    import auth
-    tok = token
-    if not tok:
-        cabecera = request.headers.get("Authorization", "")
-        if cabecera.startswith("Bearer "):
-            tok = cabecera[len("Bearer "):]
-    if not tok:
-        raise HTTPException(status_code=401, detail="Falta el token")
-    db = _conexion_pg()
-    try:
-        usuario = auth.get_usuario_actual(token=tok, db=db)  # lanza 401 si es inválido
-    finally:
-        db.close()
+    def validar_sesion():
+        db = _conexion_pg()
+        try:
+            return _usuario_actual(authorization, db)
+        finally:
+            db.close()
+
+    usuario = await asyncio.to_thread(validar_sesion)
 
     cola: "asyncio.Queue" = asyncio.Queue(maxsize=200)
     loop = asyncio.get_running_loop()
@@ -335,12 +328,20 @@ async def canal_eventos(request: Request, token: Optional[str] = Query(None)):
                 "mensaje": "canal en tiempo real abierto",
                 "fecha": _ahora_iso(),
             }) + "\n\n"
+            siguiente_revision = time.monotonic() + 15
             while True:
                 try:
-                    texto = await asyncio.wait_for(cola.get(), timeout=20)
-                    yield f"data: {texto}\n\n"
+                    texto = await asyncio.wait_for(cola.get(), timeout=max(0, siguiente_revision - time.monotonic()))
                 except asyncio.TimeoutError:
-                    yield ": ping\n\n"   # heartbeat: mantiene viva la conexión
+                    texto = None
+                if time.monotonic() >= siguiente_revision:
+                    vigente = await asyncio.to_thread(validar_sesion)
+                    if vigente["rol"] != usuario["rol"]:
+                        break
+                    siguiente_revision = time.monotonic() + 15
+                yield f"data: {texto}\n\n" if texto is not None else ": ping\n\n"
+        except HTTPException:
+            pass  # El token venció o la cuenta perdió el acceso.
         finally:
             _desuscribir(sus)
 

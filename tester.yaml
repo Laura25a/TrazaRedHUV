@@ -19,22 +19,22 @@ url_publica: "https://trazared.kogcake.com"
 usuarios:
   admin:
     usuario: "admin@trazared.huv"
-    password: "clave_del_admin_de_prueba"
+    password: "${TRAZARED_TEST_ADMIN_PASSWORD}"
   medico:
     usuario: "medico@huv.gov.co"
-    password: "clave_del_medico_de_prueba"
+    password: "${TRAZARED_TEST_MEDICO_PASSWORD}"
   especialista:
     usuario: "especialista@huv.gov.co"
-    password: "clave_del_especialista_de_prueba"
+    password: "${TRAZARED_TEST_ESPECIALISTA_PASSWORD}"
   contable:
     usuario: "contable@huv.gov.co"
-    password: "clave_del_contable_de_prueba"
+    password: "${TRAZARED_TEST_CONTABLE_PASSWORD}"
   paciente:
     usuario: "paciente@correo.com"
-    password: "clave_del_paciente_de_prueba"
+    password: "${TRAZARED_TEST_PACIENTE_PASSWORD}"
   eps:
     usuario: "eps@coosalud.com"
-    password: "clave_de_la_eps_de_prueba"
+    password: "${TRAZARED_TEST_EPS_PASSWORD}"
 
 # =============================================================================
 # Datos de prueba que el tester puede usar
@@ -248,8 +248,9 @@ rutas:
   # ── R17 · Canal SSE ────────────────────────────────────────────────────────
   tiempo_real:
     metodo: GET
-    path: /eventos/stream?token={token}
+    path: /eventos/stream
     tipo: sse
+    rol_requerido: ["admin", "medico", "especialista", "contable", "paciente", "eps"]
     content_type: text/event-stream
     timeout_segundos: 8
     campos: ["tipo", "mensaje"]
@@ -422,11 +423,11 @@ rutas:
 # Secretos que el tester necesita. NO van en el repositorio: se entregan en privado
 # al docente (igual que las contraseñas de arriba) y aquí queda solo el nombre.
 secretos:
-  webhook_fhir: "secreto_del_webhook_fhir"            # valor de FHIR_WEBHOOK_SECRET
-  socio_client_id: "client_id_del_sistema_de_prueba"  # Admin > Interoperabilidad > Registrar institución socia
-  socio_client_secret: "client_secret_del_sistema_de_prueba"
-  socio_secreto_firma: "secreto_de_firma_del_sistema_de_prueba"
-  secreto_federado: "secreto-federado-del-curso-solo-demo"   # el del acuerdo de clase (SECRETO_FEDERADO)
+  webhook_fhir: "${FHIR_WEBHOOK_SECRET}"
+  socio_client_id: "${TRAZARED_TEST_SOCIO_CLIENT_ID}"
+  socio_client_secret: "${TRAZARED_TEST_SOCIO_CLIENT_SECRET}"
+  socio_secreto_firma: "${TRAZARED_TEST_SOCIO_FIRMA}"
+  secreto_federado: "${TRAZARED_TEST_SECRETO_FEDERADO}"
 
 datos_final:
   # Canarios (R24): datos del paciente de prueba que NO deben aparecer en lo enviado al LLM

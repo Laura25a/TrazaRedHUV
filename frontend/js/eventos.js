@@ -9,45 +9,69 @@
 // salir) y se les añade el comportamiento vivo. Si este archivo no carga, la
 // aplicación funciona igual pero sin avisos en vivo.
 const Eventos = (() => {
-  let fuente = null;
-  // Misma clave de sessionStorage que usa api.js para el token.
-  const CLAVE_TOKEN = "trazared_token";
+  let conexion = null;
+  let conectado = false;
+  let reconexion = null;
 
-  function token() {
-    try { return sessionStorage.getItem(CLAVE_TOKEN); } catch { return null; }
-  }
-
-  function iniciar() {
+  async function iniciar() {
     detener();
-    const t = token();
-    if (!t) return;
-    // EventSource no envía cabeceras: el token viaja como ?token= (R17).
-    // El navegador reconecta solo si la conexión cae.
-    fuente = new EventSource(`/api/eventos/stream?token=${encodeURIComponent(t)}`);
-    fuente.onmessage = (m) => {
-      let ev;
-      try { ev = JSON.parse(m.data); } catch { return; }
-      // Para que cada pantalla haga lo suyo con el mismo evento.
-      document.dispatchEvent(new CustomEvent("trazared:evento", { detail: ev }));
-      if (window.Notificaciones) Notificaciones.refrescar();
-      if (/alerta|cr[ií]tico/i.test(ev.tipo || "")) {
-        if (window.Alertas) Alertas.refrescar();
-        if (ev.tipo !== "conectado") toast(ev.mensaje || "Alerta crítica", "error");
+    const token = sessionStorage.getItem("trazared_token");
+    if (!token) return;
+    const controlador = new AbortController();
+    conexion = controlador;
+    try {
+      const respuesta = await fetch(API.ruta("/eventos/stream"), {
+        headers: { Authorization: `Bearer ${token}`, Accept: "text/event-stream" },
+        signal: controlador.signal,
+      });
+      if (respuesta.status === 401 || respuesta.status === 403) {
+        controlador.abort();
+        return;
       }
-    };
-    fuente.onerror = () => { /* reconexión automática del navegador */ };
+      if (!respuesta.ok || !respuesta.body) throw new Error("Canal de eventos no disponible");
+      if (controlador.signal.aborted) return;
+      conectado = true;
+      const lector = respuesta.body.pipeThrough(new TextDecoderStream()).getReader();
+      let pendiente = "";
+      while (true) {
+        const { done, value } = await lector.read();
+        if (done) break;
+        pendiente += value;
+        const mensajes = pendiente.split("\n\n");
+        pendiente = mensajes.pop();
+        for (const mensaje of mensajes) {
+          if (controlador.signal.aborted) break;
+          if (!mensaje.startsWith("data: ")) continue;
+          let ev;
+          try { ev = JSON.parse(mensaje.slice(6)); } catch { continue; }
+          document.dispatchEvent(new CustomEvent("trazared:evento", { detail: ev }));
+          if (window.Notificaciones) Notificaciones.refrescar();
+          if (/alerta|cr[ií]tico/i.test(ev.tipo || "")) {
+            if (window.Alertas) Alertas.refrescar();
+            toast(ev.mensaje || "Alerta crítica", "error");
+          }
+        }
+      }
+    } catch (error) {
+      if (!controlador.signal.aborted) console.debug("Se reconectará el canal de eventos", error);
+    } finally {
+      if (conexion === controlador) {
+        conectado = false;
+        conexion = null;
+        if (sessionStorage.getItem("trazared_token") === token && !controlador.signal.aborted)
+          reconexion = setTimeout(iniciar, 3000);
+      }
+    }
   }
 
   function detener() {
-    if (fuente) { fuente.close(); fuente = null; }
+    clearTimeout(reconexion);
+    conexion?.abort();
+    conexion = null;
+    conectado = false;
   }
 
-  // true si el canal SSE está abierto (lo usa Notificaciones para re-engancharse).
-  function conectado() {
-    return !!fuente && fuente.readyState === EventSource.OPEN;
-  }
-
-  return { iniciar, detener, token, conectado };
+  return { iniciar, detener, conectado: () => conectado };
 })();
 
 // Se expone en window para poder inspeccionarlo desde la consola (const no se

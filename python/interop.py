@@ -51,7 +51,7 @@ from pydantic import BaseModel, Field
 import auth
 import cripto
 import seguridad
-from validaciones import hoy_bogota
+from validaciones import bloquear_remision, hoy_bogota
 from auth import (PG_CONNECTION_STRING, ROLES_CLINICOS, get_db, get_usuario_actual, registrar_auditoria,
                   requiere_rol)
 
@@ -507,7 +507,6 @@ def _recibir_bundle(cabeceras: dict, cuerpo: bytes, ip: str):
         _registrar_mensaje(cur, socio["id"], "entrante", mensaje_id, "Bundle",
                            "aceptado" if conciliado else "por_conciliar", codigo, remision_id, paciente_id,
                            partes["referencia"], recurso=resumen)
-        conn.commit()                       # TODO o NADA: hasta aquí no había nada confirmado
         cur.close()
 
         registrar_auditoria(conn, None, "interop_remision_recibida", "remisiones", remision_id,
@@ -592,7 +591,6 @@ def _recibir_task(cabeceras: dict, cuerpo: bytes, ip: str):
         _registrar_mensaje(cur, socio["id"], "entrante", mensaje_id, "Task", "aceptado", 201, rem["id"],
                            rem["paciente_id"], referencia, detalle=nota,
                            recurso={"status": t["status"], "nota": nota, "referencia": referencia})
-        conn.commit()
         cur.close()
         registrar_auditoria(conn, None, "interop_respuesta_recibida", "remisiones", rem["id"],
                             f"origen=externo socio={socio['nombre']} mensaje={mensaje_id} estado={nuevo} ip={ip}")
@@ -647,7 +645,6 @@ def _recibir_observation(cabeceras: dict, cuerpo: bytes, ip: str):
         _registrar_mensaje(cur, socio["id"], "entrante", mensaje_id, "Observation",
                            "aceptado" if paciente_id else "por_conciliar", codigo, remision_id, paciente_id,
                            recurso={k: obs[k] for k in ("loinc", "nombre", "valor", "unidad")})
-        conn.commit()
         cur.close()
         registrar_auditoria(conn, None, "interop_observacion_recibida", "pacientes", paciente_id,
                             f"origen=externo socio={socio['nombre']} mensaje={mensaje_id} http={codigo} "
@@ -687,6 +684,7 @@ _tokens: dict = {}       # {socio_id: (token, vence_epoch)}
 
 
 def _token_saliente(socio: dict, scope: str) -> str:
+    _url_valida(socio.get("url_base"), bucle=bool(socio.get("de_prueba")))
     guardado = _tokens.get((socio["id"], scope))
     if guardado and guardado[1] - time.time() > 30:
         return guardado[0]
@@ -694,7 +692,7 @@ def _token_saliente(socio: dict, scope: str) -> str:
         raise HTTPException(status_code=409, detail=f"Faltan la URL o las credenciales que {socio['nombre']} nos entregó. "
                                                     "El administrador las registra en Interoperabilidad › Socios.")
     try:
-        r = requests.post(socio["url_base"].rstrip("/") + "/oauth/token", timeout=15, data={
+        r = requests.post(socio["url_base"].rstrip("/") + "/oauth/token", timeout=15, allow_redirects=False, data={
             "grant_type": "client_credentials", "client_id": socio["cliente_saliente"],
             "client_secret": _leer_secreto(socio, "secreto_saliente"), "scope": scope})
     except requests.RequestException as e:
@@ -715,7 +713,7 @@ def _enviar(socio: dict, tipo: str, recurso: dict) -> tuple[int, str, str]:
     if not secreto:
         raise HTTPException(status_code=409, detail=f"Falta el secreto de firma que {socio['nombre']} nos entregó")
     try:
-        r = requests.post(socio["url_base"].rstrip("/") + f"/interop/{tipo}", data=cuerpo, timeout=20, headers={
+        r = requests.post(socio["url_base"].rstrip("/") + f"/interop/{tipo}", data=cuerpo, timeout=20, allow_redirects=False, headers={
             "Authorization": f"Bearer {token}", "Content-Type": "application/fhir+json",
             "X-Timestamp": ts, "X-Message-Id": mensaje_id,
             "X-Signature": _firma_esperada(secreto, ts, mensaje_id, cuerpo)})
@@ -818,6 +816,7 @@ def vista_previa(remision_id: int, socio_id: int = Query(...), db=Depends(get_db
                  usuario=Depends(requiere_rol("admin", "medico"))):
     """Lo que saldría hacia el socio, ANTES de enviarlo: para que el médico vea que el
     Bundle no lleva documento, teléfono ni dirección, y si falta el consentimiento."""
+    bloquear_remision(db, remision_id, usuario)
     cur = db.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
     rem, pac, socio = _cargar_para_envio(cur, remision_id, socio_id)
     consent = _consentimiento_vigente(cur, pac["id"], socio["id"])
@@ -837,9 +836,8 @@ def _guardar_historial(cur, remision_id, usuario_id):
                 (usuario_id, remision_id))
 
 
-def _cargar_para_envio(cur, remision_id: int, socio_id: int, bloquear=False):
-    bloqueo = " FOR UPDATE" if bloquear else ""
-    cur.execute("SELECT * FROM remisiones WHERE id = %s AND activo" + bloqueo, (remision_id,))
+def _cargar_para_envio(cur, remision_id: int, socio_id: int):
+    cur.execute("SELECT * FROM remisiones WHERE id = %s AND activo;", (remision_id,))
     rem = cur.fetchone()
     if rem is None:
         raise HTTPException(status_code=404, detail="Remisión no encontrada")
@@ -859,7 +857,8 @@ def enviar_remision(remision_id: int, body: EnviarIn, db=Depends(get_db),
     """R30/R32 · El médico remite a la institución socia. Sin consentimiento vigente
     del paciente para ESA institución no sale nada (403)."""
     cur = db.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-    rem, pac, socio = _cargar_para_envio(cur, remision_id, body.socio_id, bloquear=True)
+    bloquear_remision(db, remision_id, usuario, exigir_abierta=True)
+    rem, pac, socio = _cargar_para_envio(cur, remision_id, body.socio_id)
     if rem["estado"] not in ("pendiente", "en_gestion"):
         raise HTTPException(409, "La remisión ya no está pendiente de gestión")
     consent = _consentimiento_vigente(cur, pac["id"], socio["id"])
@@ -882,7 +881,6 @@ def enviar_remision(remision_id: int, body: EnviarIn, db=Depends(get_db),
         cur.execute("""UPDATE remisiones SET socio_id = %s, estado_interop = 'enviada', institucion_destino = registrar_institucion(%s),
                               estado = CASE WHEN estado = 'pendiente' THEN 'en_gestion' ELSE estado END
                        WHERE id = %s;""", (socio["id"], socio["nombre"], remision_id))
-    db.commit()
     cur.close()
     registrar_auditoria(db, usuario["id"], "interop_remision_enviada" if ok else "interop_envio_fallido",
                         "remisiones", remision_id,
@@ -928,7 +926,6 @@ def responder_remision(remision_id: int, body: ResponderIn, db=Depends(get_db),
                           institucion_acepta = CASE WHEN %s = 'aceptada' THEN %s ELSE institucion_acepta END,
                           cerrada_en = CASE WHEN %s = 'rechazada' THEN now() ELSE cerrada_en END
                    WHERE id = %s;""", (nuevo, nuevo, INSTITUCION, nuevo, remision_id))
-    db.commit()
     registrar_auditoria(db, usuario["id"], f"interop_remision_{nuevo}", "remisiones", remision_id,
                         f"origen=externo socio={socio['nombre']} referencia={rem['referencia_externa']}")
     task = {"resourceType": "Task", "status": "accepted" if nuevo == "aceptada" else "rejected", "intent": "order",
@@ -945,7 +942,6 @@ def responder_remision(remision_id: int, body: ResponderIn, db=Depends(get_db),
                        recurso={"status": task["status"], "nota": body.nota})
     if ok:
         cur.execute("UPDATE remisiones SET estado_interop = 'respondida' WHERE id = %s;", (remision_id,))
-    db.commit()
     cur.close()
     registrar_auditoria(db, usuario["id"], "interop_respuesta_enviada" if ok else "interop_respuesta_fallida",
                         "remisiones", remision_id,
@@ -1000,7 +996,6 @@ def registrar_consentimiento(paciente_id: int, body: ConsentimientoIn, db=Depend
                    VALUES (%s, %s, %s, %s, %s) RETURNING id;""",
                 (paciente_id, body.socio_id, body.finalidad, body.medio, usuario["id"]))
     cid = cur.fetchone()["id"]
-    db.commit()
     cur.close()
     registrar_auditoria(db, usuario["id"], "consentimiento_registrado", "pacientes", paciente_id,
                         f"consentimiento={cid} institucion={socio['nombre']} medio={body.medio}")
@@ -1015,7 +1010,6 @@ def revocar_consentimiento(consentimiento_id: int, db=Depends(get_db),
     cur.execute("""UPDATE consentimientos SET vigente = FALSE, revocado_en = now(), revocado_por = %s
                    WHERE id = %s AND vigente RETURNING paciente_id;""", (usuario["id"], consentimiento_id))
     fila = cur.fetchone()
-    db.commit()
     cur.close()
     if fila is None:
         raise HTTPException(status_code=404, detail="Consentimiento no encontrado o ya revocado")
@@ -1041,12 +1035,14 @@ class SocioCambios(BaseModel):
     activo: Optional[bool] = None
 
 
-def _url_valida(url: Optional[str]) -> Optional[str]:
+def _url_valida(url: Optional[str], *, bucle: bool = False) -> Optional[str]:
     if not url:
         return None
     url = url.strip().rstrip("/")
-    if not re.fullmatch(r"https?://[\w.\-:\[\]]+(/[\w.\-/]*)?", url):
-        raise HTTPException(status_code=422, detail="La URL del socio debe empezar por http:// o https:// (sin parámetros)")
+    if bucle and re.fullmatch(r"http://(?:127\.0\.0\.1|\[::1\])(?::[0-9]+)?(?:/[\w.\-/]*)?", url):
+        return url
+    if not re.fullmatch(r"https://[a-zA-Z0-9.-]+(?::[0-9]+)?(?:/[\w.\-/]*)?", url):
+        raise HTTPException(status_code=422, detail="La URL del socio debe usar HTTPS y no incluir credenciales ni parámetros")
     return url
 
 
@@ -1079,7 +1075,7 @@ def _crear_socio(cur, nombre: str, url_base: Optional[str], admin_id: int, de_pr
                                                 creado_por, de_prueba)
                    VALUES (registrar_institucion(%s), %s, %s, %s, %s, %s, %s) RETURNING *;""",
                 (nombre.strip(), client_id, auth.hash_password(client_secret),
-                 _guardar_secreto(client_id, "secreto_firma", secreto_firma), _url_valida(url_base), admin_id, de_prueba))
+                 _guardar_secreto(client_id, "secreto_firma", secreto_firma), _url_valida(url_base, bucle=de_prueba), admin_id, de_prueba))
     return {"socio": cur.fetchone(), "client_secret": client_secret, "secreto_firma": secreto_firma}
 
 
@@ -1099,7 +1095,6 @@ def _entrega(creado: dict) -> dict:
 def crear_socio(body: SocioIn, db=Depends(get_db), admin=Depends(requiere_rol("admin"))):
     cur = db.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
     creado = _crear_socio(cur, body.nombre, body.url_base, admin["id"])
-    db.commit()
     cur.close()
     registrar_auditoria(db, admin["id"], "interop_socio_creado", "sistemas_socios", creado["socio"]["id"],
                         f"socio={body.nombre} client_id={creado['socio']['client_id']}")
@@ -1124,7 +1119,6 @@ def crear_socio_de_prueba(db=Depends(get_db), admin=Depends(requiere_rol("admin"
                 (s["client_id"], _guardar_secreto(s["client_id"], "secreto_saliente", creado["client_secret"]),
                  _guardar_secreto(s["client_id"], "firma_saliente", creado["secreto_firma"]), s["id"]))
     s = cur.fetchone()
-    db.commit()
     cur.close()
     registrar_auditoria(db, admin["id"], "interop_socio_creado", "sistemas_socios", s["id"], "socio de prueba (bucle local)")
     return {**_publico(s, True), "ya_existia": False}
@@ -1145,14 +1139,13 @@ def actualizar_socio(socio_id: int, body: SocioCambios, db=Depends(get_db), admi
             cambios.append("nombre = registrar_institucion(%s)" if campo == "nombre" else f"{campo} = %s")
             valores.append(datos[campo].strip() if isinstance(datos[campo], str) else datos[campo])
     if "url_base" in datos:
-        cambios.append("url_base = %s"); valores.append(_url_valida(datos["url_base"]))
+        cambios.append("url_base = %s"); valores.append(_url_valida(datos["url_base"], bucle=bool(s["de_prueba"])))
     for campo in ("secreto_saliente", "firma_saliente"):
         if datos.get(campo):
             cambios.append(f"{campo} = %s"); valores.append(_guardar_secreto(s["client_id"], campo, datos[campo].strip()))
     if cambios:
         cur.execute(f"UPDATE sistemas_socios SET {', '.join(cambios)} WHERE id = %s RETURNING *;", (*valores, socio_id))
         s = cur.fetchone()
-        db.commit()
         _tokens.clear()
     cur.close()
     registrar_auditoria(db, admin["id"], "interop_socio_actualizado", "sistemas_socios", socio_id,
@@ -1177,7 +1170,6 @@ def rotar_credenciales(socio_id: int, db=Depends(get_db), admin=Depends(requiere
                     (_guardar_secreto(s["client_id"], "secreto_saliente", client_secret),
                      _guardar_secreto(s["client_id"], "firma_saliente", secreto_firma), socio_id))
         s = cur.fetchone()
-    db.commit()
     cur.close()
     _tokens.clear()
     registrar_auditoria(db, admin["id"], "interop_credenciales_rotadas", "sistemas_socios", socio_id, f"socio={s['nombre']}")

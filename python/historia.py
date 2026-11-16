@@ -18,6 +18,8 @@ from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, Tabl
 
 from auth import get_db, get_usuario_actual, registrar_auditoria, ROLES_CLINICOS, requiere_rol
 
+from validaciones import exigir_asignacion_clinica
+
 router = APIRouter(tags=["Historia clínica"])
 
 
@@ -125,6 +127,7 @@ def historia_json(paciente_id: int, db=Depends(get_db),
                   usuario=Depends(requiere_rol(*ROLES_CLINICOS))):
     """R11: la historia clínica en JSON. Mismos datos que el PDF: datos del
     paciente, observaciones y SOLO los reportes de IA aprobados."""
+    exigir_asignacion_clinica(db, paciente_id, usuario)
     cur = db.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
     try:
         cur.execute(
@@ -148,7 +151,7 @@ def historia_json(paciente_id: int, db=Depends(get_db),
     reportes_ia = _obtener_reportes_ia(db, paciente_id)
 
     registrar_auditoria(db, usuario["id"], "historia_consultada", "pacientes",
-                        paciente_id, f"historia clinica (JSON) de {paciente['nombre']}")
+                        paciente_id, "historia clínica (JSON)")
 
     return {"paciente": paciente, "observaciones": observaciones,
             "reportes_ia": reportes_ia}
@@ -157,6 +160,7 @@ def historia_json(paciente_id: int, db=Depends(get_db),
 @router.get("/pacientes/{paciente_id}/historia.pdf")
 def historia_pdf(paciente_id: int, db=Depends(get_db),
                  usuario=Depends(requiere_rol(*ROLES_CLINICOS))):
+    exigir_asignacion_clinica(db, paciente_id, usuario)
     cur = db.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
     cur.execute(
         """SELECT id, nombre, documento, genero, eps, fecha_nacimiento,
@@ -179,7 +183,7 @@ def historia_pdf(paciente_id: int, db=Depends(get_db),
     reportes_ia = _obtener_reportes_ia(db, paciente_id)
 
     registrar_auditoria(db, usuario["id"], "historia_pdf_descargada", "pacientes",
-                        paciente_id, f"historia clinica de {paciente['nombre']}")
+                        paciente_id, "historia clínica (PDF)")
 
     pdf_bytes = _crear_pdf(paciente, observaciones, reportes_ia)
 

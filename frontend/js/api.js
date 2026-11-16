@@ -3,8 +3,7 @@
 // ==========================================================================
 // La misma interfaz funciona en tres escenarios, y aquí se decide a dónde
 // mandar cada petición:
-//   1. Docker (nginx en http://localhost:8080): la API está detrás de /api y
-//      HAPI detrás de /fhir (ver docker/nginx.conf). Mismo origen, sin CORS.
+//   1. Docker (nginx en http://localhost:8080): la API está detrás de /api.
 //   2. La API la sirve directamente en /app (uvicorn local o túnel): la API
 //      está en el mismo origen, sin prefijo.
 //   3. Abriendo index.html con doble clic (file://): se asume localhost:8000.
@@ -13,7 +12,6 @@ const API = (() => {
   const enApp = location.pathname.startsWith("/app");
   const archivo = location.protocol === "file:";
   const BASE = archivo ? "http://localhost:8000" : enApp ? "" : "/api";
-  const FHIR = archivo || enApp ? "http://localhost:8081/fhir" : "/fhir";
   const CLAVE_TOKEN = "trazared_token";
 
   // El token se guarda en sessionStorage: se borra solo al cerrar la pestaña.
@@ -85,7 +83,7 @@ const API = (() => {
   }
 
   return {
-    BASE, FHIR,
+    BASE,
     token, guardarToken, datosToken,
     set alExpirar(fn) { alExpirar = fn; },
     ErrorApi,
@@ -100,6 +98,7 @@ const API = (() => {
     salir() { guardarToken(null); },
 
     get: (ruta) => pedir("GET", ruta),
+    ruta: (ruta) => BASE + ruta,
     blob: (ruta) => pedir("GET", ruta, undefined, { blob: true }),
     subir: (ruta, formData) => pedir("POST", ruta, formData),
     post: (ruta, cuerpo) => pedir("POST", ruta, cuerpo),
@@ -107,19 +106,13 @@ const API = (() => {
     put: (ruta, cuerpo) => pedir("PUT", ruta, cuerpo),
     del: (ruta) => pedir("DELETE", ruta),
 
-    // Indicadores de conexión: /health de la API y /metadata de HAPI FHIR
+    // Indicadores de conexión de la API y sus dependencias
     async estadoServicios() {
       const estado = { api: "error", postgres: "error", mongo: "error", pacs: "error", fhir: "error" };
       try {
         const res = await fetch(BASE + "/health");
         if (res.ok) Object.assign(estado, await res.json());
       } catch { /* API caída */ }
-      try {
-        const mismoOrigen = FHIR.startsWith("/");
-        const res = await fetch(FHIR + "/metadata?_summary=true",
-          mismoOrigen ? {} : { mode: "no-cors" });
-        estado.fhir = mismoOrigen ? (res.ok ? "ok" : "error") : "ok";
-      } catch { /* HAPI caído */ }
       return estado;
     },
   };
