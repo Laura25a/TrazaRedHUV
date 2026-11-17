@@ -76,6 +76,10 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
+      # La primera vez Mongo inicializa la base y crea el usuario; en Windows
+      # (Docker Desktop) puede pasar del minuto. Durante este margen los fallos
+      # del chequeo no cuentan.
+      start_period: 90s
 
   # ── Servicio 3: API FastAPI (imagen propia: python/Dockerfile) ──
   api:
