@@ -93,6 +93,10 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--a
 input[type="checkbox"], input[type="range"] { width: auto; padding: 0; box-shadow: none; }
 textarea { resize: vertical; min-height: 72px; }
 .campo { margin-bottom: .95rem; }
+.campo-ayuda, .campo-error:not([hidden]) { display: block; margin-top: .35rem; font-size: .8rem; line-height: 1.35; }
+.campo-ayuda { color: var(--texto-suave); }
+.campo-error { color: var(--error); }
+.campo input[aria-invalid="true"] { border-color: var(--error); }
 .fila { display: grid; grid-template-columns: 1fr 1fr; gap: 0 .9rem; }
 .fila-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0 .9rem; }
 .check { display: inline-flex; gap: .5rem; align-items: center; font-weight: 500; color: var(--texto-suave); font-size: .86rem; margin: 0; cursor: pointer; }

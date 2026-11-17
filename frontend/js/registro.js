@@ -357,7 +357,7 @@ async function vistaFormato({ remision }) {
   on("#f-dictar2", () => abrirDictado(f, recargar));
   on("#f-anotar2", () => formularioGestion(f, recargar));
   on("#f-cerrar", () => formularioCierre(f, recargar));
-  on("#f-corregir", () => formularioRemision({ ...r }));
+  on("#f-corregir", () => formularioRemision(r, p));
   on("#f-anular", async () => {
     if (!confirm(`¿Anular el asiento ${r.radicado}? No se borra: queda marcado como anulado en el libro y en la auditoría, y un administrador puede restaurarlo.`)) return;
     try { await API.del(`/remisiones/${r.id}`); remisionesCache = null; toast(`${r.radicado} anulado`, "ok"); ir("inicio"); } catch (e) { toast(e.message, "error"); }

@@ -240,8 +240,11 @@ async function pintarServicios() {
 // ==========================================================================
 // SESIÓN
 // ==========================================================================
+const AVISO_SESION_VENCIDA = "Tu sesión venció. Vuelve a iniciar sesión.";
+
 async function entrar() {
   try { sesion.usuario = await API.get("/me"); } catch { API.salir(); return; }
+  if (!iniciarReloj()) return;
   const u = sesion.usuario;
   remisionesCache = null; pacientesCache = null;
   $("#vista-login").classList.add("oculto");
@@ -250,7 +253,6 @@ async function entrar() {
   $("#quien-nombre").textContent = u.nombre;
   $("#quien-rol").textContent = u.rol === "eps" ? `EPS · ${u.eps_nombre || ""}` : ROLES[u.rol];
   armarMenu();
-  iniciarReloj();
   ir("inicio");
   actualizarNotificaciones();
 }
@@ -258,6 +260,9 @@ async function entrar() {
 function salir(motivo) {
   API.salir();
   clearInterval(sesion.reloj);
+  sesion.reloj = null;
+  $("#panel-usuario").classList.add("oculto");
+  $("#btn-usuario").setAttribute("aria-expanded", "false");
   sesion.usuario = null;
   liberarImagenes();
   if ($("#visor").open) $("#visor").close();
@@ -277,19 +282,23 @@ API.alExpirar = (detalle) => {
   salir(`${texto} Vuelve a iniciar sesión.`);
 };
 
-function iniciarReloj() {             // cuenta regresiva según el "exp" del JWT (60 min)
+function iniciarReloj() {
   clearInterval(sesion.reloj);
+  const venceEn = API.datosToken()?.exp;
+  const r = $("#reloj");
   const pintar = () => {
-    const d = API.datosToken();
-    if (!d || !d.exp) return;
-    const s = Math.floor(d.exp - Date.now() / 1000);
-    if (s <= 0) { salir("Tu sesión de 60 minutos terminó por seguridad."); return; }
-    const r = $("#reloj");
+    const s = Math.ceil(venceEn - Date.now() / 1000);
+    if (!Number.isFinite(s) || s <= 0) {
+      salir(AVISO_SESION_VENCIDA);
+      return false;
+    }
     r.textContent = `Tu sesión vence en ${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
     r.classList.toggle("pronto", s < 300);
+    return true;
   };
-  pintar();
+  if (!pintar()) return false;
   sesion.reloj = setInterval(pintar, 1000);
+  return true;
 }
 
 // ---------------------------------------------------------------- barra superior
@@ -379,7 +388,7 @@ function abrirFormulario({ titulo, campos, textoBoton = "Guardar", alGuardar, al
   fondo.className = "fondo-modal";
   fondo.innerHTML = `<form class="modal" role="dialog" aria-label="${esc(titulo)}" aria-modal="true" novalidate>
       <div class="modal-cabeza"><h3>${esc(titulo)}</h3><button type="button" class="btn-icono" data-cerrar aria-label="Cerrar">${icono("x")}</button></div>
-      <div class="modal-cuerpo"><p class="error-form oculto"></p>${campos}</div>
+      <div class="modal-cuerpo"><p class="error-form oculto" role="alert"></p>${campos}</div>
       <div class="modal-pie"><button type="button" class="btn btn-secundario" data-cerrar>Cancelar</button>
         <button type="submit" class="btn btn-primario">${esc(textoBoton)}</button></div></form>`;
   document.body.appendChild(fondo);
@@ -411,8 +420,7 @@ function abrirFormulario({ titulo, campos, textoBoton = "Guardar", alGuardar, al
     try {
       const d = Object.fromEntries(new FormData(form));
       $$("input[type=checkbox]", form).forEach(c => { d[c.name] = c.checked; });
-      await alGuardar(d, form);
-      cerrar();
+      if (await alGuardar(d, form) !== false) cerrar();
     } catch (x) { err.textContent = x.message; err.classList.remove("oculto"); } finally { btn.disabled = false; }
   });
   if (alAbrir) alAbrir(form);
@@ -830,19 +838,36 @@ async function agregarInstitucionesDelCatalogo(contenedor, selector) {
 }
 
 
-async function formularioRemision(r = null) {
+async function formularioRemision(r = null, actual = null) {
   let lista, instituciones;
-  try { [lista, instituciones] = await Promise.all([pacientes(), API.get("/instituciones")]); }
+  try { [lista, instituciones] = await Promise.all([r ? [] : pacientes(), API.get("/instituciones")]); }
   catch (e) { toast(e.message, "error"); return; }
   const etq = p => `${p.documento} — ${p.nombre}`;
-  const actual = r ? lista.find(p => p.id === r.paciente_id) : null;
   const documento = valor => valor.trim().replace(/[\s.\-]/g, "").toUpperCase();
   const normalizarNombre = valor => valor.normalize("NFD").replace(/\p{M}/gu, "").trim().toLowerCase();
   const buscarPaciente = valor => lista.find(p => etq(p) === valor)
     || lista.find(p => p.documento === documento(valor));
-  const maxFecha = r?.radicada_en ? [hoyISO(), String(r.radicada_en).slice(0, 10)].sort()[0] : hoyISO();
-  const opciones = (valor) => [...new Set([valor, ...instituciones].filter(Boolean))]
-    .map(i => `<option value="${esc(i)}" ${i === valor ? "selected" : ""}>${esc(i)}</option>`).join("");
+  const hoy = hoyISO();
+  const fechaRadicacion = r?.radicada_en?.slice(0, 10);
+  const limitaRadicacion = fechaRadicacion && fechaRadicacion <= hoy;
+  const maxFecha = limitaRadicacion ? fechaRadicacion : hoy;
+  const fechaOriginal = r?.fecha_solicitud || "";
+  const huv = "Hospital Universitario del Valle";
+  const origenInicial = r ? r.institucion_origen : instituciones.includes(huv) ? huv : "";
+  const opciones = (valor) => {
+    const historica = valor && !instituciones.includes(valor)
+      ? `<option selected value="${esc(valor)}">${esc(valor)} (registro histórico)</option>` : "";
+    return '<option value="">Selecciona una institución</option>' + historica + instituciones
+      .map(i => `<option value="${esc(i)}" ${i === valor ? "selected" : ""}>${esc(i)}</option>`).join("");
+  };
+  function actualizarLimiteFecha(form, ficha) {
+    const desde = ficha?.fecha_nacimiento;
+    $("#m-fec", form).min = desde || "";
+    const hasta = `${limitaRadicacion ? "la radicación" : "hoy"} (${fechaCorta(maxFecha)})`;
+    $("#m-fec-ayuda", form).textContent = desde
+      ? `Desde el nacimiento (${fechaCorta(desde)}) hasta ${hasta}.`
+      : `Hasta ${hasta}.`;
+  }
   abrirFormulario({
     titulo: r ? `Anotar corrección · ${radicadoDe(r)}` : "Radicar remisión en el libro",
     textoBoton: r ? "Anotar corrección" : "Radicar",
@@ -850,21 +875,30 @@ async function formularioRemision(r = null) {
         <input id="m-pac" name="paciente" autocomplete="off" required ${r ? "disabled" : ""} value="${actual ? esc(etq(actual)) : ""}" placeholder="Escribe o pega el documento o el nombre…">
         ${r ? "" : '<div id="m-resultados" class="oculto" role="group" aria-label="Pacientes encontrados"></div>'}</div>
       ${r ? "" : '<label class="check oculto" id="m-confirmacion"><input type="checkbox" name="identidad_confirmada"><span></span></label>'}
-      <div class="fila"><div class="campo"><label for="m-ori">Institución de origen</label><select id="m-ori" name="institucion_origen" required>${r && !r.institucion_origen ? '<option value="">Selecciona una institución</option>' : ""}${opciones(r ? r.institucion_origen : "Hospital Universitario del Valle")}</select></div>
-        <div class="campo"><label for="m-des">Institución de destino</label><select id="m-des" name="institucion_destino" required><option value="">Selecciona una institución</option>${opciones(r?.institucion_destino)}</select></div></div>
-      <div class="fila"><div class="campo"><label for="m-fec">Fecha de solicitud</label><input id="m-fec" type="date" name="fecha_solicitud" required max="${esc(maxFecha)}" value="${esc(r ? String(r.fecha_solicitud).slice(0, 10) : hoyISO())}"></div>
-        <div class="campo"><label>Estado</label><input disabled value="${esc(r ? ESTADOS[r.estado] : "Pendiente (avanza con la bitácora)")}"></div></div>
+      <div class="fila"><div class="campo"><label for="m-ori">Institución de origen</label><select id="m-ori" name="institucion_origen" required>${opciones(origenInicial)}</select></div>
+        <div class="campo"><label for="m-des">Institución de destino</label><select id="m-des" name="institucion_destino" required>${opciones(r?.institucion_destino)}</select></div></div>
+      <div class="fila"><div class="campo"><label for="m-fec">Fecha de solicitud</label><input id="m-fec" type="date" name="fecha_solicitud" required max="${esc(maxFecha)}" value="${esc(r ? fechaOriginal : hoy)}" aria-describedby="m-fec-ayuda m-fec-error">
+        <small class="campo-ayuda" id="m-fec-ayuda"></small><small class="campo-error" id="m-fec-error" role="alert" hidden></small></div>
+        <div class="campo"><label for="m-estado">Estado</label><input id="m-estado" disabled value="${esc(r ? ESTADOS[r.estado] : "Pendiente (avanza con la bitácora)")}"></div></div>
       <div class="campo"><label for="m-mot">Motivo (diagnóstico y requerimiento)</label><textarea id="m-mot" name="motivo" required>${esc(r?.motivo || "")}</textarea></div>
       <label class="check"><input type="checkbox" name="convenio_vigente" ${r?.convenio_vigente ? "checked" : ""}> Hay convenio vigente con la institución de destino</label>`,
     alAbrir(form) {
       const fecha = $("#m-fec", form);
-      fecha.min = actual?.fecha_nacimiento || "";
+      const errorFecha = $("#m-fec-error", form);
+      const limpiarErrorFecha = () => {
+        fecha.removeAttribute("aria-invalid");
+        errorFecha.hidden = true;
+        errorFecha.textContent = "";
+      };
+      fecha.addEventListener("input", limpiarErrorFecha);
+      actualizarLimiteFecha(form, actual);
       if (r) return;
       const confirmacion = $("#m-confirmacion", form);
       const campo = $("#m-pac", form), resultados = $("#m-resultados", form);
       const casilla = $("input", confirmacion);
       function mostrarFicha(ficha) {
-        fecha.min = ficha?.fecha_nacimiento || "";
+        limpiarErrorFecha();
+        actualizarLimiteFecha(form, ficha);
         casilla.checked = false;
         confirmacion.classList.toggle("oculto", !ficha);
         $("span", confirmacion).textContent = ficha ? `Confirmo la ficha de ${etq(ficha)}` : "";
@@ -894,18 +928,37 @@ async function formularioRemision(r = null) {
       }
       campo.addEventListener("input", buscar);
     },
-    async alGuardar(d) {
+    async alGuardar(d, form) {
       const p = r ? actual : buscarPaciente(d.paciente || "");
       if (!r && (!p || !d.identidad_confirmada)) throw new Error("Selecciona el paciente y confirma su nombre y documento.");
       const cuerpo = { institucion_origen: d.institucion_origen, institucion_destino: d.institucion_destino,
         fecha_solicitud: d.fecha_solicitud, motivo: d.motivo, convenio_vigente: d.convenio_vigente };
       const cambios = r ? Object.fromEntries(Object.entries(cuerpo).filter(([k, v]) => r[k] !== v)) : cuerpo;
-      for (const k of ["institucion_origen", "institucion_destino", "motivo"]) {
-        if (k in cambios && !cambios[k].trim()) throw new Error("Completa las instituciones y el motivo.");
+      for (const k of ["institucion_origen", "institucion_destino"]) {
+        if (k in cambios && !instituciones.includes(cambios[k])) {
+          $(`[name="${k}"]`, form).focus();
+          throw new Error(k === "institucion_origen" ? "Selecciona una institución de origen del catálogo." : "Selecciona una institución de destino del catálogo.");
+        }
       }
-      if (!r || "fecha_solicitud" in cambios) {
-        if (!d.fecha_solicitud || d.fecha_solicitud > maxFecha || (p?.fecha_nacimiento && d.fecha_solicitud < p.fecha_nacimiento))
-          throw new Error("La solicitud debe estar entre el nacimiento y la fecha de radicación.");
+      if ("motivo" in cambios && !cambios.motivo.trim()) throw new Error("Ingresa el motivo de la remisión.");
+      if ("fecha_solicitud" in cambios) {
+        const fecha = $("#m-fec", form);
+        const error = $("#m-fec-error", form);
+        let mensaje = "";
+        if (fecha.validity.badInput) mensaje = "Ingresa una fecha de solicitud válida.";
+        else if (!d.fecha_solicitud) mensaje = "Ingresa la fecha de solicitud.";
+        else if (p?.fecha_nacimiento && d.fecha_solicitud < p.fecha_nacimiento) {
+          mensaje = `La fecha de solicitud no puede ser anterior al nacimiento (${fechaCorta(p.fecha_nacimiento)}).`;
+        } else if (d.fecha_solicitud > maxFecha) {
+          mensaje = `La fecha de solicitud no puede ser posterior a ${limitaRadicacion ? "la radicación" : "hoy"} (${fechaCorta(maxFecha)}).`;
+        }
+        if (mensaje) {
+          error.hidden = false;
+          error.textContent = mensaje;
+          fecha.setAttribute("aria-invalid", "true");
+          fecha.focus();
+          return false;
+        }
       }
       const g = r ? await API.patch(`/remisiones/${r.id}`, cambios)
         : await API.post("/remisiones", { ...cuerpo, paciente_id: p.id });
@@ -1315,5 +1368,7 @@ async function simularObservacionFHIR(paciente, boton) {
   setInterval(() => { if (!sesion.usuario) pintarServicios(); }, 15000);
   setInterval(() => { if (sesion.usuario) actualizarNotificaciones(); }, 60000);
   const d = API.datosToken();
-  if (d && d.exp * 1000 > Date.now()) await entrar(); else API.salir();
+  if (d && d.exp * 1000 > Date.now()) await entrar();
+  else if (d?.exp) salir(AVISO_SESION_VENCIDA);
+  else API.salir();
 })();
