@@ -11,7 +11,7 @@
 // pedir otro paciente. Se registra en SECCIONES como los demás módulos.
 "use strict";
 
-const AST = { modo: "agente", paciente: null, conversacion: null, ocupado: false };
+const AST = { modo: "agente", paciente: null, conversacion: null, revision: 0, ocupado: false };
 const AST_HERRAMIENTAS = {
   consultar_paciente: "Consultó los datos clínicos del paciente",
   predecir_urgencia: "Estimó la urgencia con el modelo XGBoost",
@@ -22,15 +22,25 @@ const AST_HERRAMIENTAS = {
   guardar_preferencia: "Guardó una preferencia",
 };
 
+function astClaveConversacion() {
+  return "ast-conv-v2:" + (AST.paciente || "general");
+}
+
 function astConversacionNueva() {
+  AST.revision++;
   AST.conversacion = "c-" + Date.now().toString(36);
-  try { sessionStorage.setItem("ast-conv", AST.conversacion); } catch { /* sin storage */ }
+  try { sessionStorage.setItem(astClaveConversacion(), AST.conversacion); } catch { /* sin storage */ }
+}
+
+function astSeleccionarConversacion() {
+  AST.revision++;
+  AST.conversacion = null;
+  try { AST.conversacion = sessionStorage.getItem(astClaveConversacion()); } catch { /* sin storage */ }
+  if (!AST.conversacion) astConversacionNueva();
 }
 
 async function vistaAsistente(params = {}) {
   if (params.paciente) AST.paciente = +params.paciente;
-  try { AST.conversacion = AST.conversacion || sessionStorage.getItem("ast-conv"); } catch { /* sin storage */ }
-  if (!AST.conversacion) astConversacionNueva();
 
   $("#contenido").innerHTML = `<div class="pagina">
     <div class="pagina-cabeza"><div><h2>Asistente clínico</h2>
@@ -61,7 +71,7 @@ async function vistaAsistente(params = {}) {
         ${["¿Qué tan grave está este paciente?", "Remite este paciente a UCI", "¿Qué instituciones tienen convenio con su EPS?",
            "¿Cuáles son los criterios de qSOFA?", "Recuerda que prefiero respuestas breves"].map(s => `<button type="button" class="btn btn-suave btn-sm">${esc(s)}</button>`).join("")}
       </div>
-      <p class="tenue ast-pie">Apoyo a la decisión clínica. El asistente nunca ve nombre, documento ni teléfono: solo el seudónimo del paciente.</p>
+      <p class="tenue ast-pie">Apoyo a la decisión clínica. El asistente trabaja con el seudónimo del paciente. Evita incluir datos personales en tus mensajes.</p>
     </section></div>`;
 
   $$("#ast-modo button").forEach(b => b.addEventListener("click", () => {
@@ -79,24 +89,34 @@ async function vistaAsistente(params = {}) {
   API.get("/agente/estado").then(e => {
     $("#ast-modelo").textContent = `Modelo: ${e.proveedor === "simulado" ? "simulado (sin llave de Groq)" : e.modelo} · memoria: ${e.memoria.split(" (")[0]}`;
   }).catch(() => {});
-  if (AST.paciente) astAbrirPaciente(AST.paciente, true);
-  await astCargarHistorial();
+  await astAbrirPaciente(AST.paciente);
 }
 
-async function astAbrirPaciente(pid, silencioso = false) {
+async function astAbrirPaciente(pid) {
+  const chat = $("#ast-chat"), info = $("#ast-pinfo");
+  chat.replaceChildren();
+  $("#ast-texto").value = "";
   AST.paciente = pid;
+  astSeleccionarConversacion();
+  const revision = AST.revision;
+  const vigente = () => chat.isConnected && AST.revision === revision;
   $("#ast-pid").value = pid || "";
   $("#ast-cerrar").disabled = !pid;
-  if (!pid) { $("#ast-pinfo").textContent = "Sin paciente: solo preguntas generales."; return; }
-  try {
-    const p = await API.get(`/pacientes/${pid}`);
-    // En pantalla el médico sí ve el nombre (tiene permiso); al asistente solo le llega el seudónimo.
-    $("#ast-pinfo").innerHTML = `<strong>${esc(p.nombre)}</strong> · ${p.fecha_nacimiento ? edad(p.fecha_nacimiento) + " años · " : ""}${esc(p.eps || "")}`;
-    if (!silencioso) astMensaje("sistema", `Paciente #${pid} abierto. Las preguntas sobre "este paciente" se refieren a él.`);
-  } catch (e) {
-    AST.paciente = null;
-    $("#ast-pinfo").textContent = e.status === 404 ? "Ese paciente no existe." : e.message;
+  info.textContent = pid ? "Cargando paciente…" : "Sin paciente: solo preguntas generales.";
+  if (pid) {
+    try {
+      const p = await API.get(`/pacientes/${pid}`);
+      if (!vigente()) return;
+      info.innerHTML = `<strong>${esc(p.nombre)}</strong> · ${p.fecha_nacimiento ? edad(p.fecha_nacimiento) + " años · " : ""}${esc(p.eps || "")}`;
+    } catch (e) {
+      if (vigente()) {
+        await astAbrirPaciente(null);
+        if (info.isConnected && AST.paciente === null) info.textContent = e.message;
+      }
+      return;
+    }
   }
+  if (vigente()) await astCargarHistorial();
 }
 
 function astBienvenida() {
@@ -104,12 +124,16 @@ function astBienvenida() {
 }
 
 async function astCargarHistorial() {
+  const chat = $("#ast-chat"), pid = AST.paciente, conversacion = AST.conversacion, revision = AST.revision;
+  const vigente = () => chat.isConnected && AST.revision === revision;
   try {
-    const h = await API.get(`/agente/historial?conversacion_id=${encodeURIComponent(AST.conversacion)}`);
+    const h = await API.get(`/agente/historial?conversacion_id=${encodeURIComponent(conversacion)}${pid ? "&paciente_id=" + pid : ""}`);
+    if (!vigente()) return;
     if (!h.mensajes.length && !h.pendiente) { astBienvenida(); return; }
     h.mensajes.forEach(m => astMensaje(m.rol, m.texto));
     if (h.pendiente) astTarjetaAprobacion([{ herramienta: h.pendiente.herramienta, args: h.pendiente.args }]);
   } catch (e) {
+    if (!vigente()) return;
     astBienvenida();
     if (e.status === 403) astMensaje("sistema", "Tu rol no puede usar el asistente (solo médico y especialista).");
   }
@@ -180,16 +204,24 @@ function astTarjetaAprobacion(acciones) {
     $$("button", div).forEach(x => x.disabled = true);
     const espera = astMensaje("asistente", "…");
     try {
-      const r = await API.post("/agente/decidir", { conversacion_id: AST.conversacion, decision: b.dataset.d, motivo: motivo || null });
+      const r = await API.post("/agente/decidir", { conversacion_id: AST.conversacion, paciente_id: AST.paciente, decision: b.dataset.d, motivo: motivo || null });
+      if (!div.isConnected) return;
+      if (r.estado !== "respondido") {
+        espera.remove();
+        astPintarRespuesta(r);
+        $$("button", div).forEach(x => x.disabled = false);
+        return;
+      }
       $(".ast-motivo", div).remove();
       $(".ast-botones", div).innerHTML = `<span class="pildora ${b.dataset.d === "approve" ? "est-activo" : "est-pendiente"}">${b.dataset.d === "approve" ? "Aprobada por ti" : "Rechazada por ti"}</span>`;
+      if (!espera.isConnected) return;
       espera.remove();
       astPintarRespuesta(r);
       if (b.dataset.d === "approve") { toast("Remisión radicada en el libro.", "ok"); remisionesCache = null; }
     } catch (e) {
       espera.remove();
       $$("button", div).forEach(x => x.disabled = false);
-      astMensaje("sistema", e.message);
+      if (div.isConnected) astMensaje("sistema", e.message);
     }
   }));
 }
@@ -206,7 +238,7 @@ function astPintarRespuesta(r) {
     // (cada herramienta con sus resultados) solo le llega al administrador.
     const consulto = (r.consulto || []).length ? `<p class="tenue ast-consulto">Consulté: ${esc(r.consulto.join(" · "))}</p>` : "";
     astMensaje("asistente", r.respuesta || "(sin texto)", astFuentesCortas(r.fuentes) + consulto + astPasos(r.pasos || []));
-  } else if (r.estado === "tiempo_agotado") {
+  } else if (r.estado === "tiempo_agotado" || r.estado === "error") {
     astMensaje("sistema", r.detalle || "El asistente tardó demasiado. Intenta de nuevo.");
   } else if (r.estado === "sin_pendientes") {
     astMensaje("sistema", "No hay ninguna acción esperando decisión en esta conversación.");
@@ -227,21 +259,24 @@ async function astEnviar() {
   try {
     if (AST.modo === "agente") {
       const r = await API.post("/agente/chat", { mensaje: texto, conversacion_id: AST.conversacion, paciente_id: AST.paciente });
+      if (!espera.isConnected) return;
       espera.remove();
       astPintarRespuesta(r);
     } else {
       const r = await API.post("/rag/preguntar", { pregunta: texto, paciente_id: AST.paciente });
+      if (!espera.isConnected) return;
       espera.remove();
       if (r.seguridad) { astMensaje("sistema", r.respuesta); return; }
       const modo = { llm: "redactada con el modelo de lenguaje", extractivo: "extractiva (frases de las guías, sin LLM)", abstencion: "sin evidencia" }[r.modo] || r.modo;
       astMensaje("asistente", r.respuesta, `<p class="tenue ast-modo-rag">Respuesta ${esc(modo)}</p>${astFuentes(r.fuentes)}`);
     }
   } catch (e) {
+    if (!espera.isConnected) return;
     espera.remove();
     astMensaje("sistema", e.status === 403 ? "Tu rol no puede usar el asistente." : e.message);
   } finally {
     AST.ocupado = false;
-    $("#ast-enviar").disabled = false;
+    if ($("#ast-enviar")) $("#ast-enviar").disabled = false;
   }
 }
 

@@ -570,3 +570,215 @@ def test_navegador_ficha_identidad_y_correccion(entorno, autorizaciones):
         finally:
             servidor.should_exit = True
             hilo.join(timeout=10)
+
+
+def test_agente_contexto_seudonimo_y_navegador(entorno, autorizaciones, monkeypatch):
+    from contextlib import asynccontextmanager
+    import json
+    import httpx
+    import uvicorn
+    from playwright.sync_api import expect, sync_playwright
+    from agente import herramientas, router as agente_router
+
+    monkeypatch.delenv("GROQ_API_KEY", raising=False)
+    monkeypatch.delenv("OLLAMA_URL", raising=False)
+    main, api, pg = entorno
+    medico, admin = autorizaciones["medico"], autorizaciones["auditor"]
+    nombre, direccion, correo, documento, telefono = (
+        "Aurelia Ficticia", "Calle 81 # 73-92", "aurelia.canario@pruebas.test", "9010793221", "3007109301",
+    )
+    a = comprobar(paciente(api, medico, documento, nombre=nombre, direccion=direccion,
+                          correo=correo, telefono=telefono), 201)["id"]
+    b = comprobar(paciente(api, medico, nombre="Bernardo Ficticio"), 201)["id"]
+    c = comprobar(paciente(api, admin, nombre="Caso no asignado"), 201)["id"]
+    rid = comprobar(api.post("/remisiones", json=datos_remision(a, motivo=nombre), headers=medico), 201)["id"]
+    comprobar(api.post("/remisiones", json=datos_remision(b), headers=medico), 201)
+    with closing(psycopg2.connect(pg)) as db, db, db.cursor() as cur:
+        cur.execute("""INSERT INTO agente_invocaciones (usuario_id, payload, creado_en)
+                       VALUES ((SELECT id FROM usuarios WHERE correo = 'medico@pruebas.test'),
+                               '{"mensajes": [{"contenido": "registro expirado"}]}', now() - interval '31 days')
+                       RETURNING id;""")
+        expirada = cur.fetchone()[0]
+    @asynccontextmanager
+    async def ciclo_agente(app):
+        await agente_router.iniciar_agente()
+        try:
+            yield
+        finally:
+            await agente_router.cerrar_agente()
+
+    monkeypatch.setattr(main.app.router, "lifespan_context", ciclo_agente)
+    with socket.socket() as puerto:
+        puerto.bind(("127.0.0.1", 0))
+        puerto.listen()
+        base = f"http://127.0.0.1:{puerto.getsockname()[1]}"
+        servidor = uvicorn.Server(uvicorn.Config(main.app, lifespan="on", log_level="error"))
+        hilo = threading.Thread(target=servidor.run, kwargs={"sockets": [puerto]}, daemon=True)
+        hilo.start()
+        try:
+            with sync_playwright() as control, httpx.Client(base_url=base, timeout=25) as http:
+                navegador = control.chromium.launch()
+                pagina = navegador.new_page()
+                pagina.goto(base + "/app/")
+                pagina.locator("#login-usuario").fill("medico@pruebas.test")
+                pagina.locator("#login-clave").fill(CLAVE_PRUEBA)
+                pagina.locator("#form-login button[type=submit]").click()
+                pagina.locator('[data-seccion="asistente"]').click()
+
+                def abrir(pid):
+                    pagina.locator("#ast-pid").fill(str(pid))
+                    with pagina.expect_response(lambda r: "/agente/historial?" in r.url and f"paciente_id={pid}" in r.url) as historial:
+                        pagina.locator("#ast-abrir").click()
+                    assert historial.value.status == 200
+                    assert f"paciente_id={pid}" in historial.value.url
+
+                abrir(a)
+                expect(pagina.locator("#ast-pinfo")).to_contain_text(nombre)
+                conv = "misma-conversacion"
+                mensaje = f"¿Qué tan grave está este paciente {nombre}, {direccion}, {correo}, {documento}, {telefono}?"
+                datos = {"conversacion_id": conv, "paciente_id": a, "mensaje": mensaje}
+                turno = comprobar(http.post("/agente/chat", headers=medico, json=datos), 200)
+                assert turno["estado"] == "respondido", turno
+                assert turno["pasos"] == [] and turno["invocaciones"]
+                for inv in turno["invocaciones"]:
+                    payload = comprobar(http.get(f"/agente/invocaciones/{inv}/payload", headers=admin), 200)
+                    assert not any(valor in json.dumps(payload, ensure_ascii=False)
+                                   for valor in (nombre, direccion, correo, documento, telefono))
+                assert comprobar(http.get("/agente/estado", headers=admin), 200)["memoria"].startswith("PostgreSQL")
+                for pid in (None, b):
+                    assert comprobar(http.get("/agente/historial", headers=medico, params={
+                        "conversacion_id": conv, **({"paciente_id": pid} if pid else {}),
+                    }), 200) == {"mensajes": [], "pendiente": None}
+                comprobar(http.post("/agente/chat", headers=medico, json={**datos, "paciente_id": c}), 404)
+                comprobar(http.get(f"/agente/invocaciones/{expirada}/payload", headers=admin), 410)
+
+                pagina.locator("#ast-texto").fill("¿Qué tan grave está este paciente? MarcadorNavegacion")
+                with pagina.expect_response(lambda r: r.url.endswith("/agente/chat")) as respuesta:
+                    pagina.locator("#ast-enviar").click()
+                assert respuesta.value.json()["estado"] == "respondido"
+                expect(pagina.locator("#ast-chat")).to_contain_text("MarcadorNavegacion")
+                abrir(b)
+                expect(pagina.locator("#ast-chat")).not_to_contain_text("MarcadorNavegacion")
+                abrir(a)
+                expect(pagina.locator("#ast-chat")).to_contain_text("MarcadorNavegacion")
+
+                propuesta = comprobar(http.post("/agente/chat", headers=medico, json={
+                    **datos, "mensaje": "Remite este paciente a UCI",
+                }), 200)
+                assert propuesta["estado"] == "pendiente_aprobacion", propuesta
+                decision = {"conversacion_id": conv, "decision": "reject", "motivo": "Seguimiento local"}
+                assert comprobar(http.post("/agente/decidir", headers=medico, json={
+                    **decision, "paciente_id": b,
+                }), 200)["estado"] == "sin_pendientes"
+                assert comprobar(http.post("/agente/decidir", headers=medico, json={
+                    **decision, "paciente_id": a,
+                }), 200)["estado"] == "respondido"
+                assert comprobar(http.get("/agente/historial", headers=medico, params={
+                    "conversacion_id": conv, "paciente_id": a,
+                }), 200)["pendiente"] is None
+
+                pagina.locator("#ast-texto").fill("Remite este paciente a UCI")
+                with pagina.expect_response(lambda r: r.url.endswith("/agente/chat")) as por_aprobar:
+                    pagina.locator("#ast-enviar").click()
+                assert por_aprobar.value.json()["estado"] == "pendiente_aprobacion"
+                with pagina.expect_response(lambda r: r.url.endswith("/agente/decidir")) as aprobada:
+                    pagina.get_by_role("button", name="Aprobar", exact=True).click()
+                id_creado = aprobada.value.json()["remision_id"]
+                assert comprobar(http.get(f"/remisiones/{id_creado}", headers=medico), 200)["paciente_id"] == a
+                expect(pagina.locator("#ast-chat")).to_contain_text("Aprobada por ti")
+
+                pagina.evaluate("id => ir('ficha', { remision: id })", rid)
+                dictado = pagina.get_by_role("dialog", name="Dictar llamada")
+                pagina.locator("#f-dictar").click()
+                dictado.get_by_role("button", name="Usar llamada de ejemplo").click()
+                with pagina.expect_response(lambda r: r.url.endswith("/bitacora/voz/extraer")) as extraida:
+                    dictado.locator("#voz-extraer").click()
+                resultado = extraida.value.json()
+                assert resultado["modo"] == "reglas"
+                assert nombre not in resultado["transcripcion_seudonimizada"]
+                expect(dictado.locator("#v-res")).not_to_have_value("")
+                comprobar(http.post("/bitacora/voz/transcribir", headers=medico), 410)
+
+                def fallo(paciente_id):
+                    raise RuntimeError("detalle privado que no debe salir")
+
+                with monkeypatch.context() as parche:
+                    parche.setattr(herramientas, "datos_clinicos", fallo)
+                    respuesta = comprobar(http.post("/agente/chat", headers=medico, json={
+                        **datos, "conversacion_id": "error-herramienta", "mensaje": "Datos del paciente",
+                    }), 200)
+                    assert respuesta["estado"] == "respondido"
+                    assert "detalle privado" not in json.dumps(respuesta)
+                    parche.setattr(agente_router.ESTADO["harness"], "timeout_s", 0.001)
+                    assert comprobar(http.post("/agente/chat", headers=medico, json={
+                        **datos, "conversacion_id": "tiempo-agotado",
+                    }), 200)["estado"] == "tiempo_agotado"
+                navegador.close()
+
+            with closing(psycopg2.connect(pg)) as db, db.cursor() as cur:
+                cur.execute("SELECT payload FROM agente_invocaciones WHERE id = %s;", (expirada,))
+                assert cur.fetchone()[0] == {"expirado": True, "cantidad_mensajes": 1}
+                cur.execute("""SELECT i.tipo, u.rol, i.ip, i.detalle FROM incidentes_seguridad i
+                               JOIN usuarios u ON u.id = i.usuario_id
+                               WHERE i.tipo IN ('agente_error_herramienta', 'agente_tiempo_agotado');""")
+                assert {(tipo, rol, ip) for tipo, rol, ip, _ in cur.fetchall()} == {
+                    ("agente_error_herramienta", "medico", "127.0.0.1"),
+                    ("agente_tiempo_agotado", "medico", "127.0.0.1"),
+                }
+        finally:
+            servidor.should_exit = True
+            hilo.join(timeout=10)
+
+
+def test_limites_del_agente_y_del_rag(entorno, monkeypatch):
+    import httpx
+    from types import SimpleNamespace
+    from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
+    from agente.harness import ContextoExcedido, MAX_CONTEXT_BYTES, VentanaContexto
+    from rag import motor
+
+    class Solicitud(SimpleNamespace):
+        def override(self, **cambios):
+            return Solicitud(**(vars(self) | cambios))
+
+    nueva = HumanMessage(content="Consulta vigente")
+    resultado = ToolMessage(content="Dato de la guía", tool_call_id="llamada")
+    llamada = AIMessage(content="", tool_calls=[{"name": "buscar_guias", "args": {}, "id": "llamada"}])
+    solicitud = Solicitud(messages=[HumanMessage(content="á" * MAX_CONTEXT_BYTES), AIMessage(content="Otra"),
+                                    nueva, llamada, resultado], system_prompt="Reglas")
+    ventana = VentanaContexto()
+    assert ventana._recortar(solicitud).messages == [nueva, llamada, resultado]
+    with pytest.raises(ContextoExcedido):
+        ventana._recortar(solicitud.override(messages=[HumanMessage(content="á" * MAX_CONTEXT_BYTES)]))
+
+    def proveedor(url, **opciones):
+        assert opciones["json"]["max_completion_tokens"] == 800
+        assert opciones["timeout"] == 20
+        assert "instrucción interna" not in str(opciones["json"])
+        return httpx.Response(200, request=httpx.Request("POST", url), json={
+            "choices": [{"message": {"content": "<think>detalle técnico</think>Respuesta [1]"}}],
+        })
+
+    fragmentos = [{"fuente": "Guía sintética", "texto": "a" * 1200 + "instrucción interna"}]
+    monkeypatch.setenv("GROQ_API_KEY", "solo-prueba-sin-red")
+    monkeypatch.setattr(httpx, "post", proveedor)
+    mensajes = motor.construir_mensajes("¿Qué dice la guía?", fragmentos)
+    assert motor.generar(mensajes, fragmentos) == ("Respuesta [1]", "llm")
+
+
+def test_taller_agente_imc_grasa_y_formatos(monkeypatch):
+    from pydantic import ValidationError
+    from xml.etree import ElementTree as ET
+
+    monkeypatch.syspath_prepend(str(RAIZ / "docs"))
+    from taller_agente_03nov import Medidas, calcular_masa_grasa, ejecutar
+
+    medidas = Medidas(peso_kg=95, altura_m=1.82, grasa_pct=24)
+    xml = ET.fromstring(ejecutar(medidas, "xml"))
+    assert xml.findtext("imc") == "28.68"
+    assert xml.findtext("masa_grasa") == "22.80"
+    assert "| Masa grasa (kg) | 22.80 |" in ejecutar(medidas, "markdown")
+    with pytest.raises(ValidationError):
+        Medidas(peso_kg=95, altura_m=0, grasa_pct=24)
+    with pytest.raises(ValidationError):
+        calcular_masa_grasa.invoke({"peso_kg": 95, "grasa_pct": 101})

@@ -34,7 +34,7 @@ def crear_modelo(latencia_simulada: float = 0.3):
     if p == "groq":
         from langchain_groq import ChatGroq
         extra = {"reasoning_effort": "low"} if nombre_modelo().startswith("openai/gpt-oss") else {}
-        return ChatGroq(model=nombre_modelo(), temperature=0, max_retries=2, timeout=30,
+        return ChatGroq(model=nombre_modelo(), temperature=0, max_retries=0, timeout=30,
                         max_tokens=int(os.getenv("GROQ_MAX_TOKENS", "800")), **extra)
     if p == "ollama":
         from langchain_ollama import ChatOllama

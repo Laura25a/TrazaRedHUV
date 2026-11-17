@@ -11,9 +11,9 @@
 #      el clínico apruebe (R10).
 #   6. Reutilizan el camino del sistema (tablas, auditoría, eventos), no inventan uno paralelo.
 import json
-import uuid
 from dataclasses import dataclass, field
 from datetime import date
+from typing import Literal
 
 import psycopg2
 import psycopg2.extras
@@ -31,7 +31,13 @@ class ContextoClinico:
     conversacion: str = "principal"
     paciente_id: int | None = None     # id REAL: el modelo nunca lo ve
     paciente_alias: str | None = None  # seudónimo: lo único que circula hacia el modelo
+    ip: str | None = None
+    propuesta_aprobada_id: int | None = None
     invocaciones: list = field(default_factory=list)   # ids de agente_invocaciones de este turno (R24)
+
+    @property
+    def hilo(self) -> str:
+        return f"v2:{self.usuario_id}:{self.paciente_id or 'general'}:{self.conversacion}"
 
     @property
     def usuario_alias(self) -> str:
@@ -51,9 +57,12 @@ NOMBRES_SIGNOS = {"fc": "frecuencia cardíaca (lpm)", "sbp": "presión sistólic
                   "saturacion": "SpO2 (%)", "temperatura": "temperatura (°C)", "glasgow": "Glasgow"}
 
 
-def espacio_memoria(usuario: str) -> tuple:
-    """Namespace del store: LangGraph no admite puntos, y los usuarios son correos."""
-    return ("preferencias", usuario.replace(".", "_").replace("@", "_at_"))
+def espacio_memoria(usuario_id: int) -> tuple:
+    return ("preferencias-v2", str(usuario_id))
+
+
+PREFERENCIAS = {"breve": "Prefiere respuestas breves.", "detallada": "Prefiere respuestas detalladas.",
+                "lista": "Prefiere respuestas en listas."}
 
 
 def _db():
@@ -135,10 +144,8 @@ def consultar_paciente(runtime: ToolRuntime[ContextoClinico]) -> str:
     # por dentro en buscar_ips_con_convenio sin escribirla en el texto.
     texto = f"Paciente {ctx.paciente_alias}: {d['edad']} años, sexo {d['sexo']}. Últimos signos vitales: {signos}."
     if rem:
-        # El motivo es texto libre escrito por personas: es un DATO. Si alguien escondió ahí
-        # una orden para el asistente, el harness la tacha antes de que llegue al modelo (R25).
-        texto += (f" Remisión actual: {rem['motivo']} → {rem['destino']}, estado {rem['estado']}, "
-                  f"convenio {'vigente' if rem['convenio_vigente'] else 'NO vigente'} ({rem['fecha']}).")
+        texto += (f" Remisión actual: estado {rem['estado']}, "
+                  f"convenio {'vigente' if rem['convenio_vigente'] else 'NO vigente'}.")
     if d["ultimo_reporte_ia"]:
         r = d["ultimo_reporte_ia"]
         texto += f" Último reporte de IA: probabilidad {r['probabilidad']:.2f}, estado {r['estado']}."
@@ -156,18 +163,19 @@ def buscar_guias(pregunta: str, runtime: ToolRuntime[ContextoClinico]) -> str:
     ctx = runtime.context
     if (error := _verificar(ctx, necesita_paciente=False)):
         return error
-    from rag.motor import responder
+    from rag.motor import SIN_EVIDENCIA, buscar, historia_aprobada
     conn = _db() if ctx.paciente_id is not None else None
     try:
-        r = responder(pregunta, ctx.paciente_alias, paciente_id=ctx.paciente_id, db=conn)
+        extra = historia_aprobada(conn, ctx.paciente_id, ctx.paciente_alias)
+        fuentes = buscar(pregunta[:500], ctx.paciente_alias, extra=extra)
     finally:
         if conn is not None:
             conn.close()
-    if not r["fuentes"]:
-        return "SIN_EVIDENCIA: " + r["respuesta"]
+    if not fuentes:
+        return "SIN_EVIDENCIA: " + SIN_EVIDENCIA
     lineas = ["Fuentes:"]
-    for f in r["fuentes"]:
-        lineas.append(f"[{f['n']}] ({f['chunk_id']}) {f['fuente']}: {f['texto'][:320]}")
+    for n, f in enumerate(fuentes, 1):
+        lineas.append(f"[{n}] ({f['chunk_id']}) {f['fuente']}: {f['texto'][:320]}")
     return "\n".join(lineas)
 
 
@@ -203,10 +211,7 @@ def predecir_urgencia(runtime: ToolRuntime[ContextoClinico]) -> str:
                "mental": _mental_desde_glasgow(s.get("glasgow")), "dolor": 0, "nrs_dolor": None,
                "sbp": s.get("sbp"), "dbp": s.get("dbp"), "fc": s.get("fc"), "fr": s.get("fr"),
                "temperatura": s.get("temperatura"), "saturacion": s.get("saturacion")}
-    try:
-        r = ia.llamar_modelo(payload)
-    except Exception as e:
-        return f"MODELO_NO_DISPONIBLE: {getattr(e, 'detail', e)}"
+    r = ia.llamar_modelo(payload)
     nivel = "CRÍTICO" if r["critico"] else ("URGENTE" if r["urgente"] else "NO URGENTE")
     return (f"Modelo de urgencia (XGBoost {r.get('version_modelo', '')}) para {ctx.paciente_alias}: "
             f"probabilidad {r['probabilidad']:.3f} → {nivel} (umbral urgente 0,4; crítico 0,9). "
@@ -283,6 +288,7 @@ def proponer_remision(institucion_destino: str, motivo: str, prioridad: str,
         return "NO_AUTORIZADO: solo el médico tratante radica remisiones (R08)."
     if ctx.paciente_id is None:
         return "SIN_PACIENTE: abre un paciente antes de remitir."
+    prioridad_propuesta = prioridad
     prioridad = (prioridad or "urgente").lower()
     if prioridad not in ("critica", "urgente", "programada"):
         return "POLITICA: la prioridad debe ser critica, urgente o programada."
@@ -295,6 +301,16 @@ def proponer_remision(institucion_destino: str, motivo: str, prioridad: str,
     conn = _db()
     try:
         cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cur.execute("""SELECT id FROM agente_propuestas
+                       WHERE id = %s AND usuario_id = %s AND conversacion = %s AND paciente_id = %s
+                         AND estado = 'pendiente' AND herramienta = 'proponer_remision'
+                         AND argumentos = %s FOR UPDATE;""",
+                    (ctx.propuesta_aprobada_id, ctx.usuario_id, ctx.hilo, ctx.paciente_id,
+                     psycopg2.extras.Json({"institucion_destino": institucion_destino, "motivo": motivo,
+                                          "prioridad": prioridad_propuesta})))
+        propuesta = cur.fetchone()
+        if propuesta is None:
+            return "POLITICA: esta acción requiere una aprobación pendiente para el mismo paciente."
         cur.execute("""SELECT bool_or(r.convenio_vigente) AS convenio
                        FROM remisiones r JOIN pacientes p ON p.id = r.paciente_id
                        WHERE r.institucion_destino = %s
@@ -308,11 +324,7 @@ def proponer_remision(institucion_destino: str, motivo: str, prioridad: str,
                     (ctx.paciente_id, INSTITUCION_ORIGEN, institucion_destino, motivo_final, convenio, ctx.usuario_id))
         remision_id = cur.fetchone()["id"]
         cur.execute("""UPDATE agente_propuestas SET estado = 'aprobada', decidida_en = now(), remision_id = %s
-                       WHERE id = (SELECT id FROM agente_propuestas
-                                   WHERE usuario_id = %s AND conversacion = %s AND estado = 'pendiente'
-                                   ORDER BY id DESC LIMIT 1);""",
-                    (remision_id, ctx.usuario_id, ctx.conversacion))
-        conn.commit()
+                       WHERE id = %s;""", (remision_id, propuesta["id"]))
         cur.close()
         registrar_auditoria(conn, ctx.usuario_id, "remision_creada", "remisiones", remision_id,
                             f"desde el agente (aprobada por el médico) paciente={ctx.paciente_alias} "
@@ -346,14 +358,14 @@ def cargar_skill(nombre: str) -> str:
 
 # ---------- Herramienta 7 · memoria de largo plazo ----------
 @tool
-def guardar_preferencia(preferencia: str, runtime: ToolRuntime[ContextoClinico]) -> str:
+def guardar_preferencia(preferencia: Literal["breve", "detallada", "lista"], runtime: ToolRuntime[ContextoClinico]) -> str:
     """Guarda una preferencia de trabajo del usuario (formato, nivel de detalle, idioma).
     Úsala cuando el usuario diga "recuerda que..." o "prefiero...".
     Nunca guardes datos de pacientes con esta herramienta."""
     if runtime.store is None:
         return "SIN_MEMORIA: este agente no tiene memoria de largo plazo."
-    clave = "pref-" + uuid.uuid4().hex[:6]
-    runtime.store.put(espacio_memoria(runtime.context.usuario), clave, {"texto": preferencia[:300]})
+    runtime.store.put(espacio_memoria(runtime.context.usuario_id), "formato",
+                      {"texto": PREFERENCIAS[preferencia]})
     return "PREFERENCIA_GUARDADA"
 
 

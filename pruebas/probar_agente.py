@@ -133,7 +133,7 @@ def main():
             and j["acciones"][0]["herramienta"] == "proponer_remision", j)
     antes = len(requests.get(f"{API}/remisiones", headers=medico, timeout=30).json())
     r = requests.post(f"{API}/agente/decidir", headers=medico, timeout=120,
-                      json={"conversacion_id": c2, "decision": "reject", "motivo": "Se maneja en el HUV por ahora."})
+                      json={"conversacion_id": c2, "paciente_id": pa["id"], "decision": "reject", "motivo": "Se maneja en el HUV por ahora."})
     despues = len(requests.get(f"{API}/remisiones", headers=medico, timeout=30).json())
     revisar("rechazar no crea la remisión", r.status_code == 200 and despues == antes, (r.json(), antes, despues))
 
@@ -143,10 +143,10 @@ def main():
                       json={"mensaje": "Remite este paciente a UCI", "conversacion_id": c3, "paciente_id": pa["id"]})
     if especialista:
         r2 = requests.post(f"{API}/agente/decidir", headers=especialista, timeout=60,
-                           json={"conversacion_id": c3, "decision": "approve"})
-        revisar("otro usuario no puede decidir la propuesta ajena", r2.json().get("estado") == "sin_pendientes", r2.json())
+                           json={"conversacion_id": c3, "paciente_id": pa["id"], "decision": "approve"})
+        revisar("otro usuario no puede decidir la propuesta ajena", r2.status_code == 404 or r2.json().get("estado") == "sin_pendientes", r2.json())
     r = requests.post(f"{API}/agente/decidir", headers=medico, timeout=120,
-                      json={"conversacion_id": c3, "decision": "approve"})
+                      json={"conversacion_id": c3, "paciente_id": pa["id"], "decision": "approve"})
     j = r.json()
     revisar("aprobar crea la remisión (queda radicada)", "radicada" in str(j.get("respuesta", "")) or "REMISION_CREADA" in str(j), j)
 

@@ -272,6 +272,11 @@ def sanear_para_llm(texto: str, paciente: Optional[dict] = None) -> str:
                                and re.sub(r"\D", "", m.group()).startswith("3") else "[DOCUMENTO]")
                     if len(re.sub(r"\D", "", m.group())) >= 7 else m.group(), salida)
     if paciente:
+        for campo in ("documento", "telefono", "correo", "direccion"):
+            valor = str(paciente.get(campo) or "").strip()
+            if valor and valor != "[ilegible]":
+                salida = re.sub(rf"(?<!\w){re.escape(valor)}(?!\w)", "[DATO PERSONAL]", salida,
+                                flags=re.IGNORECASE)
         partes = [p for p in str(paciente.get("nombre") or "").split() if len(p) >= 3]
         for frase in [" ".join(partes), " ".join(partes[:2])] + partes:
             if frase:

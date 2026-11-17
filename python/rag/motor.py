@@ -21,6 +21,7 @@ import json
 import math
 import os
 import re
+import threading
 import unicodedata
 from collections import Counter
 from pathlib import Path
@@ -34,6 +35,7 @@ se sin sobre su sus un una uno y ya cual cuales cuando donde debe deben puede se
 SIN_EVIDENCIA = "No hay evidencia suficiente en las fuentes del sistema."
 UMBRAL_BM25 = float(os.getenv("RAG_UMBRAL_BM25", "2.5"))      # calibrado con docs/RAG_evaluacion.md
 UMBRAL_COS = float(os.getenv("RAG_UMBRAL_COS", "0.72"))        # coseno mínimo, calibrado con LSA (docs/RAG_evaluacion.md)
+_CUPO_GENERACION = threading.BoundedSemaphore(int(os.getenv("RAG_MAX_SIMULTANEAS", "4")))
 K_FINAL = 3
 K_CANDIDATOS = 8
 LAMBDA_MMR = 0.7
@@ -145,7 +147,7 @@ def historia_aprobada(db, paciente_id: int, alias: str) -> list[dict]:
     cur = db.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
     try:
         cur.execute("""SELECT id, probabilidad_urgente, prediccion, critico_segun_umbral,
-                              observacion_revision, revisado_en, creado_en, payload_seudonimizado
+                              revisado_en, creado_en, payload_seudonimizado
                        FROM reportes_ia
                        WHERE paciente_id = %s AND estado = 'aprobado' AND probabilidad_urgente IS NOT NULL
                        ORDER BY id DESC LIMIT 10;""", (paciente_id,))
@@ -168,8 +170,6 @@ def historia_aprobada(db, paciente_id: int, alias: str) -> list[dict]:
         fecha = (r["revisado_en"] or r["creado_en"]).date().isoformat()
         texto = (f"Reporte de IA aprobado del paciente {alias}: {nivel}, probabilidad "
                  f"{float(r['probabilidad_urgente']):.2f}. Signos vitales: {signos or 'sin registro'}.")
-        if r["observacion_revision"]:
-            texto += f" Observación del clínico que lo aprobó: {r['observacion_revision']}"
         salida.append({"chunk_id": f"RIA-{r['id']}", "doc_id": f"RIA-{r['id']}", "tipo": "historia",
                        "estado": "aprobado", "paciente": alias,
                        "fuente": f"Reporte IA aprobado #{r['id']} · {fecha}", "texto": neutralizar(texto)})
@@ -413,25 +413,27 @@ PROMPT_SISTEMA = (
 
 
 def construir_mensajes(pregunta: str, fragmentos: list[dict]) -> list[dict]:
-    contexto = "\n\n".join(f"[{n}] ({f['fuente']})\n{f['texto']}" for n, f in enumerate(fragmentos, 1))
+    contexto = "\n\n".join(f"[{n}] ({f['fuente']})\n{f['texto'][:1200]}" for n, f in enumerate(fragmentos, 1))
     return [{"role": "system", "content": PROMPT_SISTEMA},
             {"role": "user", "content": f"CONTEXTO:\n{contexto}\n\nPREGUNTA: {pregunta}"}]
 
 
 def generar(mensajes: list[dict], fragmentos: list[dict]) -> tuple[str, str]:
     llave = os.getenv("GROQ_API_KEY")
-    if llave:
+    if llave and _CUPO_GENERACION.acquire(blocking=False):
         try:
             import httpx
             r = httpx.post("https://api.groq.com/openai/v1/chat/completions",
                            headers={"Authorization": f"Bearer {llave}"},
                            json={"model": os.getenv("GROQ_MODEL", os.getenv("MODELO_GROQ", "qwen/qwen3-32b")),
-                                 "messages": mensajes, "temperature": 0}, timeout=60)
+                                 "messages": mensajes, "temperature": 0, "max_completion_tokens": 800}, timeout=20)
             r.raise_for_status()
             texto = r.json()["choices"][0]["message"]["content"]
-            return re.sub(r"<think>.*?</think>", "", texto, flags=re.S).strip(), "llm"
+            return re.sub(r"<think\b[^>]*>.*?(?:</think>|$)", "", texto, flags=re.S | re.I).strip(), "llm"
         except Exception:
             pass
+        finally:
+            _CUPO_GENERACION.release()
     return " ".join(f"{f['texto'][:220].rsplit(' ', 1)[0]}... [{n}]" for n, f in enumerate(fragmentos, 1)), "extractivo"
 
 

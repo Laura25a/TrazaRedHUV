@@ -340,6 +340,8 @@ CREATE TABLE IF NOT EXISTS agente_invocaciones (
     creado_en TIMESTAMP NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS idx_agente_invocaciones_usuario ON agente_invocaciones (usuario_id, id);
+CREATE INDEX IF NOT EXISTS idx_agente_invocaciones_retencion ON agente_invocaciones (creado_en)
+    WHERE payload ? 'mensajes';
 
 -- ============================================================================
 -- PROYECTO FINAL — Interoperabilidad entre sistemas (R29–R32) · solo AGREGA

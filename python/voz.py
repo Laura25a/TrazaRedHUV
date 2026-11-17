@@ -8,28 +8,20 @@ respondió, qué dijo y la causa); el médico la revisa y la confirma. Nada se g
 sin esa confirmación: la anotación final pasa por la ruta normal de gestiones
 (POST /registro/remisiones/{id}/gestiones), con su firma, su hora y su causa.
 
-  POST /bitacora/voz/transcribir   audio → texto (Whisper en Groq, si hay GROQ_API_KEY).
-                                   Sin llave, el navegador transcribe (dictado de Chrome/Edge).
-  POST /bitacora/voz/extraer       texto de la llamada → campos de la bitácora propuestos.
-
-Privacidad (Ley 1581): antes de que el texto vaya a cualquier modelo se quitan el
-nombre, el documento y los teléfonos del paciente. La transcripción no se guarda:
-en la auditoría queda solo que se usó el dictado, su longitud y el resultado.
+El dictado se procesa en el dispositivo. La API extrae campos del texto mediante
+reglas locales y solo registra metadatos de la operación.
 """
-import json
-import os
 import re
 import unicodedata
 
-import httpx
 import cripto
 import psycopg2.extras
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
 from auth import get_db, registrar_auditoria, requiere_rol
-from causas import CAUSAS
-from registro import clasificar_respuesta
+from causas import CAUSAS, causa_por_reglas
+from seguridad import sanear_para_llm
 
 router = APIRouter(tags=["Bitácora por voz"])
 
@@ -48,23 +40,6 @@ NO_SON_NOMBRES = {"turno", "referencia", "urgencias", "uci", "la", "el", "de", "
 def _norm(t: str) -> str:
     t = unicodedata.normalize("NFKD", str(t or "")).encode("ascii", "ignore").decode()
     return re.sub(r"\s+", " ", t.lower()).strip()
-
-
-# ─────────────────────────────────────────────── seudonimizar antes de la IA
-def seudonimizar(texto: str, paciente: dict | None) -> str:
-    salida = texto
-    salida = re.sub(r"\b\d[\d .-]{6,12}\d\b", lambda m: "[TELÉFONO]" if len(re.sub(r"\D", "", m.group())) == 10
-                    and re.sub(r"\D", "", m.group()).startswith("3") else "[NÚMERO]", salida)
-    if paciente:
-        doc = str(paciente.get("documento") or "")
-        if doc:
-            salida = salida.replace(doc, "[DOCUMENTO]")
-        partes = [p for p in str(paciente.get("nombre") or "").split() if len(p) >= 3]
-        for frase in [" ".join(partes), " ".join(partes[:2]), " ".join(partes[:1] + partes[1:2])] + partes:
-            if frase:
-                salida = re.sub(rf"\b{re.escape(frase)}\b", "[PACIENTE]", salida, flags=re.IGNORECASE)
-        salida = re.sub(r"(\[PACIENTE\]\s*){2,}", "[PACIENTE] ", salida)
-    return salida
 
 
 # ─────────────────────────────────────────────── extracción por reglas
@@ -135,35 +110,6 @@ def buscar_respuesta(texto: str) -> str:
 
 
 # ─────────────────────────────────────────────── extracción con LLM (opcional)
-PROMPT = """Eres el asistente de la Oficina de Referencia del Hospital Universitario del Valle (HUV).
-Te doy la transcripción de una llamada del HUV a otra institución para remitir un paciente.
-Extrae SOLO lo que se dijo. Devuelve JSON con estas claves:
- "institucion": la institución que RESPONDE (nunca el HUV), tal como se dijo, o null;
- "quien_respondio": nombre y título de quien respondió, o null;
- "cargo": su cargo, o null;
- "respuesta": en una o dos frases, qué respondió la institución (decisión y motivo);
- "decision": una de: acepta, sin_cama, sin_especialista, problema_eps, pide_documentos, en_espera, sin_respuesta, otra.
-No inventes datos. El texto ya viene sin datos personales del paciente."""
-
-
-def extraer_con_llm(texto: str) -> dict | None:
-    llave = os.getenv("GROQ_API_KEY")
-    if not llave:
-        return None
-    try:
-        r = httpx.post("https://api.groq.com/openai/v1/chat/completions",
-                       headers={"Authorization": f"Bearer {llave}"},
-                       json={"model": os.getenv("MODELO_GROQ", "openai/gpt-oss-120b"), "temperature": 0,
-                             "response_format": {"type": "json_object"},
-                             "messages": [{"role": "system", "content": PROMPT},
-                                          {"role": "user", "content": texto[:4000]}]}, timeout=40)
-        r.raise_for_status()
-        return json.loads(r.json()["choices"][0]["message"]["content"])
-    except Exception as e:
-        print(f"[voz] el LLM no pudo extraer: {type(e).__name__}")
-        return None
-
-
 # ─────────────────────────────────────────────── rutas
 class Transcripcion(BaseModel):
     remision_id: int
@@ -173,44 +119,30 @@ class Transcripcion(BaseModel):
 @router.post("/bitacora/voz/extraer")
 def extraer(body: Transcripcion, db=Depends(get_db), usuario=Depends(requiere_rol("admin", "medico"))):
     cur = db.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-    cur.execute("""SELECT r.id, r.paciente_id, r.institucion_destino, p.nombre, p.documento, p.telefono
-                   FROM remisiones r JOIN pacientes p ON p.id = r.paciente_id WHERE r.id = %s;""", (body.remision_id,))
+    cur.execute("""SELECT r.id, r.paciente_id, r.institucion_destino, p.nombre, p.documento, p.telefono, p.correo, p.direccion
+                   FROM remisiones r JOIN pacientes p ON p.id = r.paciente_id WHERE r.id = %s AND r.activo AND (%s OR r.creado_por = %s);""",
+                (body.remision_id, usuario["rol"] == "admin", usuario["id"]))
     rem = cripto.descifrar_paciente(cur.fetchone(), "paciente_id")
     cur.close()
     if rem is None:
         raise HTTPException(404, "Remisión no encontrada")
-    texto = seudonimizar(body.transcripcion, rem)           # 1. nada personal sale de aquí
-    if rem.get("telefono"):
-        texto = texto.replace(str(rem["telefono"]), "[TELÉFONO]")
-
+    texto = sanear_para_llm(body.transcripcion, rem)
     conocidas = _instituciones(db)
-    institucion, _ = buscar_institucion(texto, conocidas)    # 2. reglas (siempre)
+    institucion, _ = buscar_institucion(texto, conocidas)
     quien, cargo = buscar_quien(texto)
     respuesta = buscar_respuesta(texto)
-    modo = "reglas"
-
-    llm = extraer_con_llm(texto)                              # 3. LLM, si hay llave
-    if llm:
-        modo = "llm"
-        if llm.get("institucion"):
-            institucion = buscar_institucion(llm["institucion"], conocidas)[0] or llm["institucion"]
-        quien = llm.get("quien_respondio") or quien
-        cargo = llm.get("cargo") or cargo
-        respuesta = (llm.get("respuesta") or respuesta)[:480]
-
     quien_txt = " · ".join(x for x in (quien, cargo) if x)
     respuesta_bitacora = (f"{quien_txt}: {respuesta}" if quien_txt else respuesta)[:500]
-    clasificacion = clasificar_respuesta(respuesta)           # 4. la causa, con el mismo clasificador del libro
-    if llm and llm.get("decision") in CAUSAS and clasificacion.get("causa") == "otra":
-        c = llm["decision"]
-        clasificacion = {"causa": c, "etiqueta": CAUSAS[c]["etiqueta"], "efecto": CAUSAS[c]["efecto"], "origen": "llm"}
+    causa = causa_por_reglas(respuesta)
+    clasificacion = {"causa": causa, "etiqueta": CAUSAS[causa]["etiqueta"],
+                     "efecto": CAUSAS[causa]["efecto"], "origen": "reglas"}
 
     faltan = [n for n, v in (("institución", institucion), ("quién respondió", quien), ("respuesta", respuesta)) if not v]
     registrar_auditoria(db, usuario["id"], "bitacora_voz_extraccion", "remisiones", body.remision_id,
-                        f"modo={modo} caracteres={len(body.transcripcion)} institucion={institucion} "
+                        f"modo=reglas caracteres={len(body.transcripcion)} institucion={institucion} "
                         f"causa={clasificacion.get('causa')}")
     return {
-        "modo": modo,
+        "modo": "reglas",
         "transcripcion_seudonimizada": texto,
         "campos": {"institucion_contactada": institucion or rem["institucion_destino"], "medio": "telefono",
                    "contactado_por": usuario["nombre"], "respuesta": respuesta_bitacora},
@@ -222,27 +154,6 @@ def extraer(body: Transcripcion, db=Depends(get_db), usuario=Depends(requiere_ro
     }
 
 
-@router.post("/bitacora/voz/transcribir")
-async def transcribir(audio: UploadFile = File(...), remision_id: int = Form(...), db=Depends(get_db),
-                      usuario=Depends(requiere_rol("admin", "medico"))):
-    """Audio de la llamada → texto con Whisper (Groq). El audio no se guarda."""
-    llave = os.getenv("GROQ_API_KEY")
-    if not llave:
-        raise HTTPException(503, "La transcripción del audio necesita GROQ_API_KEY. Mientras tanto usa el dictado "
-                                 "del navegador (Chrome o Edge) o escribe/pega lo que se dijo.")
-    datos = await audio.read()
-    if len(datos) > 24 * 1024 * 1024:
-        raise HTTPException(413, "El audio supera 24 MB")
-    try:
-        r = httpx.post("https://api.groq.com/openai/v1/audio/transcriptions",
-                       headers={"Authorization": f"Bearer {llave}"},
-                       files={"file": (audio.filename or "llamada.webm", datos, audio.content_type or "audio/webm")},
-                       data={"model": os.getenv("MODELO_WHISPER", "whisper-large-v3-turbo"), "language": "es",
-                             "response_format": "json"}, timeout=120)
-        r.raise_for_status()
-        texto = r.json().get("text", "").strip()
-    except httpx.HTTPError as e:
-        raise HTTPException(502, f"No se pudo transcribir el audio: {type(e).__name__}")
-    registrar_auditoria(db, usuario["id"], "bitacora_voz_transcripcion", "remisiones", remision_id,
-                        f"audio {len(datos) // 1024} KB · {len(texto)} caracteres (el audio no se guarda)")
-    return {"texto": texto}
+@router.post("/bitacora/voz/transcribir", deprecated=True)
+def transcribir(usuario=Depends(requiere_rol("admin", "medico"))):
+    raise HTTPException(410, "La transcripción de audio se hace en el dispositivo. Usa dictado local o pega el texto.")

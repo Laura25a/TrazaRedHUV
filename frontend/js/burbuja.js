@@ -629,11 +629,14 @@ async function trazaPreguntar(texto, clin) {
   const espera = trazaMsg("traza", "Lo reviso…", { hablar: false });
   espera.classList.add("traza-esperando");
   let r;
-  if (TRAZA.propuesta && TRAZA.propuesta.conv === TRAZA.conversacion)       // la propuesta espera en su hilo;
+  const pacienteId = TRAZA.paciente?.id ?? null;
+  if (TRAZA.propuesta && TRAZA.propuesta.pacienteId === pacienteId && TRAZA.propuesta.conv === TRAZA.conversacion)       // la propuesta espera en su hilo;
     TRAZA.conversacion = "traza-" + Date.now().toString(36);                 // la pregunta nueva va en otro
+  const conv = TRAZA.conversacion;
   try {
-    r = await API.post("/agente/chat", { mensaje: texto, conversacion_id: TRAZA.conversacion, paciente_id: TRAZA.paciente ? TRAZA.paciente.id : null });
+    r = await API.post("/agente/chat", { mensaje: texto, conversacion_id: conv, paciente_id: pacienteId });
   } finally { espera.remove(); }
+  if (pacienteId !== (TRAZA.paciente?.id ?? null) || conv !== TRAZA.conversacion) return;
   if (r.estado === "respondido") {
     // Al médico: la respuesta y sus fuentes. Al admin, además, la traza técnica completa.
     let extra = trazaFuentes(r.fuentes);
@@ -661,26 +664,41 @@ async function trazaPreguntar(texto, clin) {
 function trazaPropuesta(r, conv) {
   const a = (r.acciones || [])[0] || { args: {} };
   const x = a.args || {};
-  TRAZA.propuesta = { conv, destino: x.institucion_destino || "la institución sugerida" };
+  TRAZA.propuesta = { conv, pacienteId: TRAZA.paciente?.id ?? null, destino: x.institucion_destino || "la institución sugerida" };
   const medico = tzRol() === "medico";
   trazaMsg("traza", `${r.detalle ? "Tienes pendiente esta propuesta" : "Te propongo"}: remitir${TRAZA.paciente ? " a " + primerNombre(TRAZA.paciente.nombre) : ""} a ${TRAZA.propuesta.destino}${x.prioridad ? `, prioridad ${({ critica: "crítica" })[x.prioridad] || x.prioridad}` : ""}. ${medico ? "¿La radico? Nada se crea hasta que digas que sí." : "Solo el médico puede aprobarla."}`, {
     html: `${x.motivo ? `<p class="traza-nota">Motivo: ${esc(String(x.motivo).slice(0, 160))}</p>` : ""}
       <div class="traza-acciones">${medico ? `<button type="button" data-si>Sí, radicar</button> <button type="button" data-no>No, descartar</button>` : ""}</div>` });
   const caja = $("#traza-chat").lastElementChild;
   const si = $("[data-si]", caja), no = $("[data-no]", caja);
-  if (si) si.addEventListener("click", () => { trazaEnviar("Sí, radícala", false); });
-  if (no) no.addEventListener("click", () => { trazaEnviar("No, descártala", false); });
+  const propuesta = TRAZA.propuesta;
+  const decidir = aprobar => {
+    if (TRAZA.propuesta !== propuesta || propuesta.pacienteId !== (TRAZA.paciente?.id ?? null)) {
+      trazaMsg("traza", "Abre el paciente de esta propuesta antes de decidir.");
+      return;
+    }
+    trazaEnviar(aprobar ? "Sí, radícala" : "No, descártala", false);
+  };
+  if (si) si.addEventListener("click", () => decidir(true));
+  if (no) no.addEventListener("click", () => decidir(false));
   if (medico) trazaSugerir(["Sí, radícala", "No, descártala"]);
 }
 
 async function trazaDecidir(aprobar, motivo) {
   const p = TRAZA.propuesta;
   if (!p) { trazaMsg("traza", "No tengo ninguna propuesta esperando tu decisión."); return; }
+  if (p.pacienteId !== (TRAZA.paciente?.id ?? null)) { trazaMsg("traza", "Abre el paciente de esta propuesta antes de decidir."); return; }
   if (tzRol() !== "medico") { trazaMsg("traza", "Solo el médico puede aprobar o rechazar una remisión."); return; }
   trazaEstado(aprobar ? "radicando…" : "descartando…");
-  const r = await API.post("/agente/decidir", { conversacion_id: p.conv, decision: aprobar ? "approve" : "reject",
+  const r = await API.post("/agente/decidir", { conversacion_id: p.conv, paciente_id: p.pacienteId, decision: aprobar ? "approve" : "reject",
     motivo: aprobar ? null : (motivo || "Descartada por el médico desde Traza") });
+  if (r.estado !== "respondido" && r.estado !== "sin_pendientes") {
+    trazaMsg("traza", r.detalle || "No pude completar la decisión.");
+    return;
+  }
+  if (TRAZA.propuesta !== p) return;
   TRAZA.propuesta = null;
+  if (p.pacienteId !== (TRAZA.paciente?.id ?? null)) return;
   $$("#traza-chat [data-si], #traza-chat [data-no]").forEach(b => { b.disabled = true; });
   if (r.estado === "sin_pendientes") { trazaMsg("traza", "Esa propuesta ya estaba decidida, así que sigo contigo. ¿Qué necesitas?"); return; }
   if (aprobar) {
@@ -697,7 +715,7 @@ async function trazaDecidir(aprobar, motivo) {
 async function trazaRevisarPropuesta() {
   const p = TRAZA.propuesta;
   if (!p) { trazaMsg("traza", "Perfecto, no hay nada pendiente. ¿Qué sigue?"); return; }
-  const h = await API.get(`/agente/historial?conversacion_id=${encodeURIComponent(p.conv)}`).catch(() => ({ pendiente: true }));
+  const h = await API.get(`/agente/historial?conversacion_id=${encodeURIComponent(p.conv)}${p.pacienteId ? "&paciente_id=" + p.pacienteId : ""}`).catch(() => ({ pendiente: true }));
   if (!h.pendiente) {
     TRAZA.propuesta = null;
     remisionesCache = null;
@@ -727,7 +745,7 @@ function trazaSugerir(lista) {
 function trazaEstado(txt) { const e = $("#traza-estado"); if (e) e.textContent = `Asistente de TrazaRed · ${txt}`; }
 
 function trazaVozEs() {
-  const voces = speechSynthesis.getVoices().filter(v => /^es/i.test(v.lang));
+  const voces = speechSynthesis.getVoices().filter(v => v.localService && /^es/i.test(v.lang));
   return voces.find(v => /es-CO/i.test(v.lang)) || voces.find(v => /es-(MX|US|419)/i.test(v.lang)) || voces[0] || null;
 }
 
@@ -737,8 +755,9 @@ function trazaDecir(texto) {
   speechSynthesis.cancel();
   const u = new SpeechSynthesisUtterance(texto.length > 320 ? texto.slice(0, 320).replace(/\s\S*$/, "") + "…" : texto);
   const v = trazaVozEs();
-  if (v) u.voice = v;
-  u.lang = v ? v.lang : "es-CO";
+  if (!v) { seguir(); return; }
+  u.voice = v;
+  u.lang = v.lang;
   u.rate = 1.03;
   const b = $("#traza-boton"), p = $("#traza-panel");
   u.onstart = () => { b && b.classList.add("hablando"); p && p.classList.add("hablando"); trazaEstado("hablando"); };
@@ -747,14 +766,15 @@ function trazaDecir(texto) {
 }
 
 function trazaEscuchar() {
-  if (!TRAZA_SR) {
+  if (!TRAZA_SR || !("processLocally" in TRAZA_SR.prototype)) {
     TRAZA.conversando = false;
-    trazaMsg("traza", "Este navegador no reconoce voz. Abre TrazaRed en Chrome o Edge para hablarme; mientras tanto, escríbeme.", { hablar: false });
+    trazaMsg("traza", "Este navegador no ofrece dictado local. Puedes escribirme.", { hablar: false });
     return;
   }
   if (TRAZA.escuchando || !TRAZA.abierta) return;
   speechSynthesis.cancel();
   const sr = new TRAZA_SR();
+  sr.processLocally = true;
   sr.lang = "es-CO"; sr.interimResults = true; sr.continuous = false; sr.maxAlternatives = 1;
   let final = "";
   sr.onstart = () => { TRAZA.escuchando = true; $("#traza-mic").classList.add("escuchando"); $("#traza-boton").classList.add("escuchando"); trazaEstado("escuchando…"); };
@@ -768,7 +788,8 @@ function trazaEscuchar() {
   sr.onerror = (ev) => {
     const msg = { "not-allowed": "No tengo permiso para el micrófono. Haz clic en el candado de la barra de direcciones y permite el micrófono.",
       "service-not-allowed": "El navegador bloqueó el reconocimiento de voz. Usa Chrome o Edge.",
-      network: "Este navegador no deja usar el reconocimiento de voz (pasa en Brave). Abre TrazaRed en Chrome o Edge.",
+      "language-not-supported": "Activa el paquete local de español en el navegador o escríbeme.",
+      network: "El dictado local no está disponible. Puedes escribirme.",
       "audio-capture": "No encuentro un micrófono. Revisa que esté conectado y activo en Windows." }[ev.error];
     if (msg) { trazaMsg("traza", msg, { hablar: false }); TRAZA.conversando = false; }
     else if (ev.error === "no-speech" && TRAZA.conversando) { trazaDetenerConversacion("No te escuché; toca el micrófono cuando quieras."); }

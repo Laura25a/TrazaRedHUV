@@ -8,11 +8,15 @@ import hashlib
 import hmac
 import os
 
+import cripto
+import psycopg2.extras
+
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 
 from auth import get_db, get_usuario_actual, registrar_auditoria
 from rag.motor import estado, responder
+from validaciones import exigir_asignacion_clinica
 
 router = APIRouter(tags=["RAG"])
 # Personal clínico. El admin entra en modo consulta (mismo criterio que el agente).
@@ -30,12 +34,17 @@ class Pregunta(BaseModel):
     paciente_id: int | None = None
 
 
-def _paciente_existe(db, paciente_id: int) -> bool:
-    cur = db.cursor()
-    cur.execute("SELECT 1 FROM pacientes WHERE id = %s;", (paciente_id,))
-    ok = cur.fetchone() is not None
-    cur.close()
-    return ok
+def ficha_para_seudonimizar(db, paciente_id: int | None, usuario: dict) -> dict | None:
+    if paciente_id is None:
+        return None
+    exigir_asignacion_clinica(db, paciente_id, usuario)
+    with db.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+        cur.execute("SELECT id, nombre, documento, telefono, correo, direccion FROM pacientes WHERE id = %s;",
+                    (paciente_id,))
+        ficha = cripto.descifrar_paciente(cur.fetchone())
+    if ficha is None:
+        raise HTTPException(404, "Paciente no encontrado")
+    return ficha
 
 
 @router.post("/rag/preguntar")
@@ -46,21 +55,13 @@ def preguntar(body: Pregunta, request: Request,
     respuesta trae `fuentes` (documento y fragmento). Si no hay soporte, lo dice."""
     if usuario["rol"] not in ROLES_ASISTENTE:
         raise HTTPException(status_code=403, detail="Solo personal clínico consulta el asistente")
-    import psycopg2.extras
     import seguridad
     ip = seguridad.ip_cliente(request)
     incidente = seguridad.guardia(db, usuario, ip, body.pregunta, "rag")          # R25
     if incidente:
         return {"respuesta": seguridad.RESPUESTA_GUARDIA, "modo": "bloqueada", "alias": None, "fuentes": [],
                 "seguridad": {"motivo": "inyeccion_detectada", **incidente}}
-    paciente = None
-    if body.paciente_id is not None:
-        cur = db.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-        cur.execute("SELECT id, nombre FROM pacientes WHERE id = %s;", (body.paciente_id,))
-        paciente = cur.fetchone()
-        cur.close()
-        if paciente is None:
-            raise HTTPException(status_code=404, detail="Paciente no encontrado")
+    paciente = ficha_para_seudonimizar(db, body.paciente_id, usuario)
     alias = seudonimo(body.paciente_id) if body.paciente_id is not None else None
     pregunta = seguridad.sanear_para_llm(body.pregunta, paciente)                  # R12: sin datos personales
     # La historia aprobada del paciente se lee de la base y se filtra ANTES de rankear

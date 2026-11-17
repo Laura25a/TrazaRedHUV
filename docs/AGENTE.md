@@ -67,7 +67,7 @@ En el prompt de sistema solo va una línea por skill. El procedimiento completo 
    `estado: "pendiente_aprobacion"` y la acción, que la interfaz muestra como tarjeta.
 2. La propuesta queda en la tabla `agente_propuestas` (sobrevive a reiniciar la API).
    Mientras esté pendiente, esa conversación no acepta otra pregunta.
-3. `POST /agente/decidir` con `approve` → se ejecuta la herramienta: la remisión se radica,
+3. `POST /agente/decidir` con `paciente_id` y `approve` → se ejecuta la herramienta: la remisión se radica,
    se audita y se avisa en vivo. Con `reject` + motivo → la herramienta **nunca se ejecuta**,
    el motivo le llega al modelo y la propuesta queda `rechazada` como evidencia.
 4. Solo el dueño de la conversación decide (otro usuario recibe `sin_pendientes`).
@@ -76,9 +76,9 @@ En el prompt de sistema solo va una línea por skill. El procedimiento completo 
 
 | Tipo | Dónde | Para qué |
 |---|---|---|
-| Corto plazo (hilo) | `AsyncPostgresSaver` (tablas `checkpoints*`) con `thread_id = correo:conversación` | Recordar la conversación; sobrevive a reiniciar la API |
-| Ventana | middleware `VentanaContexto` (14 mensajes, empieza en un mensaje del usuario) | Lo que se le envía al modelo en cada llamada |
-| Largo plazo | `AsyncPostgresStore` (tabla `store`), namespace `("preferencias", usuario)` | Preferencias de formato del usuario, en cualquier hilo |
+| Corto plazo (hilo) | `AsyncPostgresSaver` (tablas `checkpoints*`) con `thread_id = v2:usuario:paciente:conversación` | Recordar la conversación; sobrevive a reiniciar la API |
+| Ventana | middleware `VentanaContexto` (hasta 14 mensajes previos, turnos completos y 24.000 bytes de contexto) | Lo que se le envía al modelo en cada llamada |
+| Largo plazo | `AsyncPostgresStore` (tabla `store`), namespace `("preferencias-v2", usuario)` | Preferencias de formato del usuario, en cualquier hilo |
 | Historia clínica | Tablas del sistema | Datos del paciente. **Nunca** se copian al store (Ley 1581, finalidad) |
 
 Si PostgreSQL no está disponible al arrancar, el agente usa memoria en RAM y lo dice en
@@ -167,3 +167,38 @@ que al modelo no le llegó nombre, documento, correo, teléfono ni dirección.
 
 La capa 1 puede fallar ante una redacción nueva; por eso los datos los protegen la 3 y la 4,
 que no dependen de lo que el modelo «decida».
+
+## Privacidad y verificación
+
+El hilo general y cada paciente tienen historial y propuestas independientes. El cliente
+envía `paciente_id` en chat, historial y decisión clínica. Al actualizar desde la versión
+anterior se inicia un historial nuevo. Si había una propuesta pendiente, vuelve a
+solicitarla. Los registros previos se conservan para auditoría.
+
+El agente descifra los campos personales de la ficha dentro de la API para retirarlos
+del texto antes de invocar el modelo. El corpus clínico usa campos estructurados del
+reporte aprobado. Las notas de revisión y el motivo libre de la remisión quedan en la
+aplicación. Las reglas de texto libre cubren identificadores conocidos y patrones
+comunes. Evita escribir datos identificables de terceros en el chat.
+
+El RAG dentro del agente solo recupera fragmentos. La consulta independiente a guías
+acota cada fragmento a 1.200 caracteres, solicita hasta 800 tokens de salida al
+proveedor y puede recurrir a la respuesta extractiva. Los errores de herramientas y del
+modelo y los tiempos agotados registran el actor, la IP y el tipo de error.
+
+El detalle técnico de las invocaciones tiene una ventana operativa de 30 días. Al
+arrancar la API y al registrar invocaciones se reemplaza el contenido expirado por el
+conteo de mensajes. La ruta de detalle devuelve 410 desde el vencimiento. Los metadatos
+y la auditoría firmada se conservan. Esta política se aplica a
+`agente_invocaciones`. La vida útil de los checkpoints históricos depende de la política
+de conservación de la base.
+
+## Taller del 3 de noviembre
+
+Las tres herramientas del taller se pueden ejecutar con el entorno Python del proyecto
+y valores sintéticos. El dato adicional para calcular masa grasa es el porcentaje
+medido. El ejercicio entrega masa en kg y admite tabla Markdown o XML.
+
+```bash
+python docs/taller_agente_03nov.py --peso-kg 95 --altura-m 1.82 --grasa-pct 24 --formato xml
+```

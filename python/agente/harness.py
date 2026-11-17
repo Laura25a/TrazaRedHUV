@@ -8,9 +8,11 @@
 #   aprobación humana de las escrituras · memoria de corto plazo (hilo) y de
 #   largo plazo (preferencias) · candado por hilo · tiempo máximo.
 import asyncio
+import json
 import re
 import threading
 from collections import defaultdict, deque
+from contextlib import closing
 from datetime import datetime, timezone
 
 import psycopg2
@@ -18,7 +20,7 @@ import psycopg2.extras
 from langchain.agents import create_agent
 from langchain.agents.middleware import (AgentMiddleware, HumanInTheLoopMiddleware,
                                          ModelCallLimitMiddleware, ModelRequest, dynamic_prompt)
-from langchain_core.messages import AIMessage, HumanMessage, ToolMessage, trim_messages
+from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 from langgraph.errors import GraphBubbleUp
 from langgraph.types import Command
 
@@ -29,18 +31,42 @@ from agente.prompt import armar_prompt
 from auth import PG_CONNECTION_STRING
 
 MAX_PASOS_MODELO = 8          # ModelCallLimit: un modelo confundido no pide herramientas para siempre
-VENTANA_MENSAJES = 14         # memoria de trabajo que se le envía al modelo
 HERRAMIENTAS_CON_APROBACION = {"proponer_remision"}
+VENTANA_MENSAJES = 14
+MAX_CONTEXT_BYTES = 24000
+RETENCION_PAYLOAD_DIAS = 30
+
+
+class ContextoExcedido(Exception):
+    pass
+
+
+def expirar_payloads(cur):
+    cur.execute("""UPDATE agente_invocaciones
+                   SET payload = jsonb_build_object('expirado', true, 'cantidad_mensajes',
+                                                    jsonb_array_length(payload->'mensajes'))
+                   WHERE payload ? 'mensajes' AND creado_en < now() - make_interval(days => %s);""",
+                (RETENCION_PAYLOAD_DIAS,))
+
+
+def _registrar_fallo(ctx, tipo, origen, detalle):
+    from seguridad import registrar_incidente
+    try:
+        with closing(psycopg2.connect(PG_CONNECTION_STRING, connect_timeout=5)) as conn:
+            registrar_incidente(conn, tipo, ctx.usuario_id, ctx.ip, origen, detalle, bloquear=False)
+    except psycopg2.Error:
+        print(f"[agente] no se pudo registrar {tipo}")
 
 
 # ---------- 1. Prompt dinámico: se arma en CADA llamada al modelo ----------
 @dynamic_prompt
-def prompt_clinico(request: ModelRequest) -> str:
+async def prompt_clinico(request: ModelRequest) -> str:
     ctx = request.runtime.context
     preferencias = []
     if request.runtime.store is not None:
         try:
-            preferencias = [i.value["texto"] for i in request.runtime.store.search(espacio_memoria(ctx.usuario))]
+            items = await request.runtime.store.asearch(espacio_memoria(ctx.usuario_id), limit=1)
+            preferencias = [i.value["texto"] for i in items]
         except Exception:
             preferencias = []
     return armar_prompt(ctx, skills.indice(), preferencias)
@@ -86,7 +112,8 @@ class Auditoria(AgentMiddleware):
     @staticmethod
     def _error(request, e) -> ToolMessage:
         """Una herramienta que falla no tumba la respuesta: el modelo recibe el error y lo explica."""
-        print(f"[agente] la herramienta {request.tool_call['name']} falló: {type(e).__name__}: {e}")
+        _registrar_fallo(request.runtime.context, "agente_error_herramienta",
+                         f"agente:{request.tool_call['name']}", type(e).__name__)
         return ToolMessage(content=f"ERROR_HERRAMIENTA: no se pudo completar ({type(e).__name__}). "
                                    "Dile al clínico que esa información no está disponible ahora.",
                            tool_call_id=request.tool_call["id"], name=request.tool_call["name"], status="error")
@@ -124,7 +151,7 @@ class Auditoria(AgentMiddleware):
         except GraphBubbleUp:
             raise
         except Exception as e:
-            return self._error(request, e)
+            return await asyncio.to_thread(self._error, request, e)
 
 
 # ---------- 2b. Registro de lo que se le envía al LLM (R24) ----------
@@ -140,13 +167,13 @@ def _payload_llm(request) -> dict:
         sistema = getattr(request.system_message, "content", None)
     mensajes = []
     for m in request.messages:
-        fila = {"rol": _rol_mensaje(m), "contenido": _texto(m)[:4000]}
+        fila = {"rol": _rol_mensaje(m), "contenido": _texto(m)}
         if isinstance(m, AIMessage) and m.tool_calls:
             fila["llamadas"] = [{"herramienta": t["name"], "args": t["args"]} for t in m.tool_calls]
         if isinstance(m, ToolMessage):
             fila["herramienta"] = m.name
         mensajes.append(fila)
-    return {"sistema": str(sistema or "")[:6000], "mensajes": mensajes}
+    return {"sistema": str(sistema or ""), "mensajes": mensajes}
 
 
 class RegistroLLM(AgentMiddleware):
@@ -163,12 +190,12 @@ class RegistroLLM(AgentMiddleware):
             conn = psycopg2.connect(PG_CONNECTION_STRING, connect_timeout=5)
             try:
                 cur = conn.cursor()
+                expirar_payloads(cur)
                 cur.execute("""INSERT INTO agente_invocaciones (usuario_id, rol, conversacion, paciente_alias, modelo, payload)
                                VALUES (%s, %s, %s, %s, %s, %s) RETURNING id;""",
                             (ctx.usuario_id, ctx.rol, ctx.conversacion, ctx.paciente_alias,
                              f"{proveedor()}:{nombre_modelo()}", psycopg2.extras.Json(payload)))
                 invocacion_id = cur.fetchone()[0]
-                conn.commit()
                 cur.close()
                 registrar_auditoria(conn, ctx.usuario_id, "agente_llm", "agente_invocaciones", invocacion_id,
                                     f"payload seudonimizado enviado al LLM · paciente={ctx.paciente_alias} "
@@ -177,7 +204,7 @@ class RegistroLLM(AgentMiddleware):
                 conn.close()
             ctx.invocaciones.append(invocacion_id)
         except Exception as e:
-            print(f"[agente] no se pudo registrar la invocación al LLM: {e}")
+            print(f"[agente] no se pudo registrar la invocación al LLM: {type(e).__name__}")
 
     def wrap_model_call(self, request, handler):
         self._guardar(request)
@@ -195,9 +222,16 @@ class VentanaContexto(AgentMiddleware):
         self.max_mensajes = max_mensajes
 
     def _recortar(self, request):
-        recientes = trim_messages(request.messages, max_tokens=self.max_mensajes,
-                                  token_counter=len, strategy="last", start_on="human")
-        return request.override(messages=recientes)
+        mensajes = request.messages
+        corte = max(0, len(mensajes) - self.max_mensajes)
+        inicios = [i for i, mensaje in enumerate(mensajes) if isinstance(mensaje, HumanMessage)]
+        # Retira turnos completos para conservar cada llamada junto con sus resultados.
+        for inicio in [i for i in inicios if i >= corte or i == inicios[-1]]:
+            candidato = request.override(messages=mensajes[inicio:])
+            tamano = len(json.dumps(_payload_llm(candidato), ensure_ascii=False).encode("utf-8"))
+            if tamano <= MAX_CONTEXT_BYTES:
+                return candidato
+        raise ContextoExcedido
 
     def wrap_model_call(self, request, handler):
         return handler(self._recortar(request))
@@ -253,6 +287,10 @@ def _texto(m) -> str:
     return str(c)
 
 
+def _respuesta_visible(mensaje) -> str:
+    return re.sub(r"<think\b[^>]*>.*?(?:</think>|$)", "", _texto(mensaje), flags=re.S | re.I).strip()
+
+
 def _pasos_del_turno(mensajes: list) -> list[dict]:
     """Lo que hizo el agente en el último turno: qué herramienta pidió y qué le devolvió."""
     ultimo = max((i for i, m in enumerate(mensajes) if isinstance(m, HumanMessage)), default=-1)
@@ -294,10 +332,6 @@ class Harness:
         self.timeout_s = timeout_s
         self._candados = defaultdict(asyncio.Lock)   # un candado por hilo
 
-    @staticmethod
-    def hilo(usuario: str, conversacion: str) -> str:
-        return f"{usuario}:{conversacion}"            # el usuario sale del token, no del cuerpo
-
     # -- propuestas pendientes, guardadas en la base (sobreviven a reiniciar la API) --
     @staticmethod
     def _pendiente(ctx: ContextoClinico) -> dict | None:
@@ -306,7 +340,8 @@ class Harness:
             cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
             cur.execute("""SELECT id, herramienta, argumentos, paciente_id FROM agente_propuestas
                            WHERE usuario_id = %s AND conversacion = %s AND estado = 'pendiente'
-                           ORDER BY id DESC LIMIT 1;""", (ctx.usuario_id, ctx.conversacion))
+                             AND paciente_id IS NOT DISTINCT FROM %s
+                           ORDER BY id DESC LIMIT 1;""", (ctx.usuario_id, ctx.hilo, ctx.paciente_id))
             fila = cur.fetchone()
             cur.close()
             return fila
@@ -321,7 +356,7 @@ class Harness:
             for a in acciones:
                 cur.execute("""INSERT INTO agente_propuestas (usuario_id, conversacion, paciente_id, herramienta, argumentos)
                                VALUES (%s, %s, %s, %s, %s);""",
-                            (ctx.usuario_id, ctx.conversacion, ctx.paciente_id, a["herramienta"],
+                            (ctx.usuario_id, ctx.hilo, ctx.paciente_id, a["herramienta"],
                              psycopg2.extras.Json(a["args"])))
             conn.commit()
             cur.close()
@@ -334,8 +369,9 @@ class Harness:
         try:
             cur = conn.cursor()
             cur.execute("""UPDATE agente_propuestas SET estado = 'rechazada', decidida_en = now(), motivo_decision = %s
-                           WHERE usuario_id = %s AND conversacion = %s AND estado = 'pendiente';""",
-                        (motivo or "Rechazada por el clínico", ctx.usuario_id, ctx.conversacion))
+                           WHERE usuario_id = %s AND conversacion = %s AND estado = 'pendiente'
+                             AND paciente_id IS NOT DISTINCT FROM %s;""",
+                        (motivo or "Rechazada por el clínico", ctx.usuario_id, ctx.hilo, ctx.paciente_id))
             conn.commit()
             cur.close()
         finally:
@@ -357,48 +393,63 @@ class Harness:
             acciones = [{"herramienta": a["name"], "args": a["args"]}
                         for i in interrupciones for a in i.value["action_requests"]]
             return {**base, "estado": "pendiente_aprobacion", "acciones": acciones}
-        return {**base, "estado": "respondido", "respuesta": _texto(mensajes[-1])}
+        return {**base, "estado": "respondido", "respuesta": _respuesta_visible(mensajes[-1])}
 
     async def _ejecutar(self, entrada, ctx: ContextoClinico) -> dict:
         ctx.invocaciones.clear()
-        config = {"configurable": {"thread_id": self.hilo(ctx.usuario, ctx.conversacion)}}
-        async with self._candados[config["configurable"]["thread_id"]]:     # mismo hilo: uno a la vez
-            try:
-                salida = await asyncio.wait_for(
-                    self.agente.ainvoke(entrada, config, context=ctx, version="v2"),
-                    timeout=self.timeout_s)
-            except asyncio.TimeoutError:
-                return {"estado": "tiempo_agotado", "conversacion": ctx.conversacion,
-                        "detalle": f"El asistente no respondió en {self.timeout_s:g} s. Intenta de nuevo."}
+        config = {"configurable": {"thread_id": ctx.hilo}}
+        try:
+            salida = await asyncio.wait_for(
+                self.agente.ainvoke(entrada, config, context=ctx, version="v2"), timeout=self.timeout_s)
+        except asyncio.TimeoutError:
+            await asyncio.to_thread(_registrar_fallo, ctx, "agente_tiempo_agotado", "agente", "Tiempo máximo del turno")
+            return {"estado": "tiempo_agotado", "conversacion": ctx.conversacion,
+                    "detalle": f"El asistente no respondió en {self.timeout_s:g} s. Intenta de nuevo."}
+        except Exception as error:
+            await asyncio.to_thread(_registrar_fallo, ctx, "agente_error_modelo", "agente", type(error).__name__)
+            detalle = ("El contexto del turno superó el límite. Haz una consulta más corta."
+                       if isinstance(error, ContextoExcedido) else "El asistente no pudo completar la consulta.")
+            return {"estado": "error", "conversacion": ctx.conversacion, "detalle": detalle}
         resultado = self._empaquetar(salida, ctx)
         if resultado["estado"] == "pendiente_aprobacion":
             await asyncio.to_thread(self._registrar_propuestas, ctx, resultado["acciones"])
         return resultado
 
     async def atender(self, ctx: ContextoClinico, mensaje: str) -> dict:
-        pendiente = await asyncio.to_thread(self._pendiente, ctx)
-        if pendiente:
-            return {"estado": "pendiente_aprobacion", "conversacion": ctx.conversacion,
-                    "acciones": [{"herramienta": pendiente["herramienta"], "args": pendiente["argumentos"]}],
-                    "detalle": "Hay una acción esperando tu decisión: apruébala o recházala primero.", "pasos": []}
-        return await self._ejecutar({"messages": [{"role": "user", "content": mensaje}]}, ctx)
+        async with self._candados[ctx.hilo]:
+            pendiente = await asyncio.to_thread(self._pendiente, ctx)
+            if pendiente:
+                return {"estado": "pendiente_aprobacion", "conversacion": ctx.conversacion,
+                        "acciones": [{"herramienta": pendiente["herramienta"], "args": pendiente["argumentos"]}],
+                        "detalle": "Hay una acción esperando tu decisión: apruébala o recházala primero.", "pasos": []}
+            return await self._ejecutar({"messages": [{"role": "user", "content": mensaje}]}, ctx)
 
     async def decidir(self, ctx: ContextoClinico, decision: str, motivo: str | None = None) -> dict:
-        pendiente = await asyncio.to_thread(self._pendiente, ctx)
-        if pendiente is None:
-            return {"estado": "sin_pendientes", "conversacion": ctx.conversacion}
-        from rag.router import seudonimo
-        ctx.paciente_id = pendiente["paciente_id"]              # el paciente de la propuesta, no otro
-        ctx.paciente_alias = seudonimo(ctx.paciente_id) if ctx.paciente_id is not None else None
-        d = {"type": decision}
-        if decision == "reject":
-            d["message"] = motivo or "El clínico rechazó la propuesta."
-            await asyncio.to_thread(self._rechazar_propuesta, ctx, motivo)
-        return await self._ejecutar(Command(resume={"decisions": [d]}), ctx)
+        async with self._candados[ctx.hilo]:
+            pendiente = await asyncio.to_thread(self._pendiente, ctx)
+            if pendiente is None:
+                return {"estado": "sin_pendientes", "conversacion": ctx.conversacion}
+            d = {"type": decision}
+            if decision == "approve":
+                ctx.propuesta_aprobada_id = pendiente["id"]
+            if decision == "reject":
+                d["message"] = motivo or "El clínico rechazó la propuesta."
+                await asyncio.to_thread(self._rechazar_propuesta, ctx, motivo)
+            resultado = await self._ejecutar(Command(resume={"decisions": [d]}), ctx)
+            if decision == "approve" and resultado["estado"] == "respondido":
+                with closing(psycopg2.connect(PG_CONNECTION_STRING, connect_timeout=5)) as db, db.cursor() as cur:
+                    cur.execute("SELECT remision_id FROM agente_propuestas WHERE id = %s AND estado = 'aprobada';",
+                                (pendiente["id"],))
+                    fila = cur.fetchone()
+                if not fila or fila[0] is None:
+                    return {"estado": "error", "conversacion": ctx.conversacion,
+                            "detalle": "La propuesta no se pudo radicar. Revisa el caso e inténtalo de nuevo."}
+                resultado["remision_id"] = fila[0]
+            return resultado
 
     async def historial(self, ctx: ContextoClinico) -> list[dict]:
         """Mensajes visibles de la conversación (para pintar el chat al volver)."""
-        config = {"configurable": {"thread_id": self.hilo(ctx.usuario, ctx.conversacion)}}
+        config = {"configurable": {"thread_id": ctx.hilo}}
         try:
             estado = await self.agente.aget_state(config)
         except Exception:
@@ -407,6 +458,6 @@ class Harness:
         for m in (estado.values or {}).get("messages", []):
             if isinstance(m, HumanMessage):
                 salida.append({"rol": "usuario", "texto": _texto(m)})
-            elif isinstance(m, AIMessage) and not m.tool_calls and _texto(m).strip():
-                salida.append({"rol": "asistente", "texto": _texto(m)})
+            elif isinstance(m, AIMessage) and not m.tool_calls and (texto := _respuesta_visible(m)):
+                salida.append({"rol": "asistente", "texto": texto})
         return salida[-30:]

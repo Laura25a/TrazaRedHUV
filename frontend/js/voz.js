@@ -6,15 +6,13 @@
 // respondió, qué dijo y la causa). El médico revisa, corrige y confirma: la
 // anotación se guarda por la ruta normal de gestiones, firmada y con su hora.
 //
-// Transcripción, en este orden:
-//   1. Dictado del navegador (Web Speech API: Chrome y Edge; Brave lo bloquea).
-//   2. Grabar audio y transcribirlo en el servidor con Whisper (si hay GROQ_API_KEY).
-//   3. Escribir o pegar lo que se dijo, o usar el ejemplo para la demostración.
-// Extracción: POST /bitacora/voz/extraer (reglas siempre; LLM si hay llave).
+// El audio se procesa en el dispositivo. Si no hay dictado local, se puede
+// escribir o pegar la transcripción, o usar el ejemplo sintético.
 "use strict";
 
-const VOZ = { reconocedor: null, grabador: null, trozos: [], grabando: false };
+const VOZ = { reconocedor: null, grabando: false };
 const VOZ_SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+const VOZ_LOCAL = Boolean(VOZ_SR && "processLocally" in VOZ_SR.prototype);
 
 function vozEjemplo(f) {
   const r = f.remision;
@@ -34,12 +32,12 @@ function abrirDictado(f, recargar) {
     <div class="modal-cabeza"><h3>${icono("microfono")} Dictar llamada · ${esc(r.radicado)}</h3>
       <button type="button" class="btn-icono" data-cerrar aria-label="Cerrar">${icono("x")}</button></div>
     <div class="modal-cuerpo">
-      <ol class="voz-pasos"><li class="activo">Llama con el altavoz y graba</li><li>La IA llena la bitácora</li><li>Revisas y confirmas</li></ol>
+      <ol class="voz-pasos"><li class="activo">Dicta o pega la transcripción</li><li>La IA llena la bitácora</li><li>Revisas y confirmas</li></ol>
 
       <section class="voz-paso" id="voz-1">
         <div class="voz-controles">
-          <button type="button" class="btn btn-voz" id="voz-grabar">${icono("microfono")}<span>Empezar a escuchar</span></button>
-          <span class="voz-estado" id="voz-estado" aria-live="polite">${VOZ_SR ? "Listo para escuchar (dictado del navegador)." : "Este navegador no transcribe en vivo: se grabará el audio."}</span>
+          <button type="button" class="btn btn-voz" id="voz-grabar" ${VOZ_LOCAL ? "" : "disabled"}>${icono("microfono")}<span>Empezar a escuchar</span></button>
+          <span class="voz-estado" id="voz-estado" aria-live="polite">${VOZ_LOCAL ? "Dictado en el dispositivo." : "Dictado local no disponible. Escribe, pega el texto o usa el ejemplo."}</span>
         </div>
         <label class="voz-etiqueta" for="voz-texto">Lo que se dijo en la llamada <span class="tenue">(puedes corregirlo o pegarlo)</span></label>
         <textarea id="voz-texto" rows="6" maxlength="8000" placeholder="La transcripción aparece aquí mientras hablan…"></textarea>
@@ -47,7 +45,7 @@ function abrirDictado(f, recargar) {
           <button type="button" class="btn btn-suave btn-sm" id="voz-ejemplo">Usar llamada de ejemplo</button>
           <button type="button" class="btn btn-primario" id="voz-extraer">${icono("prediccion")}Llenar la bitácora con IA</button>
         </div>
-        <p class="tenue voz-priv">Antes de pasar por la IA se quitan el nombre, el documento y los teléfonos del paciente. La grabación no se guarda.</p>
+        <p class="tenue voz-priv">El audio queda en el dispositivo. La API propone los campos a partir del texto y retira los identificadores conocidos de la ficha.</p>
       </section>
 
       <form class="voz-paso oculto" id="voz-2" novalidate>
@@ -81,7 +79,7 @@ function abrirDictado(f, recargar) {
   };
 
   $m("#voz-ejemplo").addEventListener("click", () => { $m("#voz-texto").value = vozEjemplo(f); $m("#voz-texto").focus(); });
-  $m("#voz-grabar").addEventListener("click", () => (VOZ.grabando ? vozDetener() : vozEmpezar(fondo, r.id)));
+  $m("#voz-grabar").addEventListener("click", () => (VOZ.grabando ? vozDetener() : vozEmpezar(fondo)));
   $m("#voz-volver").addEventListener("click", () => paso(1));
 
   $m("#voz-extraer").addEventListener("click", async () => {
@@ -152,68 +150,43 @@ function vozBoton(fondo, grabando, texto) {
   if (texto) $("#voz-estado", fondo).textContent = texto;
 }
 
-function vozEmpezar(fondo, remisionId) {
+function vozEmpezar(fondo) {
+  if (!VOZ_LOCAL) return;
   const area = $("#voz-texto", fondo);
-  if (VOZ_SR) {
-    const sr = new VOZ_SR();
-    sr.lang = "es-CO"; sr.continuous = true; sr.interimResults = true;
-    let base = area.value ? area.value.trim() + " " : "";
-    sr.onresult = (ev) => {
-      let final = "", parcial = "";
-      for (let i = ev.resultIndex; i < ev.results.length; i++) {
-        const t = ev.results[i][0].transcript;
-        if (ev.results[i].isFinal) final += t + ". "; else parcial += t;
-      }
-      base += final;
-      area.value = base + parcial;
-    };
-    sr.onerror = (ev) => {
-      const motivo = { "not-allowed": "No diste permiso al micrófono.", "network": "Tu navegador no permite el dictado (Brave lo bloquea): usa Chrome o Edge, o pega el texto.",
-        "no-speech": "No se escuchó nada. Acerca el altavoz al micrófono." }[ev.error] || `Error del dictado: ${ev.error}`;
-      vozBoton(fondo, false, motivo);
-      if (ev.error === "network") vozGrabarAudio(fondo, remisionId);
-    };
-    sr.onend = () => { if (VOZ.grabando && VOZ.reconocedor === sr) { try { sr.start(); } catch { vozBoton(fondo, false); } } };
-    VOZ.reconocedor = sr;
-    try { sr.start(); vozBoton(fondo, true, "Escuchando… habla normal, el altavoz cerca del micrófono."); }
-    catch { vozGrabarAudio(fondo, remisionId); }
-  } else {
-    vozGrabarAudio(fondo, remisionId);
-  }
-}
-
-async function vozGrabarAudio(fondo, remisionId) {
-  if (!navigator.mediaDevices || !window.MediaRecorder) { vozBoton(fondo, false, "Este navegador no puede grabar: pega el texto o usa el ejemplo."); return; }
-  try {
-    const flujo = await navigator.mediaDevices.getUserMedia({ audio: true });
-    VOZ.trozos = [];
-    const rec = new MediaRecorder(flujo);
-    rec.ondataavailable = (e) => { if (e.data.size) VOZ.trozos.push(e.data); };
-    rec.onstop = async () => {
-      flujo.getTracks().forEach(t => t.stop());
-      const audio = new Blob(VOZ.trozos, { type: rec.mimeType || "audio/webm" });
-      vozBoton(fondo, false, "Transcribiendo el audio en el servidor…");
-      const datos = new FormData();
-      datos.append("audio", audio, "llamada.webm");
-      datos.append("remision_id", remisionId);
-      try {
-        const t = await API.subir("/bitacora/voz/transcribir", datos);
-        const area = $("#voz-texto", fondo);
-        if (area) area.value = ((area.value || "") + " " + t.texto).trim();
-        vozBoton(fondo, false, "Transcripción lista. Revísala y pulsa «Llenar la bitácora con IA».");
-      } catch (e) { vozBoton(fondo, false, e.message); }
-    };
-    VOZ.grabador = rec;
-    rec.start();
-    vozBoton(fondo, true, "Grabando el audio de la llamada… pulsa Detener al terminar.");
-  } catch { vozBoton(fondo, false, "No diste permiso al micrófono."); }
+  const sr = new VOZ_SR();
+  sr.processLocally = true;
+  sr.lang = "es-CO";
+  sr.continuous = true;
+  sr.interimResults = true;
+  let base = area.value ? area.value.trim() + " " : "";
+  sr.onresult = (ev) => {
+    if (!fondo.isConnected || VOZ.reconocedor !== sr) return;
+    let final = "", parcial = "";
+    for (let i = ev.resultIndex; i < ev.results.length; i++) {
+      const t = ev.results[i][0].transcript;
+      if (ev.results[i].isFinal) final += t + ". "; else parcial += t;
+    }
+    base += final;
+    area.value = base + parcial;
+  };
+  sr.onerror = () => {
+    if (VOZ.reconocedor !== sr) return;
+    VOZ.reconocedor = null;
+    vozBoton(fondo, false, "No se pudo iniciar el dictado local. Activa el paquete de español en el navegador o pega el texto.");
+  };
+  sr.onend = () => {
+    if (VOZ.reconocedor !== sr) return;
+    VOZ.reconocedor = null;
+    vozBoton(fondo, false, "Dictado detenido. Revisa la transcripción.");
+  };
+  VOZ.reconocedor = sr;
+  try { sr.start(); vozBoton(fondo, true, "Escuchando en el dispositivo…"); }
+  catch { sr.onerror(); }
 }
 
 function vozDetener() {
   const sr = VOZ.reconocedor; VOZ.reconocedor = null;
   if (sr) { try { sr.stop(); } catch { /* ya estaba detenido */ } }
-  if (VOZ.grabador && VOZ.grabador.state === "recording") VOZ.grabador.stop();
-  VOZ.grabador = null;
   VOZ.grabando = false;
   $$(".modal-voz #voz-grabar").forEach(b => { b.classList.remove("grabando"); $("span", b).textContent = "Empezar a escuchar"; });
 }

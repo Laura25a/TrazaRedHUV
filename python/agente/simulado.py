@@ -184,7 +184,7 @@ class ModeloSimulado(BaseChatModel):
         if remitir:
             usar("proponer_remision", {})        # los argumentos se completan con lo que devuelvan las otras
         if re.search(r"recuerda que|prefiero", t):
-            usar("guardar_preferencia", {"preferencia": texto[:160]})
+            usar("guardar_preferencia", {"preferencia": "detallada" if "detallad" in t else "lista" if "lista" in t else "breve"})
         return plan
 
     @staticmethod
