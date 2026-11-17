@@ -234,6 +234,8 @@ class Verificador:
                 self.ids["agente_payload"] = datos["invocaciones"][0]
             if nombre == "token_sistema" and datos.get("access_token"):
                 self.tokens["sistema"] = datos["access_token"]
+            if nombre == "fhir_paciente_sync" and datos.get("id") and not self.entorno.get("TRAZARED_TEST_FHIR_PATIENT_ID"):
+                self.datos["fhir_patient_id"] = datos["id"]
         if isinstance(datos, list) and datos:
             destino = {"notificaciones": "notif_leer", "alertas": "alerta_reconocer",
                        "bloqueos": "bloqueo_levantar", "interop_recibidas": "interop_responder"}.get(nombre)

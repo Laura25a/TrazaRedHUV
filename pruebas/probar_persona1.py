@@ -66,7 +66,7 @@ for rol, (correo, variable) in cuentas.items():
     roles_vistos.add(rol_me)
     revisar(f"entra {correo} y /me dice rol={rol}", rol_me == rol, rol_me)
 revisar("hay 5 roles distintos", len(roles_vistos - {None}) >= 5, roles_vistos)
-nuevo = {"nombre": "x", "correo": f"x.{secrets.token_hex(3)}@huv.gov.co", "contrasena": "Clave123", "rol": "admin"}
+nuevo = {"nombre": "x", "correo": f"x.{secrets.token_hex(3)}@huv.gov.co", "contrasena": "Clave-Prueba-2026!", "rol": "admin"}
 revisar("un médico NO puede crear usuarios (403)",
         requests.post(f"{API}/usuarios", headers=medico, json=nuevo).status_code == 403)
 revisar("sin token nadie se crea una cuenta (401)",
@@ -100,16 +100,16 @@ revisar("el admin restaura (200)",
 print("\n6. Bloqueo al 3er intento")
 correo = f"prueba.{secrets.token_hex(3)}@huv.gov.co"
 requests.post(f"{API}/usuarios", headers=admin, json={"nombre": "Prueba bloqueo", "correo": correo,
-                                                      "contrasena": "Clave123", "rol": "medico"})
+                                                      "contrasena": "Clave-Prueba-2026!", "rol": "medico"})
 codigos = [requests.post(f"{API}/login", data={"username": correo, "password": "mala"}).status_code for _ in range(3)]
 revisar("3 claves malas: 401, 401, 423", codigos == [401, 401, 423], codigos)
 revisar("la clave correcta también se rechaza",
-        requests.post(f"{API}/login", data={"username": correo, "password": "Clave123"}).status_code == 423)
+        requests.post(f"{API}/login", data={"username": correo, "password": "Clave-Prueba-2026!"}).status_code == 423)
 usuario = next(u for u in requests.get(f"{API}/usuarios", headers=admin).json() if u["correo"] == correo)
 revisar("el admin desbloquea",
         requests.post(f"{API}/usuarios/{usuario['id']}/desbloquear", headers=admin).status_code == 200)
 revisar("después entra con la clave correcta",
-        requests.post(f"{API}/login", data={"username": correo, "password": "Clave123"}).status_code == 200)
+        requests.post(f"{API}/login", data={"username": correo, "password": "Clave-Prueba-2026!"}).status_code == 200)
 acciones = {a["accion"] for a in requests.get(f"{API}/auditoria?usuario_id={usuario['id']}", headers=admin).json()}
 revisar("bloqueo y desbloqueo en la auditoría", {"bloqueo_usuario"} <= acciones, acciones)
 
@@ -230,7 +230,7 @@ print("\n10. R13 · Auditoría: quién hizo qué, sobre qué y cuándo")
 sufijo = secrets.token_hex(3)
 cuenta = requests.post(f"{API}/usuarios", headers=admin, json={
     "nombre": "Prueba auditoria (se puede borrar)", "correo": f"auditoria.{sufijo}@huv.gov.co",
-    "contrasena": "Clave123", "rol": "contable"})
+    "contrasena": "Clave-Prueba-2026!", "rol": "contable"})
 pac = requests.post(f"{API}/pacientes", headers=medico, json={
     "nombre": "Paciente auditoria", "documento": f"98{sufijo}", "genero": "M", "eps": "Coosalud"})
 rem_nueva = requests.post(f"{API}/remisiones", headers=medico, json={

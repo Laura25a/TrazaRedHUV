@@ -290,9 +290,22 @@ rutas:
     body: {nota: "Revisada por el tester"}
 
   # ── R21 · FHIR reactivo ────────────────────────────────────────────────────
+  # Proyecto final (STRIDE T6 e I6): HAPI ya no se publica en internet porque no
+  # tiene autenticación y guarda nombre y documento. La puerta FHIR es la API:
+  # mismas peticiones FHIR (Observation, Patient?identifier=), con JWT, rol clínico
+  # y auditoría. La Observation se escribe en HAPI y su Subscription dispara R21.
+  fhir_paciente_sync:
+    metodo: GET
+    path: /fhir/Patient
+    rol_requerido: ["admin", "medico", "especialista"]
+    query: {identifier: "urn:trazared:documento|{documento_paciente}"}
+    campos: ["resourceType", "id", "identifier"]
+
   fhir_observation:
     metodo: POST
-    path_fhir: /Observation
+    path: /fhir/Observation
+    rol_requerido: ["admin", "medico"]
+    campos: ["resourceType", "id"]
     body:
       resourceType: "Observation"
       status: "final"
@@ -307,12 +320,6 @@ rutas:
         value: 250
         unit: "mg/dL"
         system: "http://unitsofmeasure.org"
-
-  fhir_paciente_sync:
-    metodo: GET
-    path_fhir: /Patient
-    query: {identifier: "urn:trazared:documento|{documento_paciente}"}
-    campos: ["resourceType", "id", "identifier"]
 
   # ── R10 · Alias para simular análisis de IA desde el frontend ──────────────
   ia_simular:
@@ -412,10 +419,11 @@ rutas:
     metodo: POST
     path: /registro/ia/entrenar
     rol_requerido: ["admin"]
+  # Solo el paciente: cada quien ve el estado de SU remisión (los demás roles usan el libro).
   registro_mi_seguimiento:
     metodo: GET
     path: /registro/mi-seguimiento
-    rol_requerido: ["admin", "medico", "especialista", "contable", "paciente", "eps"]
+    rol_requerido: ["paciente"]
 
 # =============================================================================
 # PROYECTO FINAL · R23 a R33

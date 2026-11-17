@@ -201,10 +201,15 @@ def registrar_incidente(db, tipo: str, usuario_id: Optional[int], ip: Optional[s
     cur.execute("""INSERT INTO incidentes_seguridad (tipo, usuario_id, ip, origen, detalle)
                    VALUES (%s, %s, %s, %s, %s) RETURNING id;""", (tipo, usuario_id, ip, origen, (detalle or "")[:300]))
     incidente_id = cur.fetchone()[0]
+    # Cuentan los intentos de la ventana posteriores al último bloqueo levantado por un
+    # admin: levantar un bloqueo es empezar de cero, no quedar a un intento del siguiente.
     cur.execute("""SELECT COUNT(*) FROM incidentes_seguridad
                    WHERE tipo = %s AND creado_en > now() - make_interval(mins => %s)
-                     AND ((%s::int IS NOT NULL AND usuario_id = %s) OR (%s::text IS NOT NULL AND ip = %s));""",
-                (tipo, GUARDIA_VENTANA_MIN, usuario_id, usuario_id, ip, ip))
+                     AND ((%s::int IS NOT NULL AND usuario_id = %s) OR (%s::text IS NOT NULL AND ip = %s))
+                     AND creado_en > COALESCE((SELECT max(levantado_en) FROM bloqueos_temporales
+                                                WHERE (tipo = 'usuario' AND valor = %s::text)
+                                                   OR (tipo = 'ip' AND valor = %s::text)), '-infinity');""",
+                (tipo, GUARDIA_VENTANA_MIN, usuario_id, usuario_id, ip, ip, usuario_id, ip))
     intentos = cur.fetchone()[0]
     bloqueado = False
     if bloquear and intentos >= GUARDIA_MAX:
@@ -243,7 +248,12 @@ def guardia(db, usuario: dict, ip: str, texto: str, origen: str) -> Optional[dic
     fragmento = detectar_inyeccion(texto)
     if not fragmento:
         return None
-    return registrar_incidente(db, "inyeccion_directa", usuario["id"], ip, origen, fragmento)
+    incidente = registrar_incidente(db, "inyeccion_directa", usuario["id"], ip, origen, fragmento)
+    if incidente["bloqueado"]:
+        # El intento que completa GUARDIA_MAX ya recibe el 403 (contrato: «al tercer
+        # intento: 403»). El incidente y el bloqueo quedaron guardados antes de responder.
+        exigir_sin_bloqueo(db, usuario, ip)
+    return incidente
 
 
 def registrar_inyeccion_indirecta(usuario_id: Optional[int], origen: str, detalle: str) -> None:
@@ -377,16 +387,25 @@ def listar_bloqueos(todos: bool = Query(False), db=Depends(get_db)):
 
 @router.post("/seguridad/bloqueos/{bloqueo_id}/levantar")
 def levantar_bloqueo(bloqueo_id: int, db=Depends(get_db), admin=Depends(requiere_rol("admin"))):
+    # Un incidente bloquea a la vez la cuenta y la IP (dos filas con la misma hora y
+    # motivo). Levantar uno levanta también su pareja: si no, la cuenta seguía
+    # bloqueada por la IP (o al revés) hasta que vencieran los 15 minutos.
     cur = db.cursor()
-    cur.execute("""UPDATE bloqueos_temporales SET levantado_por = %s, levantado_en = now()
-                   WHERE id = %s AND levantado_en IS NULL RETURNING tipo, valor;""", (admin["id"], bloqueo_id))
-    fila = cur.fetchone()
+    cur.execute("""UPDATE bloqueos_temporales b SET levantado_por = %s, levantado_en = now()
+                   FROM bloqueos_temporales o
+                   WHERE o.id = %s AND b.levantado_en IS NULL
+                     AND (b.id = o.id OR (b.creado_en = o.creado_en AND b.motivo = o.motivo))
+                   RETURNING b.id, b.tipo, b.valor;""", (admin["id"], bloqueo_id))
+    filas = cur.fetchall()
     cur.close()
-    if fila is None:
+    if not any(f[0] == bloqueo_id for f in filas):
+        db.rollback()
         raise HTTPException(status_code=404, detail="Bloqueo no encontrado o ya levantado")
-    registrar_auditoria(db, admin["id"], "bloqueo_levantado", "bloqueos_temporales", bloqueo_id,
-                        f"{fila[0]}={fila[1]}")
-    return {"levantado": True}
+    for b_id, tipo, valor in filas:
+        registrar_auditoria(db, admin["id"], "bloqueo_levantado", "bloqueos_temporales", b_id,
+                            f"{tipo}={valor}", confirmar=False)
+    db.commit()
+    return {"levantado": True, "bloqueos": [{"id": f[0], "tipo": f[1]} for f in filas]}
 
 
 @router.post("/seguridad/cifrado/rotar")

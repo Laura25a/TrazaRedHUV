@@ -659,6 +659,77 @@ def simular_observacion(body: SimularObservacionIn, db=Depends(get_db),
         "mensaje": "Observation publicada; la Subscription notificará al médico.",
     }
 
+
+# ── R15 / R21 · Entrada FHIR autenticada (reemplaza el acceso público a HAPI) ──
+# Desde el proyecto final nginx ya no publica HAPI (docs/STRIDE.md, filas T6 e I6):
+# HAPI guarda nombre y documento y no tiene autenticación propia. Estas dos rutas
+# son la puerta FHIR hacia afuera: hablan FHIR (Patient, Observation) pero exigen
+# JWT, rol clínico y que el paciente esté a cargo de quien pregunta; además dejan
+# auditoría. La Observation se escribe en HAPI y su Subscription dispara R21 igual
+# que antes (rest-hook → /fhir/observacion → notificación y alerta en vivo).
+PATRON_IDENTIFICADOR = "urn:trazared:documento|"
+
+
+def _patient_minimo(fhir_id: str, documento: str) -> dict:
+    """Patient minimizado (Ley 1581/2012): identificador, sin nombre ni contacto."""
+    return {"resourceType": "Patient", "id": fhir_id,
+            "identifier": [{"system": "urn:trazared:documento", "value": documento}]}
+
+
+@app.get("/fhir/Patient", tags=["R21 FHIR reactivo"])
+def fhir_buscar_paciente(identifier: str = Query(..., max_length=80), db=Depends(get_db),
+                         usuario=Depends(requiere_rol(*ROLES_CLINICOS))):
+    """R15: busca (y si falta, sincroniza) el Patient de HAPI por documento.
+
+    `identifier=urn:trazared:documento|<documento>`. Devuelve el Patient minimizado.
+    """
+    if not identifier.startswith(PATRON_IDENTIFICADOR) or not identifier[len(PATRON_IDENTIFICADOR):].strip():
+        raise HTTPException(422, f"identifier debe ser {PATRON_IDENTIFICADOR}<documento>")
+    documento = identifier[len(PATRON_IDENTIFICADOR):].strip()
+    with db.cursor() as cur:
+        cur.execute("SELECT id FROM pacientes WHERE documento_idx = %s;", (cripto.indice_ciego(documento),))
+        fila = cur.fetchone()
+    if fila is None:
+        raise HTTPException(404, "Paciente no encontrado")
+    exigir_asignacion_clinica(db, fila[0], usuario)
+    try:
+        fhir_id = fhir_sync.obtener_o_crear_paciente_fhir(documento)
+    except Exception as e:
+        raise HTTPException(502, f"No se pudo consultar HAPI FHIR: {type(e).__name__}")
+    registrar_auditoria(db, usuario["id"], "fhir_patient_consultado", "pacientes", fila[0],
+                        f"Patient/{fhir_id} por identificador")
+    return _patient_minimo(fhir_id, documento)
+
+
+@app.post("/fhir/Observation", tags=["R21 FHIR reactivo"], status_code=201)
+def fhir_crear_observacion(observacion: ObservacionFHIRIn, db=Depends(get_db),
+                           usuario=Depends(requiere_rol("admin", "medico"))):
+    """R21: crea en HAPI una Observation de glucosa (LOINC 2339-0).
+
+    HAPI aplica la Subscription y avisa a /fhir/observacion: el médico recibe la
+    notificación en vivo y, si el valor es crítico, la alerta (R20).
+    """
+    problema = _validar_observacion_glucosa(observacion)
+    if problema:
+        raise HTTPException(422, problema)
+    referencia = observacion.subject["reference"]
+    paciente_id = fhir_sync.paciente_id_por_fhir_reference(referencia)
+    if paciente_id is None:
+        raise HTTPException(404, "El Patient referido no corresponde a un paciente del sistema")
+    exigir_asignacion_clinica(db, paciente_id, usuario)
+    recurso = observacion.model_dump(exclude_none=True)
+    recurso.pop("id", None)
+    recurso["status"] = recurso.get("status") or "final"
+    try:
+        creado = fhir_sync.crear_recurso_fhir(recurso)
+    except Exception as e:
+        raise HTTPException(502, f"No se pudo publicar en HAPI FHIR: {type(e).__name__}")
+    registrar_auditoria(db, usuario["id"], "fhir_observation_creada", "pacientes", paciente_id,
+                        f"Observation/{creado.get('id')} glucosa={recurso['valueQuantity']['value']} {referencia}")
+    return {"resourceType": "Observation", "id": creado.get("id"), "status": recurso["status"],
+            "code": recurso["code"], "subject": {"reference": referencia},
+            "valueQuantity": recurso["valueQuantity"]}
+
 # ----------------------------------------------------------------------------
 # SEMANA 8 — Interfaz gráfica (frontend/) servida por la misma API
 # ----------------------------------------------------------------------------

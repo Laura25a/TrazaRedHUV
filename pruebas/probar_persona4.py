@@ -76,7 +76,9 @@ class EscuchaSSE:
 
     def _correr(self, token):
         try:
-            r = requests.get(f"{API}/eventos/stream?token={token}", stream=True, timeout=(5, 120))
+            # Desde el proyecto final el token va en la cabecera (en la URL quedaba en los logs).
+            r = requests.get(f"{API}/eventos/stream", headers={"Authorization": f"Bearer {token}"},
+                             stream=True, timeout=(5, 120))
             self.codigo = r.status_code
             for linea in r.iter_lines(decode_unicode=True):
                 if linea and linea.startswith("data: "):
@@ -99,7 +101,7 @@ class EscuchaSSE:
 
 # ── 1. Canal en tiempo real (R17) ──────────────────────────────────────────
 print("1. Canal en tiempo real (R17)")
-r = requests.get(f"{API}/eventos/stream?token=invalido", stream=True, timeout=5)
+r = requests.get(f"{API}/eventos/stream", headers={"Authorization": "Bearer invalido"}, stream=True, timeout=5)
 revisar("sin token válido, el canal responde 401 o 403", r.status_code in (401, 403), r.status_code)
 
 admin = entrar("admin@trazared.huv", ENV["DEMO_ADMIN_PASSWORD"])
@@ -116,7 +118,7 @@ revisar("el canal conecta y saluda con el evento 'conectado'", conectado is not 
 print("\n2. Flujos automáticos (R19) en vivo")
 requests.post(f"{API}/usuarios", headers=admin, json={
     "nombre": "Cuenta Bloqueo P4", "correo": "bloqueo.p4@huv.gov.co",
-    "contrasena": ENV.get("DEMO_BLOQUEO_PASSWORD", "bloqueo123"), "rol": "medico"})
+    "contrasena": ENV.get("DEMO_BLOQUEO_PASSWORD", "Bloqueo-P4-2026!"), "rol": "medico"})
 asegurar_desbloqueado(admin, "bloqueo.p4@huv.gov.co")
 codigos = [requests.post(f"{API}/login", data={"username": "bloqueo.p4@huv.gov.co", "password": "clave-mala"}).status_code
            for _ in range(3)]

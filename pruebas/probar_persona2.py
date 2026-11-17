@@ -93,7 +93,8 @@ class EscuchaSSE:
 
     def _correr(self, token):
         try:
-            r = requests.get(f"{API}/eventos/stream?token={token}", stream=True, timeout=(5, 120))
+            r = requests.get(f"{API}/eventos/stream", headers={"Authorization": f"Bearer {token}"},
+                             stream=True, timeout=(5, 120))
             for linea in r.iter_lines(decode_unicode=True):
                 if linea and linea.startswith("data: "):
                     self.eventos.put(json.loads(linea[6:]))

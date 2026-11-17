@@ -182,7 +182,7 @@ su evidencia y su riesgo residual está en [`docs/STRIDE.md`](docs/STRIDE.md).
 | R10 Aprobación clínica de la IA | Todo lo que produce la IA entra como borrador pendiente | Res. 1995/1999; Res. 3100/2019 |
 | R12 Seudonimización | Al modelo solo le llega un alias y variables clínicas | Ley 1581/2012 art. 4 b y f (finalidad y circulación restringida) |
 | R13 Auditoría | Quién, qué, sobre qué y cuándo | Res. 1995/1999; Res. 3100/2019 |
-| R15, R21 FHIR | Recursos R4 con LOINC, SNOMED y UCUM; suscripción reactiva | Ley 2015/2020; Res. 866/2021 |
+| R15, R21 FHIR | Recursos R4 con LOINC, SNOMED y UCUM; suscripción reactiva; HAPI solo en la red interna y puerta FHIR por la API con JWT, rol y Patient sin nombre | Ley 2015/2020; Res. 866/2021; Ley 1581/2012 art. 4 g |
 | R17–R20 Sistema reactivo | Canal por destinatario; eventos clínicos nunca a paciente ni contable | Ley 1581/2012 art. 4 f; Res. 3100/2019 |
 | **R23** Agente RAG con fuentes | Respuestas con documento y fragmento citados; abstención sin soporte | Res. 1995/1999 (veracidad del registro); Res. 3100/2019 |
 | **R24** Herramientas por rol | Paciente fijado por el sistema, rol revisado en cada herramienta, payload al LLM registrado y seudonimizado | Ley 1581/2012 art. 4 b, f y g |

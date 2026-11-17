@@ -252,6 +252,15 @@ La información llega sola a quien la necesita, sin recargar la página:
 
 El catálogo de eventos está en [`docs/EVENTOS.md`](docs/EVENTOS.md).
 
+**FHIR reactivo (R21) por la puerta autenticada.** HAPI no se publica en internet (no tiene
+autenticación propia y guarda nombre y documento; STRIDE T6 e I6). Desde afuera se habla FHIR
+con la API, con JWT y rol clínico: `GET /api/fhir/Patient?identifier=urn:trazared:documento|<doc>`
+devuelve el `Patient` sincronizado **sin nombre ni contacto**, y `POST /api/fhir/Observation`
+(admin o médico) escribe en HAPI una Observation de glucosa (LOINC 2339-0). La Subscription de
+HAPI avisa a `/fhir/observacion` con `X-Webhook-Secret` y el médico recibe el aviso en vivo; si
+el valor es crítico, la alerta queda activa (R20). Las dos rutas exigen que el paciente esté a
+cargo de quien pregunta y dejan auditoría.
+
 ```mermaid
 flowchart TD
     A[3er intento fallido] -->|usuario_bloqueado| P{{publicar evento}}
