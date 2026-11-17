@@ -452,7 +452,18 @@ function tabPaciente(cont, { r, p }) {
               ${icono("trazo")} Simular Observation FHIR (R21)
             </button>` : ""}
         </div>` : ""}
+      ${puedeDescargar ? '<div id="historia-rag-aprobado"></div>' : ""}
     </div>`;
+
+  const panelRag = $("#historia-rag-aprobado", cont);
+  if (panelRag) API.get(`/pacientes/${p.id}/historia`).then(h => {
+    if (!panelRag.isConnected || !h.resultados_rag?.length) return;
+    panelRag.innerHTML = `<h4>Consultas RAG aprobadas</h4>${h.resultados_rag.map(r =>
+      `<details class="ast-pasos"><summary>Consulta #${r.id} · ${esc(fechaCorta(r.revisado_en))}</summary>
+        <p>${astFormato(r.respuesta)}</p>${astFuentes(r.fuentes)}</details>`).join("")}`;
+  }).catch(e => {
+    if (panelRag.isConnected) panelRag.textContent = `No se pudo cargar el historial RAG. ${e.message}`;
+  });
 
   const btnPDF = $("#btn-historia-pdf", cont);
   if (btnPDF) btnPDF.addEventListener("click", () => descargarHistoriaPDF(p.id, btnPDF));

@@ -152,6 +152,24 @@ ALTER TABLE reportes_ia ADD COLUMN IF NOT EXISTS revisado_por INTEGER REFERENCES
 ALTER TABLE reportes_ia ADD COLUMN IF NOT EXISTS revisado_en TIMESTAMP;
 ALTER TABLE reportes_ia ADD COLUMN IF NOT EXISTS creado_en TIMESTAMP NOT NULL DEFAULT now();
 CREATE INDEX IF NOT EXISTS idx_reportes_ia_paciente ON reportes_ia (paciente_id, estado);
+
+CREATE TABLE IF NOT EXISTS revisiones_rag (
+    id SERIAL PRIMARY KEY,
+    paciente_id INTEGER NOT NULL REFERENCES pacientes(id),
+    creado_por INTEGER NOT NULL REFERENCES usuarios(id),
+    creado_en TIMESTAMPTZ NOT NULL DEFAULT now(),
+    respuesta TEXT NOT NULL,
+    fuentes JSONB NOT NULL CHECK (jsonb_typeof(fuentes) = 'array' AND fuentes <> '[]'::jsonb),
+    revision_corpus TEXT NOT NULL,
+    estado TEXT NOT NULL DEFAULT 'pendiente' CHECK (estado IN ('pendiente', 'aprobado', 'rechazado')),
+    revisado_por INTEGER REFERENCES usuarios(id),
+    revisado_en TIMESTAMPTZ,
+    motivo TEXT,
+    CHECK ((estado = 'pendiente' AND revisado_por IS NULL AND revisado_en IS NULL)
+        OR (estado <> 'pendiente' AND revisado_por IS NOT NULL AND revisado_en IS NOT NULL)),
+    CHECK (estado <> 'rechazado' OR nullif(btrim(motivo), '') IS NOT NULL)
+);
+CREATE INDEX IF NOT EXISTS idx_revisiones_rag_paciente ON revisiones_rag (paciente_id, estado, id DESC);
 -- ============================================================================
 -- CORTE 2 — R18/R20: notificaciones y alertas críticas (Persona 4, sistema reactivo)
 -- ============================================================================

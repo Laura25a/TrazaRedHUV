@@ -5,6 +5,7 @@ Genera un PDF con los datos del paciente, sus observaciones y los reportes
 de IA aprobados. Solo admin, médico y especialista pueden descargarla.
 """
 import io
+from xml.sax.saxutils import escape
 
 import cripto
 import psycopg2.extras
@@ -18,6 +19,7 @@ from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, Tabl
 
 from auth import get_db, get_usuario_actual, registrar_auditoria, ROLES_CLINICOS, requiere_rol
 
+from rag.router import consultar_revisiones
 from validaciones import exigir_asignacion_clinica
 
 router = APIRouter(tags=["Historia clínica"])
@@ -46,7 +48,7 @@ def _obtener_reportes_ia(db, paciente_id: int) -> list:
         return []
 
 
-def _crear_pdf(paciente: dict, observaciones: list, reportes_ia: list) -> bytes:
+def _crear_pdf(paciente: dict, observaciones: list, reportes_ia: list, resultados_rag: list) -> bytes:
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=A4,
                             leftMargin=2*cm, rightMargin=2*cm,
@@ -116,6 +118,16 @@ def _crear_pdf(paciente: dict, observaciones: list, reportes_ia: list) -> bytes:
     else:
         story.append(Paragraph("Sin reportes de IA aprobados.", styles["Normal"]))
 
+    if resultados_rag:
+        story.append(Paragraph("Consultas RAG aprobadas", styles["Heading2"]))
+        for resultado in resultados_rag:
+            story.append(Paragraph(
+                f"Consulta #{resultado['id']} · Revisor #{resultado['revisado_por']} · "
+                f"{resultado['revisado_en'].isoformat()}", styles["Normal"]))
+            for fuente in resultado["fuentes"]:
+                texto = f"[{fuente['n']}] {fuente['texto']} — {fuente['fuente']} ({fuente['chunk_id']})"
+                story.append(Paragraph(escape(texto), styles["BodyText"]))
+
     doc.build(story)
     pdf_bytes = buffer.getvalue()
     buffer.close()
@@ -154,7 +166,8 @@ def historia_json(paciente_id: int, db=Depends(get_db),
                         paciente_id, "historia clínica (JSON)")
 
     return {"paciente": paciente, "observaciones": observaciones,
-            "reportes_ia": reportes_ia}
+            "reportes_ia": reportes_ia,
+            "resultados_rag": consultar_revisiones(db, paciente_id, "aprobado")}
 
 
 @router.get("/pacientes/{paciente_id}/historia.pdf")
@@ -185,7 +198,8 @@ def historia_pdf(paciente_id: int, db=Depends(get_db),
     registrar_auditoria(db, usuario["id"], "historia_pdf_descargada", "pacientes",
                         paciente_id, "historia clínica (PDF)")
 
-    pdf_bytes = _crear_pdf(paciente, observaciones, reportes_ia)
+    pdf_bytes = _crear_pdf(paciente, observaciones, reportes_ia,
+                           consultar_revisiones(db, paciente_id, "aprobado"))
 
     nombre_archivo = f"historia_{paciente['documento']}.pdf"
     return StreamingResponse(

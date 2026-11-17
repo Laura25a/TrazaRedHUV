@@ -1,11 +1,11 @@
 # Evaluación de la recuperación del RAG
 
-Generado con `python -m rag.evaluacion` · embeddings en modo **lsa** (`lsa-tfidf-svd39`) · 26 preguntas con documento esperado.
+Generado con `python -m rag.evaluacion` · embeddings en modo **lsa** (`lsa-tfidf-svd43`) · 26 preguntas con documento esperado.
 
 | Método | Recall@1 | Recall@3 | MRR |
 |---|---|---|---|
 | BM25 | 0.85 | 0.96 | 0.91 |
-| Denso | 0.85 | 0.96 | 0.91 |
+| Denso | 0.81 | 0.96 | 0.89 |
 | Híbrido (RRF) | 0.85 | 0.96 | 0.91 |
 | Híbrido + multi-consulta | 0.92 | 0.96 | 0.94 |
 

@@ -756,14 +756,14 @@ def test_limites_del_agente_y_del_rag(entorno, monkeypatch):
         assert opciones["timeout"] == 20
         assert "instrucción interna" not in str(opciones["json"])
         return httpx.Response(200, request=httpx.Request("POST", url), json={
-            "choices": [{"message": {"content": "<think>detalle técnico</think>Respuesta [1]"}}],
+            "choices": [{"message": {"content": "<think>detalle técnico</think>[1]"}}],
         })
 
     fragmentos = [{"fuente": "Guía sintética", "texto": "a" * 1200 + "instrucción interna"}]
     monkeypatch.setenv("GROQ_API_KEY", "solo-prueba-sin-red")
     monkeypatch.setattr(httpx, "post", proveedor)
     mensajes = motor.construir_mensajes("¿Qué dice la guía?", fragmentos)
-    assert motor.generar(mensajes, fragmentos) == ("Respuesta [1]", "llm")
+    assert motor.generar(mensajes, fragmentos) == ([1], "llm")
 
 
 def test_taller_agente_imc_grasa_y_formatos(monkeypatch):
@@ -782,3 +782,208 @@ def test_taller_agente_imc_grasa_y_formatos(monkeypatch):
         Medidas(peso_kg=95, altura_m=0, grasa_pct=24)
     with pytest.raises(ValidationError):
         calcular_masa_grasa.invoke({"peso_kg": 95, "grasa_pct": 101})
+
+
+def test_rag_citas_verificadas_y_evaluacion(entorno, monkeypatch):
+    import httpx
+    from rag import evaluacion, evaluacion_generacion, motor
+
+    pregunta = "¿En cuánto tiempo se debe atender un triage nivel II en Colombia?"
+    monkeypatch.setenv("GROQ_API_KEY", "solo-prueba-sin-red")
+    contenido = "[2]"
+
+    def proveedor(url, **opciones):
+        return httpx.Response(200, request=httpx.Request("POST", url), json={
+            "choices": [{"message": {"content": contenido}}],
+        })
+
+    monkeypatch.setattr(httpx, "post", proveedor)
+    resultado = motor.responder(pregunta, None)
+    assert resultado["modo"] == "llm"
+    fuente, = resultado["fuentes"]
+    assert fuente["n"] == 1
+    assert fuente["texto"] == resultado["contextos_recuperados"][1]
+    assert fuente["url"].startswith("https://www.minsalud.gov.co/")
+    assert resultado["respuesta"] == f"{fuente['texto']} [1]"
+    assert "treinta minutos" in resultado["respuesta"]
+
+    for contenido in ("Afirmación inventada [1]", "[4]", "[1, 1]", "[true]", '{"url":"https://pruebas.test"}'):
+        resultado = motor.responder(pregunta, None)
+        assert resultado["modo"] == "extractivo"
+        assert resultado["respuesta"] == "\n\n".join(
+            f"{f['texto']} [{f['n']}]" for f in resultado["fuentes"]
+        )
+
+    contenido = "[]"
+    resultado = motor.responder(pregunta, None)
+    assert resultado["modo"] == "abstencion" and resultado["fuentes"] == []
+    filas = evaluacion_generacion.recolectar()
+    triage = next(f for f in filas if f["caso"] == "triage")
+    assert triage["respuesta"] == motor.SIN_EVIDENCIA
+    assert triage["contextos"] and triage["referencia"]
+    assert "abstencion_inesperada" in triage["fallas"]
+
+    monkeypatch.delenv("GROQ_API_KEY")
+    resultado = evaluacion.abstencion()
+    assert resultado["se_abstiene_fuera"] == resultado["total_fuera"]
+    assert resultado["responde_dentro"] == resultado["total_dentro"]
+
+
+def test_rag_pgvector_sincroniza_corpus(entorno, monkeypatch):
+    from rag import motor
+
+    _, _, pg = entorno
+    with closing(psycopg2.connect(pg)) as db, db, db.cursor() as cur:
+        cur.execute("SELECT EXISTS (SELECT 1 FROM pg_available_extensions WHERE name = 'vector');")
+        if not cur.fetchone()[0]:
+            pytest.skip("La prueba del índice requiere la imagen pgvector")
+    monkeypatch.setattr(motor, "PGVECTOR", {})
+    assert motor.preparar_pgvector(pg)["listo"]
+    with closing(psycopg2.connect(pg)) as db, db, db.cursor() as cur:
+        cur.execute("""INSERT INTO rag_chunks
+                       SELECT 'retirado', doc_id, tipo, estado, paciente, fuente, texto, modelo, embedding
+                       FROM rag_chunks WHERE chunk_id = 'G15-0';""")
+        cur.execute("UPDATE rag_chunks SET fuente = 'Edición previa' WHERE chunk_id = 'G15-0';")
+    assert motor.preparar_pgvector(pg)["listo"]
+    with closing(psycopg2.connect(pg)) as db, db, db.cursor() as cur:
+        cur.execute("SELECT chunk_id, fuente FROM rag_chunks WHERE chunk_id IN ('retirado','G15-0');")
+        assert cur.fetchall() == [("G15-0", "OMS y CICR · Atención básica de emergencia")]
+    recuperados = motor.buscar("¿Qué evalúa el método ABCDE de atención básica de emergencia?", None)
+    assert recuperados[0]["chunk_id"] == "G15-0"
+
+
+def test_rag_revision_api_y_navegador(entorno, autorizaciones, monkeypatch):
+    import shutil
+    import subprocess
+    import uvicorn
+    from playwright.sync_api import expect, sync_playwright
+
+    monkeypatch.delenv("GROQ_API_KEY", raising=False)
+    main, api, pg = entorno
+    medico, admin, colega = [autorizaciones[k] for k in ("medico", "auditor", "colega")]
+    pid = comprobar(paciente(api, medico, nombre="Caso sintético RAG"), 201)["id"]
+    comprobar(api.post("/remisiones", json=datos_remision(pid), headers=medico), 201)
+    otro = comprobar(paciente(api, medico, nombre="Otro caso sintético RAG"), 201)["id"]
+    comprobar(api.post("/remisiones", json=datos_remision(otro), headers=medico), 201)
+    pregunta = "¿En cuánto tiempo se debe atender un triage nivel II en Colombia?"
+    datos = {"pregunta": pregunta, "paciente_id": pid, "enviar_a_revision": True}
+    base_paciente = f"/pacientes/{pid}"
+    pendientes = f"{base_paciente}/rag/pendientes"
+    historia = f"{base_paciente}/historia"
+    comprobar(api.get(pendientes, headers=colega), 404)
+    comprobar(api.post("/rag/preguntar", headers=admin, json=datos), 403)
+    comprobar(api.post("/rag/preguntar", headers=medico, json=dict(datos, paciente_id=None)), 422)
+    sin_fuentes = comprobar(api.post("/rag/preguntar", headers=medico,
+                                      json=dict(datos, pregunta="¿Quién ganó el mundial de fútbol de 2014?")), 200)
+    assert sin_fuentes["revision_id"] is None
+    assert comprobar(api.get(pendientes, headers=medico), 200) == []
+
+    with socket.socket() as puerto:
+        puerto.bind(("127.0.0.1", 0))
+        puerto.listen()
+        base = f"http://127.0.0.1:{puerto.getsockname()[1]}"
+        servidor = uvicorn.Server(uvicorn.Config(main.app, lifespan="off", log_level="error"))
+        hilo = threading.Thread(target=servidor.run, kwargs={"sockets": [puerto]}, daemon=True)
+        hilo.start()
+        try:
+            with sync_playwright() as control:
+                navegador = control.chromium.launch()
+                pagina = navegador.new_page()
+                pagina.goto(base + "/app/")
+                pagina.locator("#login-usuario").fill("medico@pruebas.test")
+                pagina.locator("#login-clave").fill(CLAVE_PRUEBA)
+                pagina.locator("#form-login button[type=submit]").click()
+                asistente = pagina.locator('[data-seccion="asistente"]')
+                asistente.click()
+                pagina.get_by_role("button", name="Consulta a guías (RAG)").click()
+                expect(pagina.locator("#ast-enviar-revision")).to_be_hidden()
+                pagina.locator("#ast-pid").fill(str(pid))
+                pagina.locator("#ast-abrir").click()
+                expect(pagina.locator("#ast-pinfo")).to_contain_text("Caso sintético RAG")
+
+                def consultar():
+                    pagina.locator("#ast-enviar-revision").check()
+                    pagina.locator("#ast-texto").fill(pregunta)
+                    with pagina.expect_response(lambda r: r.url.endswith("/rag/preguntar")) as respuesta:
+                        pagina.locator("#ast-enviar").click()
+                    assert respuesta.value.status == 200
+                    return respuesta.value.json()["revision_id"]
+
+                aprobado = consultar()
+                tarjeta = pagina.locator(f'[data-rag-id="{aprobado}"]')
+                expect(tarjeta).to_be_visible()
+                tarjeta.locator("summary").click()
+                enlace = tarjeta.get_by_role("link").first
+                expect(enlace).to_have_attribute("href", "https://www.minsalud.gov.co/sites/rid/Lists/BibliotecaDigital/RIDE/DE/DIJ/resolucion-5596-de-2015.pdf")
+                expect(tarjeta).to_contain_text("treinta minutos")
+                assert comprobar(api.get(historia, headers=medico), 200)["resultados_rag"] == []
+                revision = f"{base_paciente}/rag/{aprobado}/revisar"
+                comprobar(api.post(revision, headers=colega, json={"decision": "aprobado"}), 404)
+                comprobar(api.post(revision, headers=admin, json={"decision": "aprobado"}), 403)
+                comprobar(api.post(f"/pacientes/{otro}/rag/{aprobado}/revisar",
+                                   headers=medico, json={"decision": "aprobado"}), 404)
+                comprobar(api.post(revision, headers=medico, json={"decision": "rechazado", "motivo": " "}), 422)
+
+                # Cambiar de vista y volver obliga a recuperar la propuesta persistida por API.
+                pagina.locator('[data-seccion="pacientes"]').click()
+                asistente.click()
+                expect(tarjeta).to_be_visible()
+                tarjeta.get_by_role("button", name="Aprobar para la historia clínica").click()
+                expect(tarjeta).to_have_count(0)
+                comprobar(api.post(revision, headers=medico, json={"decision": "aprobado"}), 409)
+
+                rechazado = consultar()
+                tarjeta = pagina.locator(f'[data-rag-id="{rechazado}"]')
+                tarjeta.get_by_role("button", name="Rechazar resultado").click()
+                expect(tarjeta).to_be_visible()
+                tarjeta.get_by_role("textbox", name="Motivo del rechazo").fill("Resultado de prueba")
+                tarjeta.get_by_role("button", name="Rechazar resultado").click()
+                expect(tarjeta).to_have_count(0)
+
+                pagina.locator('[data-seccion="pacientes"]').click()
+                pagina.locator(f'[data-pac="{pid}"]').click()
+                pagina.get_by_text("Anexos clínicos: datos del paciente", exact=False).click()
+                panel = pagina.locator("#historia-rag-aprobado")
+                expect(panel).to_contain_text(f"Consulta #{aprobado}")
+                expect(panel).not_to_contain_text(f"Consulta #{rechazado}")
+                panel.locator("summary").first.click()
+                expect(panel).to_contain_text("treinta minutos")
+                navegador.close()
+        finally:
+            servidor.should_exit = True
+            hilo.join(timeout=10)
+            assert not hilo.is_alive()
+
+    filas = comprobar(api.get(historia, headers=medico), 200)["resultados_rag"]
+    assert [f["id"] for f in filas] == [aprobado]
+    assert filas[0]["revisado_por"]
+    assert comprobar(api.get(f"/pacientes/{otro}/historia", headers=medico), 200)["resultados_rag"] == []
+    pdf = api.get(historia + ".pdf", headers=medico)
+    assert pdf.status_code == 200 and pdf.content.startswith(b"%PDF")
+    if shutil.which("pdftotext"):
+        texto = subprocess.run(["pdftotext", "-", "-"], input=pdf.content, capture_output=True, check=True).stdout
+        assert f"Consulta #{aprobado}".encode() in texto
+        assert f"Consulta #{rechazado}".encode() not in texto
+
+    concurrente = comprobar(api.post("/rag/preguntar", headers=medico, json=datos), 200)["revision_id"]
+    url = f"{base_paciente}/rag/{concurrente}/revisar"
+    from rag import router as router_rag
+
+    def sello_fallido(*args, **kwargs):
+        raise RuntimeError("Fallo simulado del sello RAG")
+
+    with monkeypatch.context() as parche:
+        parche.setattr(router_rag, "registrar_auditoria", sello_fallido)
+        with pytest.raises(RuntimeError, match="Fallo simulado del sello RAG"):
+            api.post(url, headers=medico, json={"decision": "aprobado"})
+    assert [r["id"] for r in comprobar(api.get(pendientes, headers=medico), 200)] == [concurrente]
+    with ThreadPoolExecutor(max_workers=2) as tareas:
+        estados = list(tareas.map(lambda _: api.post(url, headers=medico, json={"decision": "aprobado"}).status_code,
+                                   range(2)))
+    assert sorted(estados) == [200, 409]
+    with closing(psycopg2.connect(pg)) as db, db.cursor() as cur:
+        cur.execute("""SELECT registro_id, accion FROM auditoria
+                       WHERE tabla = 'revisiones_rag' AND accion IN ('rag_aprobado','rag_rechazado')
+                        AND hash IS NOT NULL AND registro_id = ANY(%s);""", ([aprobado, rechazado, concurrente],))
+        assert set(cur.fetchall()) == {(aprobado, "rag_aprobado"), (rechazado, "rag_rechazado"),
+                                       (concurrente, "rag_aprobado")}

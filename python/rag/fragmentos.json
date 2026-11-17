@@ -5,8 +5,10 @@
   "tipo": "guia",
   "estado": "vigente",
   "paciente": null,
-  "fuente": "Historia clínica · Resolución 1995 de 1999 (guía docente TrazaRed)",
-  "texto": "Historia clínica. La Resolución 1995 de 1999 define la historia clínica como el registro único, obligatorio y confidencial de toda la atención de un paciente. Es un documento médico-legal y su titular es el paciente. Ningún dato de la historia clínica puede borrarse: la información se conserva de manera íntegra y segura durante al menos diez años. Por eso los sistemas de salud no implementan borrado físico: usan borrado lógico (soft delete), que marca el registro con una fecha de eliminación y permite al administrador restaurarlo, dejando siempre trazabilidad de quién eliminó y quién restauró."
+  "fuente": "Historia clínica · Resoluciones 1995 de 1999 y 839 de 2017 (síntesis docente)",
+  "texto": "Historia clínica. La historia clínica se conserva íntegra y bajo reserva. La Resolución 839 de 2017 establece una retención mínima de quince años desde la última atención. En TrazaRed, la anulación lógica conserva la trazabilidad de los registros.",
+  "url": "https://www.minsalud.gov.co/Normatividad_Nuevo/Resolucion%20No%20839%20de%202017.pdf",
+  "seccion": "Artículo 3"
  },
  {
   "chunk_id": "G01-1",
@@ -150,7 +152,9 @@
   "estado": "vigente",
   "paciente": null,
   "fuente": "Triage de urgencias en cinco niveles (guía docente TrazaRed)",
-  "texto": "Triage. En urgencias el triage clasifica al paciente en cinco niveles de prioridad: nivel 1 o resucitación, atención inmediata; nivel 2 o emergencia, atención en menos de 10 minutos; nivel 3 o urgencia, menos de 60 minutos; nivel 4 o urgencia menor, menos de 120 minutos; y nivel 5 o no urgente. La clasificación la hace enfermería con criterios objetivos y se reevalúa si el paciente empeora."
+  "texto": "El triage clasifica a pacientes de urgencias en cinco niveles de prioridad. Según la Resolución 5596 de 2015, el nivel I requiere atención inmediata y la atención del nivel II no debe superar treinta minutos. Para los niveles III, IV y V cada prestador establece y publica sus tiempos promedio de atención.",
+  "url": "https://www.minsalud.gov.co/sites/rid/Lists/BibliotecaDigital/RIDE/DE/DIJ/resolucion-5596-de-2015.pdf",
+  "seccion": "Artículo 5"
  },
  {
   "chunk_id": "G09-1",
@@ -168,7 +172,9 @@
   "estado": "vigente",
   "paciente": null,
   "fuente": "Sepsis, qSOFA y shock (guía docente TrazaRed)",
-  "texto": "Sepsis y qSOFA. La sepsis es la disfunción de órganos por una respuesta desregulada a una infección. La escala qSOFA sospecha sepsis con dos o más de estos tres criterios: frecuencia respiratoria de 22 o más por minuto, presión sistólica de 100 mmHg o menos y alteración del estado de conciencia. Un qSOFA de 2 o más obliga a evaluación inmediata, cultivos, lactato y antibióticos de amplio espectro dentro de la primera hora, y a considerar remisión urgente a un servicio con UCI si el prestador actual no la tiene."
+  "texto": "En adultos con sospecha de infección, qSOFA identifica mayor riesgo de desenlaces desfavorables. Sus criterios son frecuencia respiratoria de 22 o más por minuto, alteración del estado mental y presión arterial sistólica de 100 mmHg o menos. Dos o más criterios alertan sobre mayor riesgo. qSOFA no confirma ni descarta sepsis.",
+  "url": "https://doi.org/10.1001/jama.2016.0287",
+  "seccion": "Criterios de qSOFA"
  },
  {
   "chunk_id": "G10-1",
@@ -358,5 +364,57 @@
   "paciente": "PX-EE0B93B3",
   "fuente": "Reporte IA aprobado · 2026-10-31",
   "texto": "Observación del médico aprobador: inicio súbito de caída facial y dificultad del habla hace 2 horas, escala de Cincinnati positiva; ventana trombolítica vigente, se remite de inmediato a centro con neurología y tomografía."
+ },
+ {
+  "chunk_id": "N02-0",
+  "doc_id": "N02",
+  "tipo": "norma",
+  "estado": "vigente",
+  "paciente": null,
+  "fuente": "MinSalud · Resolución 839 de 2017",
+  "url": "https://www.minsalud.gov.co/Normatividad_Nuevo/Resolucion%20No%20839%20de%202017.pdf",
+  "version": "2017",
+  "seccion": "Artículo 3",
+  "revision_documental": "2026-11-16",
+  "texto": "El plazo mínimo de retención de la historia clínica es de quince años contados desde la última atención. Los primeros cinco años corresponden al archivo de gestión y los diez siguientes al archivo central. La norma contempla condiciones especiales de retención para historias relacionadas con violaciones de derechos humanos, infracciones graves del derecho internacional humanitario y delitos de lesa humanidad."
+ },
+ {
+  "chunk_id": "N03-0",
+  "doc_id": "N03",
+  "tipo": "norma",
+  "estado": "vigente",
+  "paciente": null,
+  "fuente": "MinSalud · Resolución 5596 de 2015",
+  "url": "https://www.minsalud.gov.co/sites/rid/Lists/BibliotecaDigital/RIDE/DE/DIJ/resolucion-5596-de-2015.pdf",
+  "version": "2015",
+  "seccion": "Artículo 5",
+  "revision_documental": "2026-11-16",
+  "texto": "La clasificación colombiana de triage tiene cinco categorías. Triage I requiere atención inmediata. En triage II, el tiempo de atención no debe superar treinta minutos. En triage III, IV y V las instituciones establecen y publican tiempos promedio de atención."
+ },
+ {
+  "chunk_id": "G15-0",
+  "doc_id": "G15",
+  "tipo": "guia",
+  "estado": "vigente",
+  "paciente": null,
+  "fuente": "OMS y CICR · Atención básica de emergencia",
+  "url": "https://www.who.int/es/publications/i/item/9789241513081",
+  "version": "2018",
+  "seccion": "Método ABCDE e historial SAMPLE",
+  "revision_documental": "2026-11-16",
+  "texto": "El método ABCDE estructura la evaluación inicial del paciente agudo: vía aérea, respiración, circulación, estado neurológico y exposición. El historial SAMPLE recoge signos y síntomas, alergias, medicamentos, antecedentes, última ingesta y eventos asociados al cuadro."
+ },
+ {
+  "chunk_id": "G16-0",
+  "doc_id": "G16",
+  "tipo": "guia",
+  "estado": "vigente",
+  "paciente": null,
+  "fuente": "Society of Critical Care Medicine · Surviving Sepsis Campaign",
+  "url": "https://sccm.org/clinical-resources/guidelines/guidelines/surviving-sepsis-campaign-international-guidelines-for-management-of-sepsis-and-septic-shock-2026",
+  "version": "2026",
+  "seccion": "Tamizaje hospitalario de sepsis en adultos",
+  "revision_documental": "2026-11-16",
+  "texto": "Para el tamizaje de sepsis en adultos con enfermedad aguda en el hospital, la guía prefiere NEWS, NEWS2, MEWS o SIRS frente a qSOFA como instrumento único de tamizaje de sepsis. La valoración clínica debe integrar la información disponible. Un biomarcador o una prueba aislados no bastan para confirmar o descartar sepsis."
  }
 ]

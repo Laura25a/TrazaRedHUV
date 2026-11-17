@@ -6,7 +6,7 @@
 //                El agente usa herramientas del sistema (datos del paciente,
 //                modelo de urgencia, guías, instituciones con convenio) y
 //                PROPONE remisiones: la tarjeta de aprobación decide.
-//   · Guías      POST /rag/preguntar · respuesta con citas, sin acciones.
+//   · Guías      POST /rag/preguntar · respuesta con citas y revisión clínica opcional.
 // El paciente se fija en esta pantalla (no en el chat): el agente nunca puede
 // pedir otro paciente. Se registra en SECCIONES como los demás módulos.
 "use strict";
@@ -62,6 +62,10 @@ async function vistaAsistente(params = {}) {
         <span class="tenue" id="ast-pinfo">${AST.paciente ? "Cargando paciente…" : "Sin paciente: solo preguntas generales."}</span>
         <span class="tenue ast-modelo" id="ast-modelo"></span>
       </div>
+      <div id="ast-rag-revision" hidden>
+        <label><input type="checkbox" id="ast-enviar-revision"> Enviar el resultado a revisión clínica</label>
+        <div id="ast-rag-pendientes"></div>
+      </div>
       <div class="ast-chat" id="ast-chat" aria-live="polite"></div>
       <form class="ast-form" id="ast-form">
         <textarea id="ast-texto" rows="2" maxlength="1000" placeholder="Ej.: ¿Qué tan grave está este paciente?  ·  Remite este paciente a UCI  ·  ¿Qué dice la guía de qSOFA?"></textarea>
@@ -77,7 +81,8 @@ async function vistaAsistente(params = {}) {
   $$("#ast-modo button").forEach(b => b.addEventListener("click", () => {
     AST.modo = b.dataset.modo;
     $$("#ast-modo button").forEach(x => x.classList.toggle("activa", x === b));
-    $("#ast-sug").classList.toggle("oculto", false);
+    astActualizarModo();
+    astCargarRevisiones().catch(e => toast(e.message, "error"));
   }));
   $("#ast-nueva").addEventListener("click", () => { astConversacionNueva(); $("#ast-chat").innerHTML = ""; astBienvenida(); });
   $("#ast-abrir").addEventListener("click", () => astAbrirPaciente(+$("#ast-pid").value || null));
@@ -89,6 +94,7 @@ async function vistaAsistente(params = {}) {
   API.get("/agente/estado").then(e => {
     $("#ast-modelo").textContent = `Modelo: ${e.proveedor === "simulado" ? "simulado (sin llave de Groq)" : e.modelo} · memoria: ${e.memoria.split(" (")[0]}`;
   }).catch(() => {});
+  astActualizarModo();
   await astAbrirPaciente(AST.paciente);
 }
 
@@ -97,6 +103,9 @@ async function astAbrirPaciente(pid) {
   chat.replaceChildren();
   $("#ast-texto").value = "";
   AST.paciente = pid;
+  $("#ast-enviar-revision").checked = false;
+  $("#ast-rag-pendientes").replaceChildren();
+  astActualizarModo();
   astSeleccionarConversacion();
   const revision = AST.revision;
   const vigente = () => chat.isConnected && AST.revision === revision;
@@ -116,7 +125,10 @@ async function astAbrirPaciente(pid) {
       return;
     }
   }
-  if (vigente()) await astCargarHistorial();
+  if (vigente()) {
+    await astCargarHistorial();
+    if (vigente()) await astCargarRevisiones().catch(e => toast(e.message, "error"));
+  }
 }
 
 function astBienvenida() {
@@ -167,8 +179,57 @@ function astPasos(pasos) {
 
 function astFuentes(fuentes) {
   if (!fuentes || !fuentes.length) return "";
-  return `<details class="ast-pasos" open><summary>Fuentes</summary><ol>${fuentes.map(f =>
-    `<li><span class="ast-cita">[${f.n}]</span> ${esc(f.fuente)} <code>${esc(f.chunk_id)}</code></li>`).join("")}</ol></details>`;
+  return `<details class="ast-pasos"><summary>Fuentes (${fuentes.length})</summary><ol>${fuentes.map(f => {
+    const nombre = esc(f.fuente);
+    const etiqueta = f.url?.startsWith("https://")
+      ? `<a href="${esc(f.url)}" target="_blank" rel="noopener noreferrer">${nombre}</a>` : nombre;
+    return `<li><span class="ast-cita">[${f.n}]</span> ${etiqueta} <code>${esc(f.chunk_id)}</code>
+      ${f.seccion ? `<div>${esc(f.seccion)}</div>` : ""}
+      <div class="ast-resultado">${esc(f.texto)}</div></li>`;
+  }).join("")}</ol></details>`;
+}
+
+function astActualizarModo() {
+  $("#ast-texto").maxLength = AST.modo === "rag" ? 500 : 1000;
+  $("#ast-rag-revision").hidden = AST.modo !== "rag" || !AST.paciente
+    || !["medico", "especialista"].includes(sesion.usuario.rol);
+}
+
+async function astCargarRevisiones() {
+  const panel = $("#ast-rag-pendientes"), revision = AST.revision, pid = AST.paciente;
+  if ($("#ast-rag-revision").hidden) return;
+  const lista = await API.get(`/pacientes/${pid}/rag/pendientes`);
+  if (!panel.isConnected || revision !== AST.revision) return;
+  panel.innerHTML = lista.map(r => `<section class="ast-aprobar" data-rag-id="${r.id}">
+    <h4>Resultado RAG #${r.id} pendiente de revisión</h4>
+    <p>${astFormato(r.respuesta)}</p>${astFuentes(r.fuentes)}
+    <label>Motivo del rechazo<textarea class="ast-motivo" rows="2" maxlength="300"></textarea></label>
+    <div class="ast-botones">
+      <button class="btn btn-ok" data-revisar="aprobado">Aprobar para la historia clínica</button>
+      <button class="btn btn-peligro" data-revisar="rechazado">Rechazar resultado</button>
+    </div></section>`).join("");
+  $$("[data-revisar]", panel).forEach(boton => boton.addEventListener("click", async () => {
+    const tarjeta = boton.closest("[data-rag-id]");
+    const motivo = $(".ast-motivo", tarjeta).value.trim();
+    const decision = boton.dataset.revisar;
+    if (decision === "rechazado" && !motivo) {
+      toast("Escribe el motivo del rechazo.", "error");
+      $(".ast-motivo", tarjeta).focus();
+      return;
+    }
+    $$("button", tarjeta).forEach(b => b.disabled = true);
+    try {
+      await API.post(`/pacientes/${pid}/rag/${tarjeta.dataset.ragId}/revisar`, { decision, motivo });
+      if (!tarjeta.isConnected) return;
+      tarjeta.remove();
+      toast(decision === "aprobado" ? "Resultado incorporado a la historia clínica." : "Resultado rechazado.", "ok");
+    } catch (e) {
+      if (!tarjeta.isConnected) return;
+      toast(e.message, "error");
+      if (e.status === 409) tarjeta.remove();
+      else $$("button", tarjeta).forEach(b => b.disabled = false);
+    }
+  }));
 }
 
 function astFuentesCortas(fuentes) {
@@ -263,12 +324,19 @@ async function astEnviar() {
       espera.remove();
       astPintarRespuesta(r);
     } else {
-      const r = await API.post("/rag/preguntar", { pregunta: texto, paciente_id: AST.paciente });
+      const r = await API.post("/rag/preguntar", {
+        pregunta: texto, paciente_id: AST.paciente,
+        enviar_a_revision: !$("#ast-rag-revision").hidden && $("#ast-enviar-revision").checked,
+      });
       if (!espera.isConnected) return;
       espera.remove();
       if (r.seguridad) { astMensaje("sistema", r.respuesta); return; }
-      const modo = { llm: "redactada con el modelo de lenguaje", extractivo: "extractiva (frases de las guías, sin LLM)", abstencion: "sin evidencia" }[r.modo] || r.modo;
+      const modo = { llm: "con pasajes seleccionados por el modelo", extractivo: "extractiva (frases de las guías, sin LLM)", abstencion: "sin evidencia" }[r.modo] || r.modo;
       astMensaje("asistente", r.respuesta, `<p class="tenue ast-modo-rag">Respuesta ${esc(modo)}</p>${astFuentes(r.fuentes)}`);
+      if (r.revision_id) {
+        $("#ast-enviar-revision").checked = false;
+        await astCargarRevisiones().catch(e => toast(e.message, "error"));
+      }
     }
   } catch (e) {
     if (!espera.isConnected) return;
