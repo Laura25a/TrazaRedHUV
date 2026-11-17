@@ -552,6 +552,14 @@ def rips_json(db=Depends(get_db), usuario=Depends(requiere_rol("admin", "contabl
     intercambio; NO está validada contra el esquema oficial del Ministerio."""
     filas = [f for f in libro_contable(db) if f["factura"]]
     contenido = {
+        "uso": "demostracion_academica",
+        "validacion_oficial": False,
+        "norma_referencia": "Resolución 0948 de 2026 (MinSalud)",
+        "fuente_oficial": "https://www.minsalud.gov.co/sites/rid/Lists/BibliotecaDigital/RIDE/DE/DIJ/resolucion-0948-de-2026.pdf",
+        "brechas": ["Identificación institucional y del obligado a facturar",
+                    "Códigos y datos clínicos obligatorios del anexo técnico vigente",
+                    "Validación de estructura, catálogos y reglas del mecanismo único FEV-RIPS",
+                    "Factura electrónica y validación oficial; este exporte no las acredita"],
         "nota": "Estructura simplificada inspirada en RIPS; no validada contra el esquema oficial.",
         "prestador": "Hospital Universitario del Valle «Evaristo García» E.S.E.",
         "generado": datetime.now(exportes.ZONA).isoformat(timespec="seconds"),
@@ -569,7 +577,7 @@ def rips_json(db=Depends(get_db), usuario=Depends(requiere_rol("admin", "contabl
     }
     registrar_auditoria(db, usuario["id"], "exporte", "contabilidad", None, "RIPS (JSON)")
     return exportes.archivo(json.dumps(contenido, ensure_ascii=False, indent=2, default=str).encode("utf-8"),
-                            f"rips_{datetime.now():%Y%m%d}.json", "json")
+                            f"rips_demo_{datetime.now():%Y%m%d}.json", "json")
 
 
 # ═════════════════════════════════════════════════════════════════════════════

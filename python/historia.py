@@ -187,3 +187,28 @@ def historia_pdf(paciente_id: int, db=Depends(get_db),
     contenido = _crear_pdf(historia)
     registrar_auditoria(db, usuario["id"], "historia_pdf_descargada", "pacientes", paciente_id, "historia clínica (PDF)")
     return exportes.archivo(contenido, f"historia_{paciente_id}.pdf", "pdf")
+
+
+@router.get('/pacientes/{paciente_id}/preparacion-rda')
+def preparacion_rda(paciente_id: int, db=Depends(get_db),
+                    usuario=Depends(requiere_rol(*ROLES_CLINICOS))):
+    import documento_clinico
+    exigir_asignacion_clinica(db, paciente_id, usuario)
+    with db.cursor() as cur:
+        cur.execute('SELECT id FROM pacientes WHERE id = %s', (paciente_id,))
+        if cur.fetchone() is None:
+            raise HTTPException(404, 'Paciente no encontrado')
+    return documento_clinico.preparacion_rda()
+
+
+@router.get('/pacientes/{paciente_id}/historia.fhir.json')
+def historia_fhir(paciente_id: int, db=Depends(get_db),
+                   usuario=Depends(requiere_rol(*ROLES_CLINICOS))):
+    import json
+    import documento_clinico
+    contenido = documento_clinico.documento(obtener_historia(db, paciente_id, usuario))
+    registrar_auditoria(db, usuario['id'], 'historia_fhir_descargada', 'pacientes', paciente_id,
+                       f"documento preliminar={contenido['id']}; sin validación nacional RDA")
+    return Response(content=json.dumps(contenido, ensure_ascii=False), media_type='application/fhir+json',
+                    headers={'Cache-Control': 'no-store',
+                             'Content-Disposition': f'attachment; filename="historia_{paciente_id}_fhir.json"'})

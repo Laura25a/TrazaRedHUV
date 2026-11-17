@@ -24,6 +24,7 @@ import psycopg2.extras
 
 from auth import con_zona, db_mongo
 from causas import CAUSAS, causa_de
+from validaciones import filtro_asignacion_clinica
 
 ASIENTOS_POR_FOLIO = 30
 ESTADOS_ABIERTOS = ("pendiente", "en_gestion", "aceptada")
@@ -100,6 +101,9 @@ def condiciones_por_rol(usuario: dict, incluir_inactivas=False):
         cond.append("p.eps = %s"); vals.append(usuario.get("eps_nombre"))
     if usuario["rol"] == "paciente":
         cond.append("r.paciente_id = %s"); vals.append(usuario.get("paciente_id"))
+    asignacion, parametros = filtro_asignacion_clinica(usuario)
+    cond.append(asignacion)
+    vals.extend(parametros)
     return cond, vals
 
 

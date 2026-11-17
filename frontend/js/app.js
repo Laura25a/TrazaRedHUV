@@ -457,6 +457,9 @@ function tabPaciente(cont, { r, p }) {
             </button>
             <button class="btn btn-secundario btn-sm" id="btn-historia-json">
               ${icono("descargar")} Historia clínica (JSON)
+            </button>
+            <button class="btn btn-secundario btn-sm" id="btn-historia-fhir" title="Documento académico preliminar; no es un RDA nacional validado">
+              ${icono("descargar")} Historia FHIR (preliminar)
             </button>` : ""}
           ${puedeSimularFHIR ? `
             <button class="btn btn-suave btn-sm" id="btn-simular-fhir" title="Envía una Observation de glucosa a HAPI FHIR; el webhook notifica al médico en vivo">
@@ -486,6 +489,8 @@ function tabPaciente(cont, { r, p }) {
   if (btnPDF) btnPDF.addEventListener("click", () => descargarHistoriaPDF(p.id, btnPDF));
   const btnJSON = $("#btn-historia-json", cont);
   if (btnJSON) btnJSON.addEventListener("click", () => descargar(`/pacientes/${p.id}/historia`, `historia_${p.id}.json`, btnJSON));
+  const btnDocumento = $("#btn-historia-fhir", cont);
+  if (btnDocumento) btnDocumento.addEventListener("click", () => descargar(`/pacientes/${p.id}/historia.fhir.json`, `historia_${p.id}_fhir.json`, btnDocumento));
 
   const btnFHIR = $("#btn-simular-fhir", cont);
   if (btnFHIR) btnFHIR.addEventListener("click", () => simularObservacionFHIR(p, btnFHIR));
@@ -1373,7 +1378,7 @@ async function simularObservacionFHIR(paciente, boton) {
 // ==========================================================================
 // ARRANQUE
 // ==========================================================================
-(async function iniciar() {
+async function iniciarAplicacion() {
   pintarServicios();
   setInterval(() => { if (!sesion.usuario) pintarServicios(); }, 15000);
   setInterval(() => { if (sesion.usuario) actualizarNotificaciones(); }, 60000);
@@ -1381,7 +1386,15 @@ async function simularObservacionFHIR(paciente, boton) {
   if (d && d.exp * 1000 > Date.now()) await entrar();
   else if (d?.exp) salir(AVISO_SESION_VENCIDA);
   else API.salir();
-})();
+}
+
+// La sesión puede responder antes de que terminen de cargar las vistas y sus
+// enganches. Esperar el documento evita navegar a funciones aún inexistentes.
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", iniciarAplicacion, { once: true });
+} else {
+  iniciarAplicacion();
+}
 
 
 document.addEventListener("trazared:evento", ({ detail }) => {

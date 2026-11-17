@@ -26,7 +26,8 @@ from eventos import publicar, registrar_evento
 import reactividad
 import fhir_sync
 from validacion_clinica import PAD, PAS, SIGNOS, codigo_signo, validar_presion, validar_signo
-from validaciones import bloquear_remision, hoy_bogota, institucion_del_catalogo
+from validaciones import (bloquear_remision, exigir_asignacion_clinica, filtro_asignacion_clinica,
+                          hoy_bogota, institucion_del_catalogo)
 
 router = APIRouter(tags=["Remisiones"])
 
@@ -149,6 +150,9 @@ def listar_remisiones(
 
     condiciones = [] if (incluir_inactivas and usuario["rol"] == "admin") else ["r.activo = TRUE"]
     valores = []
+    asignacion, parametros = filtro_asignacion_clinica(usuario)
+    condiciones.append(asignacion)
+    valores.extend(parametros)
 
     if usuario["rol"] == "eps":
         condiciones.append("p.eps = %s")
@@ -205,6 +209,7 @@ def obtener_remision(remision_id: int, db=Depends(get_db), usuario=Depends(get_u
         raise HTTPException(status_code=404, detail="Remisión no encontrada")
     if usuario["rol"] == "eps" and fila["eps"] != usuario["eps_nombre"]:
         raise HTTPException(status_code=403, detail="Esta remisión no pertenece a tu EPS")
+    exigir_asignacion_clinica(db, fila["paciente_id"], usuario)
     return fila
 
 
@@ -336,14 +341,18 @@ def restaurar_remision(remision_id: int, db=Depends(get_db), usuario=Depends(get
     return fila
 
 
-@router.get("/observaciones", response_model=List[ObservacionOut],
-         dependencies=[Depends(requiere_rol(*ROLES_CLINICOS))])
-def listar_observaciones(remision_id: Optional[int] = Query(None), db=Depends(get_db)):
+@router.get("/observaciones", response_model=List[ObservacionOut])
+def listar_observaciones(remision_id: Optional[int] = Query(None), db=Depends(get_db),
+                         usuario=Depends(requiere_rol(*ROLES_CLINICOS))):
     cur = db.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    asignacion, parametros = filtro_asignacion_clinica(usuario)
     if remision_id is not None:
-        cur.execute("SELECT * FROM observaciones WHERE remision_id = %s ORDER BY id;", (remision_id,))
+        _autorizar_episodio(db, remision_id, usuario)
+        cur.execute("SELECT o.* FROM observaciones o JOIN remisiones r ON r.id = o.remision_id "
+                    "WHERE o.remision_id = %s AND " + asignacion + " ORDER BY o.id;", (remision_id, *parametros))
     else:
-        cur.execute("SELECT * FROM observaciones WHERE remision_id IS NOT NULL ORDER BY id;")
+        cur.execute("SELECT o.* FROM observaciones o JOIN remisiones r ON r.id = o.remision_id "
+                    "WHERE " + asignacion + " ORDER BY o.id;", parametros)
     filas = cur.fetchall()
     cur.close()
     return filas
@@ -413,17 +422,36 @@ class GestionContactoCreate(BaseModel):
     contactos: List[Contacto] = Field(default_factory=list)
 
 
-@router.get("/gestiones-contacto", dependencies=[Depends(requiere_rol(*ROLES_CLINICOS))])
-def listar_gestiones(remision_id: Optional[int] = Query(None)):
+@router.get("/gestiones-contacto")
+def listar_gestiones(remision_id: Optional[int] = Query(None), db=Depends(get_db),
+                    usuario=Depends(requiere_rol(*ROLES_CLINICOS))):
     filtro = {}
     if remision_id is not None:
+        _autorizar_episodio(db, remision_id, usuario)
         filtro["remision_id"] = remision_id
+    elif usuario["rol"] != "admin":
+        with db.cursor() as cur:
+            asignacion, parametros = filtro_asignacion_clinica(usuario)
+            cur.execute("SELECT r.id FROM remisiones r WHERE " + asignacion, parametros)
+            filtro["remision_id"] = {"$in": [f[0] for f in cur.fetchall()]}
     documentos = list(coleccion_gestiones.find(filtro))
+    registrar_auditoria(db, usuario["id"], "bitacora_consultada", "remisiones", remision_id,
+                        f"listado autorizado; cantidad={len(documentos)}")
     return [documento_a_dict(d) for d in documentos]
 
 
-@router.get("/gestiones-contacto/{gestion_id}", dependencies=[Depends(requiere_rol(*ROLES_CLINICOS))])
-def obtener_gestion(gestion_id: str):
+def _autorizar_episodio(db, remision_id, usuario):
+    with db.cursor() as cur:
+        cur.execute("SELECT paciente_id FROM remisiones WHERE id = %s", (remision_id,))
+        fila = cur.fetchone()
+    if fila is None:
+        raise HTTPException(404, "Gestión de contacto no encontrada")
+    exigir_asignacion_clinica(db, fila[0], usuario)
+
+
+@router.get("/gestiones-contacto/{gestion_id}")
+def obtener_gestion(gestion_id: str, db=Depends(get_db),
+                    usuario=Depends(requiere_rol(*ROLES_CLINICOS))):
     try:
         oid = ObjectId(gestion_id)
     except Exception:
@@ -431,6 +459,9 @@ def obtener_gestion(gestion_id: str):
     doc = coleccion_gestiones.find_one({"_id": oid})
     if doc is None:
         raise HTTPException(status_code=404, detail="Gestión de contacto no encontrada")
+    _autorizar_episodio(db, doc["remision_id"], usuario)
+    registrar_auditoria(db, usuario["id"], "bitacora_consultada", "remisiones", doc["remision_id"],
+                        "consulta individual autorizada")
     return documento_a_dict(doc)
 
 

@@ -2,7 +2,8 @@
 recuperacion.py — Eliminar y recuperar información sin destruirla, y el rol de
 Ingeniería biomédica (gestión técnica del PACS y de los servicios).
 
-Regla (Res. 1995 de 1999): nada de la historia clínica se destruye. "Eliminar" una
+Regla de la aplicación: la historia se conserva al anular. La disposición final
+legal requiere los plazos y el procedimiento de la Res. 839 de 2017. "Eliminar" una
 imagen es un borrado LÓGICO: deja de verse en la ficha, pero el archivo DICOM sigue
 en el PACS (Orthanc) y queda registrado quién la ocultó, cuándo y por qué.
 

@@ -54,3 +54,19 @@ def exigir_asignacion_clinica(db, paciente_id: int, usuario: dict) -> None:
         )
         if not cur.fetchone()[0]:
             raise HTTPException(404, "Paciente no encontrado")
+
+
+def filtro_asignacion_clinica(usuario: dict):
+    """Predicado para listados con alias r (remisiones), parametrizado por actor.
+
+    Misma continuidad por paciente que exigir_asignacion_clinica: caso activo
+    propio/atendido o interconsulta asignada. Los demás roles conservan sus
+    filtros específicos en la ruta; esto no sustituye la dependencia de rol.
+    """
+    if usuario["rol"] not in ("medico", "especialista"):
+        return "TRUE", ()
+    return """EXISTS (
+        SELECT 1 FROM remisiones propias WHERE propias.paciente_id = r.paciente_id
+          AND propias.activo AND (propias.creado_por = %s OR propias.atendida_por = %s)
+        UNION ALL SELECT 1 FROM remisiones_medicas m WHERE m.paciente_id = r.paciente_id
+          AND (m.medico_id = %s OR m.especialista_id = %s))""", (usuario["id"],) * 4

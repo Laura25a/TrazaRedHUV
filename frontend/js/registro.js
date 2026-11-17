@@ -513,7 +513,7 @@ async function vistaLibroContable() {
   const descargas = [
     { txt: "Excel", ruta: "/contabilidad/libro.xlsx", nombre: `libro_contable_${hoyArchivo()}.xlsx` },
     { txt: "PDF", ruta: "/contabilidad/libro.pdf", nombre: `libro_contable_${hoyArchivo()}.pdf` },
-    { txt: "RIPS (JSON)", ruta: "/contabilidad/rips.json", nombre: `rips_${hoyArchivo()}.json` },
+    { txt: "RIPS de demostración (JSON)", ruta: "/contabilidad/rips.json", nombre: `rips_demo_${hoyArchivo()}.json` },
   ];
   $("#contenido").innerHTML = `<div class="pagina">
     <div class="pagina-cabeza"><div><span class="mono tenue">Valores de referencia del proyecto · no es el tarifario oficial del HUV</span>

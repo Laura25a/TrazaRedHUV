@@ -85,6 +85,7 @@ app.add_middleware(
 #   nosniff -> el navegador no "adivina" el tipo de archivo
 #   DENY    -> nadie puede meter la aplicación dentro de un iframe (clickjacking)
 CABECERAS_SEGURIDAD = {
+    "Cache-Control": "no-store",
     "X-Content-Type-Options": "nosniff",
     "X-Frame-Options": "DENY",
     "Referrer-Policy": "no-referrer",

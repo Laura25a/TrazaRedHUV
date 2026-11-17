@@ -308,14 +308,17 @@ desde su formato. El mapeo campo por campo está en
 
 ## Marco normativo
 
-| Norma | Qué exige | Cómo lo cumple TrazaRed |
+Alcance y fuentes revisadas el 17/11/2026: [NORMATIVA.md](docs/NORMATIVA.md). Incluye la revocatoria de la Res. 1732/2026 por la 2080/2026. La historia FHIR es un documento académico preliminar; el JSON contable es de demostración. Ninguno acredita validación nacional RDA o FEV-RIPS.
+
+
+| Norma | Alcance | Controles técnicos del prototipo |
 |---|---|---|
 | Ley 1581 de 2012 (protección de datos) | Finalidad, circulación restringida y seguridad de los datos personales | Seudonimización hacia la IA, acceso por rol, contable sin datos clínicos, auditoría |
 | Ley 2015 de 2020 (historia clínica electrónica interoperable) | Historia clínica que se pueda intercambiar entre prestadores | Servidor FHIR R4 con LOINC y SNOMED, Bundle FHIR por remisión, historia clínica en PDF |
-| Resolución 866 de 2021 | Datos clínicos mínimos para la interoperabilidad | Recursos `Patient`, `Encounter`, `Observation`, `ServiceRequest` y `Communication` codificados |
+| Resolución 866 de 2021 y 1888 de 2025 | Datos clínicos relevantes y RDA nacional | Recursos FHIR y documento académico con Composition; pendiente validación y adecuación al perfil nacional |
 | Resolución 1995 de 1999 (historia clínica) | Confidencialidad, integridad y custodia; los registros no se destruyen | Bitácora inalterable, anulación lógica con restauración, historial de correcciones, reportes rechazados conservados |
 | Ley 1273 de 2009 (delitos informáticos) | Protege contra el acceso abusivo y la violación de datos personales (arts. 269A y 269F) | Bloqueo de cuenta, límite de intentos, incidentes con usuario e IP, bloqueo temporal |
-| Resolución 3100 de 2019 (habilitación) | Registros y procesos de atención trazables | Libro de radicación con recorrido completo de cada remisión y registro de quién hizo qué y cuándo |
+| Resolución 3100 de 2019 y modificaciones (habilitación) | Régimen institucional aplicable; la 1732/2026 fue revocada por 2080/2026 | Trazabilidad del libro; no acredita habilitación del prestador |
 
 ## Estructura del repositorio
 

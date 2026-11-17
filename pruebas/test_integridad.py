@@ -495,6 +495,10 @@ def test_documentos_en_navegador(entorno, autorizaciones, monkeypatch, tmp_path)
                 navegador = control.chromium.launch()
                 pagina = navegador.new_page(viewport={"width": 1440, "height": 1000})
                 pagina.goto(base + "/app/")
+                with pagina.expect_popup() as aviso:
+                    pagina.get_by_role("link", name="Tratamiento de datos y alcance académico").click()
+                expect(aviso.value.get_by_role("heading", name="Tratamiento de datos y alcance académico")).to_be_visible()
+                aviso.value.close()
                 pagina.locator("#login-usuario").fill("medico@pruebas.test")
                 pagina.locator("#login-clave").fill(CLAVE_PRUEBA)
                 pagina.locator("#form-login button[type=submit]").click()
@@ -503,12 +507,15 @@ def test_documentos_en_navegador(entorno, autorizaciones, monkeypatch, tmp_path)
                 pagina.locator(f'tr[data-pac="{p["id"]}"] td').first.click()
                 pagina.locator("#anexos summary").click()
                 expect(pagina.locator("#btn-historia-pdf")).to_be_visible()
-                for formato in ("pdf", "json"):
+                for formato in ("pdf", "json", "fhir"):
                     with pagina.expect_download() as descarga:
                         pagina.locator(f"#btn-historia-{formato}").click()
                     archivo = salida / f"historia_navegador.{formato}"
                     descarga.value.save_as(archivo)
                     assert archivo.stat().st_size > 100
+                doc_fhir = json.loads((salida / "historia_navegador.fhir").read_text())
+                assert doc_fhir["type"] == "document"
+                assert doc_fhir["entry"][0]["resource"]["status"] == "preliminary"
                 historia = json.loads((salida / "historia_navegador.json").read_text())
                 assert historia["interconsultas"][0]["id"] == ic["id"]
                 assert historia["reportes_ia"][0]["observacion_revision"]
@@ -516,6 +523,8 @@ def test_documentos_en_navegador(entorno, autorizaciones, monkeypatch, tmp_path)
                 pagina.screenshot(path=str(salida / "historia_navegador.png"), full_page=True)
                 pagina.close()
                 contable = navegador.new_page(viewport={"width": 1440, "height": 1000})
+                errores_documentos = []
+                contable.on("pageerror", lambda e: errores_documentos.append(str(e)))
                 contable.goto(base + "/app/")
                 contable.locator("#login-usuario").fill("contable@pruebas.test")
                 contable.locator("#login-clave").fill(CLAVE_PRUEBA)
@@ -534,6 +543,7 @@ def test_documentos_en_navegador(entorno, autorizaciones, monkeypatch, tmp_path)
                 expect(contable.locator(f'[data-pagar="{factura["_id"]}"]')).to_have_count(0)
                 contable.reload()
                 expect(recibo).to_be_visible()
+                assert not errores_documentos
                 for formato in ("pdf", "json"):
                     with contable.expect_download() as descarga:
                         contable.locator(f'[data-recibo-{formato}="{rid}"]').click()
@@ -1576,3 +1586,100 @@ def test_lote_descarta_pronostico_si_asiento_cierra(entorno, autorizaciones, mon
     with closing(psycopg2.connect(pg)) as db, db.cursor() as cur:
         cur.execute("SELECT 1 FROM pronosticos_remision WHERE remision_id = %s AND version_modelo = 'obsoleto';", (rid,))
         assert cur.fetchone() is None
+
+
+def test_normativa_circulacion_bitacora(entorno, autorizaciones):
+    from datetime import datetime, timezone
+
+    _, api, _ = entorno
+    medico, colega, admin = [autorizaciones[n] for n in ("medico", "colega", "auditor")]
+    p = comprobar(paciente(api, medico), 201)
+    rid = comprobar(api.post('/remisiones', headers=medico, json=datos_remision(p['id'])), 201)['id']
+    gestion = comprobar(api.post('/gestiones-contacto', headers=medico, json={
+        'remision_id': rid, 'contactos': [{'fecha': datetime.now(timezone.utc).isoformat(),
+        'medio': 'telefono', 'institucion_contactada': LILI,
+        'contactado_por': 'Operador sintético', 'respuesta': 'Sin cama, caso reservado'}]}), 201)
+    ruta = '/gestiones-contacto/' + gestion['_id']
+    obs = comprobar(api.post('/observaciones', headers=medico, json={
+        'remision_id': rid, 'tipo': 'Pulso', 'valor': 70, 'unidad': 'lat/min'}), 201)
+    assert obs['id'] not in {o['id'] for o in comprobar(api.get('/observaciones', headers=colega), 200)}
+    comprobar(api.get(ruta, headers=colega), 404)
+    for endpoint in (f'/remisiones/{rid}', f'/registro/remisiones/{rid}/formato',
+                     f'/registro/remisiones/{rid}/bitacora.xlsx', f'/observaciones?remision_id={rid}'):
+        comprobar(api.get(endpoint, headers=colega), 404)
+    assert rid not in {r['id'] for r in comprobar(api.get('/remisiones', headers=colega), 200)}
+    libro_ajeno = comprobar(api.get('/registro/libro?vista=todas', headers=colega), 200)
+    assert rid not in {r['id'] for r in libro_ajeno['asientos']}
+    comprobar(api.get('/gestiones-contacto', params={'remision_id': rid}, headers=colega), 404)
+    assert gestion['_id'] not in {g['_id'] for g in comprobar(api.get('/gestiones-contacto', headers=colega), 200)}
+    assert comprobar(api.get(ruta, headers=medico), 200)['contactos'] == gestion['contactos']
+    comprobar(api.delete(ruta, headers=admin), 409)
+    comprobar(api.delete(f'/remisiones/{rid}', headers=medico), 204)
+    assert comprobar(api.get(ruta, headers=admin), 200)['contactos'] == gestion['contactos']
+    comprobar(api.post(f'/remisiones/{rid}/restaurar', headers=admin), 200)
+    assert comprobar(api.get(ruta, headers=medico), 200)['contactos'] == gestion['contactos']
+    especialista = autenticado(api, 'especialista')
+    eid = comprobar(api.get('/me', headers=especialista), 200)['id']
+    comprobar(api.post('/remitir', headers=medico, json={
+        'paciente_id': p['id'], 'especialista_id': eid, 'motivo': 'Continuidad del caso sintético'}), 201)
+    assert comprobar(api.get(ruta, headers=especialista), 200)['contactos'] == gestion['contactos']
+    assert rid in {r['id'] for r in comprobar(api.get('/remisiones', headers=especialista), 200)}
+    assert rid in {r['id'] for r in comprobar(api.get('/registro/libro?vista=todas', headers=especialista), 200)['asientos']}
+
+
+def test_normativa_documento_y_limites(entorno, autorizaciones, monkeypatch):
+    import pacs
+    main, api, pg = entorno
+    monkeypatch.setattr(pacs, 'list_images', lambda _: [])
+    h = autorizaciones['medico']
+    p = comprobar(paciente(api, h, nombre='Nombre <script>reservado</script>'), 201)
+    rid = comprobar(api.post('/remisiones', headers=h, json=datos_remision(p['id'])), 201)['id']
+    base = f"/pacientes/{p['id']}"
+    comprobar(api.post('/observaciones', headers=h, json={
+        'remision_id': rid, 'tipo': 'Pulso', 'valor': 70, 'unidad': 'lat/min'}), 201)
+    with closing(psycopg2.connect(pg)) as db, db, db.cursor() as cur:
+        cur.execute("SELECT id FROM usuarios WHERE correo = 'medico@pruebas.test'")
+        uid = cur.fetchone()[0]
+        for estado, resultado in [('aprobado', 'Resultado <script>seguro</script>'), ('pendiente', 'NO_INCLUIR_BORRADOR'), ('rechazado', 'NO_INCLUIR_RECHAZADO')]:
+            cur.execute("""INSERT INTO reportes_ia (paciente_id, remision_id, estado, prediccion,
+                probabilidad_urgente, payload_seudonimizado, revisado_por, revisado_en, observacion_revision)
+                VALUES (%s,%s,%s,%s,0.2,'{}',%s,now(),'Nota clínica aprobada')""",
+                (p['id'], rid, estado, resultado, uid))
+    for sufijo in ('/historia.fhir.json', '/preparacion-rda'):
+        comprobar(api.get(base + sufijo), 401)
+        comprobar(api.get(base + sufijo, headers=autorizaciones['colega']), 404)
+        comprobar(api.get(base + sufijo, headers=autenticado(api, 'contable')), 403)
+    respuesta = api.get(base + '/historia.fhir.json', headers=h)
+    documento = comprobar(respuesta, 200)
+    assert respuesta.headers['content-type'].startswith('application/fhir+json')
+    assert respuesta.headers['cache-control'] == 'no-store'
+    assert documento['type'] == 'document' and documento['identifier']['value'] and documento['timestamp']
+    entradas = documento['entry']
+    composicion = entradas[0]['resource']
+    assert composicion['resourceType'] == 'Composition' and composicion['status'] == 'preliminary'
+    assert 'profile' not in composicion.get('meta', {})
+    assert 'seguridad' not in str(documento).lower()
+    referencias = {e['fullUrl'] for e in entradas}
+    def verificar(nodo):
+        if isinstance(nodo, dict):
+            if 'reference' in nodo:
+                assert nodo['reference'] in referencias
+            for v in nodo.values(): verificar(v)
+        elif isinstance(nodo, list):
+            for v in nodo: verificar(v)
+    verificar(documento)
+    assert any(e['resource']['resourceType'] == 'Encounter' for e in entradas)
+    assert '<script>' not in str(composicion['section'])
+    assert '&lt;script&gt;' in str(composicion['section'])
+    assert 'NO_INCLUIR' not in str(documento)
+    obs = next(e['resource'] for e in entradas if e['resource']['resourceType'] == 'Observation')
+    assert obs['valueQuantity']['value'] == 70
+    assert obs['valueQuantity']['code'] == '/min'
+    assert rid in [int(e['resource']['id'].split('-')[-1]) for e in entradas if e['resource']['resourceType'] == 'Encounter']
+    diagnostico = comprobar(api.get(base + '/preparacion-rda', headers=h), 200)
+    assert diagnostico['apto_envio_nacional'] is False and diagnostico['brechas']
+    assert p['documento'] not in str(diagnostico)
+    rips = comprobar(api.get('/contabilidad/rips.json', headers=autenticado(api, 'contable')), 200)
+    assert rips['validacion_oficial'] is False and rips['uso'] == 'demostracion_academica'
+    assert rips['brechas']
+    assert api.get('/me', headers=h).headers['cache-control'] == 'no-store'
