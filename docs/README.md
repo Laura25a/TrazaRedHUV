@@ -72,8 +72,7 @@ cráneo (CT) cuando es trauma craneoencefálico o hemorragia. La severidad del h
 ## Cómo cargarlo
 
 ```bash
-# Con Docker (recomendado): carga en los contenedores db y mongo
-cd docker
+# Con Docker (recomendado, desde la raíz): carga en los contenedores db y mongo
 docker compose exec api python cargar_dataset.py
 docker compose exec api python sembrar_imagenes.py     # base de imágenes en el PACS
 

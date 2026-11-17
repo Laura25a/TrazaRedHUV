@@ -7,7 +7,7 @@ login con el usuario demo del sistema, consulta la historia clínica y los
 reportes de IA, y escribe documentos H## en docs/RAG/corpus/pacientes/reales/
 con el MISMO formato que el notebook lee.
 
-Requisitos: la API arriba (cd docker && docker compose up -d, puerto 8000).
+Requisitos: la API arriba (docker compose up -d desde la raíz, puerto 8000).
 Uso: /home/nicolas/venv_global/bin/python extraer_pacientes.py [id_paciente ...]
 """
 import sys

@@ -1,0 +1,244 @@
+# TrazaRed HUV — todo el proyecto dockerizado (Corte 2, R05)
+# Un solo comando levanta los 9 servicios:   docker compose up -d --build
+#
+#   internet ──▶ cloudflared (túnel HTTPS) ──┐
+#                                             ▼
+#   navegador ───────────────────────▶ front (nginx :8080)  interfaz + cabeceras de seguridad + límite 429
+#                                 /api/*  │          │  /fhir/*
+#                                         ▼          ▼
+#                       ┌──────────────────┐   ┌───────────────────────┐
+#                       │ api (FastAPI)    │   │ hapi-fhir             │
+#                       │                  │   │  + fhir-db (Postgres) │
+#                       └─┬──────┬──────┬──┘   └───────────────────────┘
+#                         ▼      ▼      ▼
+#                   db (Postgres) mongo  orthanc (PACS)     ml (IA, solo la api le habla)
+#
+# Uso (desde la RAÍZ del repositorio, un solo comando, R05/R34):
+#   docker compose up -d --build      -> levanta todo
+#   docker compose ps                 -> estado de los contenedores
+#   docker compose logs api --tail 50 -> revisar la API
+#   URL pública del túnel:            -> docker compose logs cloudflared | findstr trycloudflare
+#                                        (o abre http://localhost:2000/quicktunnel)
+#
+# Local:  interfaz http://localhost:8080 · API http://localhost:8000/docs
+#         HAPI FHIR http://localhost:8081/fhir · Orthanc http://localhost:8042
+# Los puertos de bases, API y FHIR se publican SOLO en 127.0.0.1 (tu equipo):
+# desde afuera solo se entra por nginx (front), que es quien pone las
+# protecciones. Las credenciales salen de .env (o pass.env), que nunca
+# se suben al repositorio.
+
+# El nombre del proyecto se fija en "docker" a propósito: antes el compose vivía en
+# docker/ y Compose nombraba el proyecto por esa carpeta. Con el mismo nombre se
+# reutilizan los MISMOS volúmenes (pgdata, mongodata, fhir_db_data, orthanc_data,
+# ml_modelo): moverlo a la raíz no deja la base vacía.
+name: docker
+
+services:
+  # ── Servicio 1: base relacional del proyecto (reemplaza a Neon en local) ──
+  db:
+    # Semana 12: Postgres 16 con la extensión pgvector (vectores del RAG en la misma base).
+    # Es la misma versión mayor (16): el volumen pgdata que ya existe sirve tal cual.
+    image: pgvector/pgvector:pg16
+    container_name: trazared_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: trazared
+      POSTGRES_PASSWORD: ${TRAZARED_PG_PASSWORD:?Configura TRAZARED_PG_PASSWORD}
+      POSTGRES_DB: trazared
+      TZ: America/Bogota            # now() guarda en hora de Colombia
+      PGTZ: America/Bogota
+    ports:
+      - "127.0.0.1:5434:5432"       # 5434 en tu máquina para no chocar con otro Postgres
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      # schema.sql se ejecuta solo en el PRIMER arranque (volumen vacío)
+      - ./db/schema.sql:/docker-entrypoint-initdb.d/01_schema.sql:ro
+    healthcheck:
+      # -h 127.0.0.1: por TCP, así solo da "sano" cuando terminó de correr
+      # schema.sql (durante el init, Postgres solo escucha por socket local)
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U trazared -d trazared"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # ── Servicio 2: base documental (bitácora de gestiones de contacto) ──
+  mongo:
+    image: mongo:7
+    container_name: trazared_mongo
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: trazared
+      MONGO_INITDB_ROOT_PASSWORD: ${TRAZARED_MONGO_PASSWORD:?Configura TRAZARED_MONGO_PASSWORD}
+    volumes:
+      - mongodata:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.getSiblingDB('admin').auth(process.env.MONGO_INITDB_ROOT_USERNAME, process.env.MONGO_INITDB_ROOT_PASSWORD); db.getSiblingDB('trazared_huv').getCollectionNames()"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # ── Servicio 3: API FastAPI (imagen propia: python/Dockerfile) ──
+  api:
+    build:
+      context: .                    # raíz del proyecto (necesita requirements.txt y python/)
+      dockerfile: python/Dockerfile
+    container_name: trazared_api
+    restart: unless-stopped
+    env_file:
+      # SECRET_KEY, CORS_ORIGINS y contraseñas DEMO_* salen de aquí. Se acepta
+      # el nombre nuevo (.env) o el anterior (pass.env); basta con tener uno.
+      - path: ./.env
+        required: false
+      - path: ./pass.env
+        required: false
+    environment:
+      # Estas PISAN las de .env: dentro de Docker la API usa los contenedores
+      # db / mongo / hapi-fhir / orthanc / ml, no Neon ni Atlas.
+      PG_CONNECTION_STRING: "postgresql://trazared:${TRAZARED_PG_PASSWORD:?Configura TRAZARED_PG_PASSWORD}@db:5432/trazared"
+      MONGO_CONNECTION_STRING: "mongodb://trazared:${TRAZARED_MONGO_PASSWORD:?Configura TRAZARED_MONGO_PASSWORD}@mongo:27017/?authSource=admin"
+      FHIR_BASE_URL: http://hapi-fhir:8080/fhir
+      ORTHANC_URL: http://orthanc:8042
+      ORTHANC_USER: api
+      ORTHANC_PASSWORD: ${TRAZARED_ORTHANC_PASSWORD:?Configura TRAZARED_ORTHANC_PASSWORD}
+      ML_URL: http://ml:8001
+      TZ: America/Bogota
+    ports:
+      - "127.0.0.1:8000:8000"       # solo para el cuaderno y /docs en tu equipo
+    depends_on:
+      db:
+        condition: service_healthy
+      mongo:
+        condition: service_healthy
+      orthanc:
+        condition: service_started
+      ml:
+        condition: service_healthy
+
+  # ── Servicio de IA (imagen propia: ml/Dockerfile) — R05, R10, R12 ──
+  # No publica puertos ni tiene ruta en nginx: solo la api le habla (http://ml:8001),
+  # y la api le quita los datos personales antes (capa de seudonimización, R12).
+  ml:
+    build:
+      context: .
+      dockerfile: ml/Dockerfile
+    container_name: trazared_ml
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "from urllib.request import urlopen; urlopen('http://127.0.0.1:8001/health', timeout=3)"]
+      interval: 5s
+      timeout: 4s
+      retries: 6
+      start_period: 120s
+    environment:
+      TZ: America/Bogota
+    volumes:
+      # El modelo que reentrena POST /entrenar queda aquí y sobrevive a recrear el contenedor.
+      # La primera vez, Docker copia el .joblib que venga en la imagen.
+      - ml_modelo:/app/modelo
+
+  # ── Servicio PACS: Orthanc guarda las imágenes médicas como DICOM ──
+  # El navegador nunca le habla directo: todo pasa por la api (token + rol +
+  # auditoría). El puerto 8042 se publica SOLO en tu equipo, para el laboratorio.
+  orthanc:
+    image: orthancteam/orthanc:25.5.1
+    container_name: trazared_orthanc
+    restart: unless-stopped
+    environment:
+      ORTHANC__NAME: "TrazaRed HUV PACS"
+      ORTHANC__AUTHENTICATION_ENABLED: "true"
+      ORTHANC__REMOTE_ACCESS_ALLOWED: "true"
+      ORTHANC__REGISTERED_USERS: |
+        {"api": "${TRAZARED_ORTHANC_PASSWORD:?Configura TRAZARED_ORTHANC_PASSWORD}"}
+    ports:
+      - "127.0.0.1:8042:8042"
+    volumes:
+      - orthanc_data:/var/lib/orthanc/db
+
+  # ── Servicio 4: interfaz gráfica servida por nginx ──
+  front:
+    image: nginx:alpine
+    container_name: trazared_front
+    restart: unless-stopped
+    volumes:
+      - ./frontend:/usr/share/nginx/html:ro            # cambios en vivo: solo recarga el navegador
+      - ./docker/nginx.conf:/etc/nginx/conf.d/default.conf:ro  # /api -> api
+    ports:
+      - "127.0.0.1:8080:80"
+    depends_on:
+      - api
+      - hapi-fhir
+
+  # ── Túnel de Cloudflare: el sistema en línea con HTTPS público (R04) ──
+  # Túnel rápido (sin cuenta): Cloudflare asigna una URL https://xxxx.trycloudflare.com
+  # que apunta a nginx. La URL se mantiene mientras el contenedor no se reinicie;
+  # para la evaluación NO se debe bajar este servicio.
+  # Verla: docker compose logs cloudflared | findstr trycloudflare
+  #        o http://localhost:2000/quicktunnel  (campo "hostname")
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: trazared_cloudflared
+    restart: unless-stopped
+    command: tunnel --no-autoupdate --metrics 0.0.0.0:2000 --url http://front:80
+    ports:
+      - "127.0.0.1:2000:2000"
+    depends_on:
+      - front
+
+  # Alternativa con URL FIJA (túnel con nombre de una cuenta de Cloudflare):
+  # se pone TUNNEL_TOKEN en .env y se levanta con el perfil "tunel-fijo"
+  # en lugar del túnel rápido:
+  #   docker compose --profile tunel-fijo up -d
+  #   docker compose stop cloudflared
+  cloudflared-fijo:
+    image: cloudflare/cloudflared:latest
+    container_name: trazared_cloudflared_fijo
+    restart: unless-stopped
+    profiles: ["tunel-fijo"]
+    command: tunnel --no-autoupdate run
+    env_file:
+      - path: ./.env
+        required: false
+      - path: ./pass.env
+        required: false
+    depends_on:
+      - front
+
+  # ── Servicio 5: base propia de HAPI FHIR ──
+  fhir-db:
+    image: postgres:15
+    container_name: trazared_fhir_db
+    environment:
+      POSTGRES_USER: hapi
+      POSTGRES_PASSWORD: ${TRAZARED_HAPI_PG_PASSWORD:?Configura TRAZARED_HAPI_PG_PASSWORD}
+      POSTGRES_DB: hapi
+    ports:
+      - "127.0.0.1:5433:5432"
+    volumes:
+      - fhir_db_data:/var/lib/postgresql/data
+
+  # ── Servicio 6: servidor FHIR R4 (interoperabilidad) ──
+  hapi-fhir:
+    image: hapiproject/hapi:latest
+    container_name: trazared_hapi_fhir
+    depends_on:
+      - fhir-db
+    ports:
+      - "127.0.0.1:8081:8080"
+    environment:
+      hapi.fhir.default_encoding: json
+      # R21: suscripciones rest-hook (HAPI avisa a la api cuando llega un dato nuevo)
+      hapi.fhir.subscription.resthook_enabled: "true"
+      # HAPI queda disponible para la API por la red Docker.
+      hapi.fhir.server.base_address: http://hapi-fhir:8080/fhir
+      spring.datasource.url: jdbc:postgresql://fhir-db:5432/hapi
+      spring.datasource.username: hapi
+      spring.datasource.password: ${TRAZARED_HAPI_PG_PASSWORD:?Configura TRAZARED_HAPI_PG_PASSWORD}
+      spring.datasource.driverClassName: org.postgresql.Driver
+      spring.jpa.properties.hibernate.dialect: ca.uhn.fhir.jpa.model.dialect.HapiFhirPostgresDialect
+
+volumes:
+  ml_modelo:
+  orthanc_data:
+  pgdata:
+  mongodata:
+  fhir_db_data:

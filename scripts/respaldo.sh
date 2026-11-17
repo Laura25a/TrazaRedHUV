@@ -10,7 +10,7 @@ fi
 
 raiz=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
 archivos=(trazared.dump hapi.dump mongo.archive orthanc.tar modelo.tar)
-compose=(docker compose --env-file "${TRAZARED_COMPOSE_ENV:-$raiz/pass.env}" --project-directory "$raiz/docker" -f "$raiz/docker/docker-compose.yml")
+compose=(docker compose --env-file "${TRAZARED_COMPOSE_ENV:-$raiz/pass.env}" --project-directory "$raiz" -f "$raiz/docker-compose.yml")
 if [[ -n "${TRAZARED_COMPOSE_OVERRIDE:-}" ]]; then
     compose+=(-f "$TRAZARED_COMPOSE_OVERRIDE")
 fi

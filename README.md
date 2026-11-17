@@ -315,7 +315,8 @@ TrazaRedHUV/
 ├── .env.example              # Plantilla de variables (las claves reales nunca se suben)
 ├── tester.yaml               # Datos para la verificación automática del sistema
 ├── db/                       # Esquema de PostgreSQL (se aplica solo al arrancar)
-├── docker/                   # docker-compose.yml (9 servicios) y nginx.conf
+├── docker-compose.yml        # Los 9 servicios: un solo `docker compose up -d` desde la raíz
+├── docker/                   # nginx.conf (y un compose que solo incluye el de la raíz)
 ├── python/                   # API: registro (libro, formato, descargas), libro, exportes,
 │                             # causas, auth, remisiones, ia, historia, contabilidad,
 │                             # eventos, fhir_sync, pacs y scripts de carga de datos
@@ -347,20 +348,23 @@ copy .env.example pass.env
 
 `pass.env` (o `.env`) nunca se sube al repositorio. Docker lo lee al **crear** el
 contenedor: si lo agregas o lo cambias después, recrea la API con
-`docker compose --env-file ../pass.env up -d --force-recreate api`. Variables opcionales: `TUNNEL_TOKEN` para el
+`docker compose --env-file pass.env up -d --force-recreate api`. Variables opcionales: `TUNNEL_TOKEN` para el
 dominio fijo, `ESCALAMIENTO_SEGUNDOS` (600 por defecto), `VALOR_ANALISIS_IA` (80 000 COP por
 defecto), `PRONOSTICO_CADA_MIN` (cada cuánto la IA vuelve a pronosticar, 30 por defecto;
 0 lo apaga) y las tarifas de referencia de la contabilidad (`TARIFA_ESTANCIA_URGENCIAS_HORA`,
 `TARIFA_ESTANCIA_UCI_HORA`, `TARIFA_GESTION_CONTACTO`, `TARIFA_TRASLADO_BASICO`,
 `TARIFA_TRASLADO_MEDICALIZADO`).
 
-**2. Levantar el sistema:**
+**2. Levantar el sistema** (desde la raíz del repositorio, con un solo comando):
 
 ```powershell
-cd docker
-docker compose --env-file ../pass.env up -d --build
-docker compose --env-file ../pass.env ps
+docker compose --env-file pass.env up -d --build
+docker compose --env-file pass.env ps
 ```
+
+Si el archivo de variables se llama `.env`, Compose lo lee solo y basta `docker compose up -d`.
+El proyecto conserva el nombre `docker` (antes el compose vivía en `docker/`), así que usa los
+mismos volúmenes y no se pierde ningún dato. `cd docker && docker compose up -d` sigue funcionando.
 
 Al arrancar, la API crea las tablas, un usuario de prueba por rol y la suscripción FHIR, y
 la IA empieza a pronosticar las remisiones abiertas. La primera vez, el servicio `ml`
@@ -518,7 +522,6 @@ todo lo que se le envió al LLM.
 **Probarlo todo** (48 comprobaciones; usa un socio de prueba que es este mismo sistema):
 
 ```bash
-cd docker
 docker compose up -d --build api
 docker compose exec api python /app/pruebas/probar_final.py
 ```

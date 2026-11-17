@@ -144,7 +144,7 @@ def detener_todo() -> None:
         matar(pid)
         ok(f"detenido: {nombre} (pid {pid})")
     PIDS.unlink(missing_ok=True)
-    subprocess.run(["docker", "compose", "-f", str(RAIZ / "docker" / "docker-compose.yml"),
+    subprocess.run(["docker", "compose", "-f", str(RAIZ / "docker-compose.yml"),
                     "stop", "hapi-fhir", "fhir-db"], capture_output=True)
     ok("contenedores HAPI detenidos (si había)")
     print("Las URLs públicas dejaron de funcionar en el momento del stop.")
@@ -245,7 +245,7 @@ def main() -> None:
     if hapi_ya:
         ok("HAPI ya estaba corriendo (http://localhost:8081/fhir)")
     else:
-        subprocess.run(["docker", "compose", "-f", str(RAIZ / "docker" / "docker-compose.yml"),
+        subprocess.run(["docker", "compose", "-f", str(RAIZ / "docker-compose.yml"),
                         # solo HAPI: la demo usa Neon/Atlas y la API local (no los
                         # contenedores db/mongo/api/front del stack dockerizado)
                         "up", "-d", "fhir-db", "hapi-fhir"], check=True, capture_output=True)

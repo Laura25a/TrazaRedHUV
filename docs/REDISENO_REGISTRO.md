@@ -70,10 +70,9 @@ Cada remisión acumula: estancia en urgencias o UCI mientras espera (por media h
 ## Después de actualizar
 
 ```bash
-cd docker
 docker compose up -d --build          # la API aplica schema.sql sola al arrancar
 docker compose exec api python cargar_dataset.py   # en una base nueva: carga el dataset con horas de radicación y cierre
-python ../pruebas/probar_registro.py   # prueba de punta a punta: debe terminar en "FALLAS: ninguna"
+python pruebas/probar_registro.py   # prueba de punta a punta: debe terminar en "FALLAS: ninguna"
 ```
 
 Si ya tenían el dataset cargado, no hace falta recargar: las remisiones viejas quedan con `radicada_en` = fecha de solicitud a las 00:00 y sin `cerrada_en`. Para tener las horas reales hay que cargar el dataset en una base vacía (`docker compose down -v` borra los volúmenes: acuérdenlo en equipo).

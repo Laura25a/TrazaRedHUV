@@ -156,10 +156,10 @@ El plan original contemplaba tres roles; se agregó `paciente` (desviación docu
 
 ```bash
 # 1. Levantar HAPI FHIR (queda en http://localhost:8081/fhir)
-cd docker && docker compose up -d
+docker compose up -d   # desde la raíz
 
 # 2. Desde python/ (requiere python/pass.env — copia del pass.env de la raíz)
-cd ../python && python fhir_sync.py
+cd python && python fhir_sync.py
 #    …o ejecutar las celdas de la sección 8 del notebook.
 
 # 3. Verificar con GET (navegador o curl) — sección 8c del notebook
