@@ -23,3 +23,8 @@ en remisiones).
   "creado_por": 4,                 // usuario contable (null si es automática)
   "automatica": false              // true si la creó el sistema (R19)
 }
+```
+
+La emisión por cierre, la unicidad de facturas vigentes, el recibo del caso y
+la historia trasladable están documentados en
+[Contabilidad y documentos](CONTABILIDAD_DOCUMENTOS.md).

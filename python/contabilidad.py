@@ -30,6 +30,7 @@ import json
 from contextlib import closing
 import math
 import os
+from decimal import Decimal
 from datetime import datetime, timezone
 from typing import Optional
 
@@ -37,6 +38,7 @@ from bson import ObjectId
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 from pymongo import ReturnDocument
+from pymongo.errors import DuplicateKeyError
 
 import exportes
 import libro
@@ -46,6 +48,30 @@ from auth import PG_CONNECTION_STRING, con_zona, db_mongo, get_db, registrar_aud
 router = APIRouter(tags=["Contabilidad"])
 coleccion_facturas = db_mongo["facturas"]
 coleccion_contadores = db_mongo["contadores"]
+
+ESTADOS_VIGENTES = ["pendiente", "pagada", "glosada"]
+
+
+def preparar_indices_facturas():
+    """Refuerzo en Mongo: una factura vigente por servicio y referencia.
+
+    No borra ni corrige duplicados históricos. Si existen, el índice falla y
+    exige conciliarlos antes del despliegue, en lugar de escoger un cobro.
+    """
+    for servicio, referencia in (("remision", "remision_id"), ("analisis_ia", "reporte_id")):
+        coleccion_facturas.create_index(
+            [(referencia, 1), ("servicio", 1)], unique=True,
+            name=f"uq_factura_vigente_{servicio}",
+            partialFilterExpression={"servicio": servicio, referencia: {"$type": "number"},
+                                     "estado_pago": {"$in": ESTADOS_VIGENTES}},
+        )
+
+
+def _insertar_factura(datos):
+    try:
+        return coleccion_facturas.insert_one(datos)
+    except DuplicateKeyError:
+        raise HTTPException(409, "El servicio ya tiene una factura vigente") from None
 
 
 def _tarifa(nombre: str, defecto: int) -> int:
@@ -266,6 +292,10 @@ def facturar_remision(remision_id: int, db=Depends(get_db),
     fila = liquidacion_de(db, remision_id)
     if fila["abierta"]:
         raise HTTPException(409, "La remisión sigue abierta: se factura cuando se cierra el asiento")
+    with db.cursor() as cur:
+        cur.execute("SELECT activo FROM remisiones WHERE id = %s;", (remision_id,))
+        if not cur.fetchone()[0]:
+            raise HTTPException(409, "No se puede facturar un asiento anulado")
     if fila["estado_cobro"] in ("facturada", "pagada", "glosada"):
         raise HTTPException(409, f"Ya tiene la factura {fila['factura'].get('numero')} ({fila['estado_cobro_texto']})")
     ahora = datetime.now(timezone.utc)
@@ -285,7 +315,7 @@ def facturar_remision(remision_id: int, db=Depends(get_db),
         "creado_por": usuario["id"], "automatica": False,
         "historial": [{"evento": "facturada", "fecha": ahora, "por": usuario["id"]}],
     }
-    r = coleccion_facturas.insert_one(doc)
+    r = _insertar_factura(doc)
     registrar_auditoria(db, usuario["id"], "factura_creada", "remisiones", remision_id,
                         f"{doc['numero']} · {fila['radicado']} · {fila['eps']} · ${doc['valor']:,.0f}")
     return _doc_a_dict(coleccion_facturas.find_one({"_id": r.inserted_id}))
@@ -303,6 +333,12 @@ def _cambiar_factura(factura_id: str, nuevo: str, usuario: dict, db, motivo: Opt
     doc = coleccion_facturas.find_one({"_id": oid})
     if doc is None:
         raise HTTPException(404, "Factura no encontrada")
+    with db.cursor() as cur:
+        if doc.get("remision_id") is not None:
+            cur.execute("SELECT id FROM remisiones WHERE id = %s FOR UPDATE;", (doc["remision_id"],))
+        elif doc.get("reporte_id") is not None:
+            cur.execute("SELECT pg_advisory_xact_lock(197731, %s);", (doc["reporte_id"],))
+    doc = coleccion_facturas.find_one({"_id": oid})
     if doc.get("estado_pago") == "anulada":
         raise HTTPException(409, "La factura está anulada")
     if doc.get("estado_pago") == "pagada":
@@ -311,9 +347,14 @@ def _cambiar_factura(factura_id: str, nuevo: str, usuario: dict, db, motivo: Opt
     cambios = {"estado_pago": nuevo, f"{nuevo}_en": ahora}
     if motivo:
         cambios[f"motivo_{nuevo}"] = motivo
-    coleccion_facturas.update_one({"_id": oid}, {"$set": cambios, "$push": {
-        "historial": {"evento": nuevo, "fecha": ahora, "por": usuario["id"], "motivo": motivo}}})
-    doc = coleccion_facturas.find_one({"_id": oid})
+    doc = coleccion_facturas.find_one_and_update(
+        {"_id": oid, "estado_pago": doc.get("estado_pago")},
+        {"$set": cambios, "$push": {
+            "historial": {"evento": nuevo, "fecha": ahora, "por": usuario["id"], "motivo": motivo}}},
+        return_document=ReturnDocument.AFTER,
+    )
+    if doc is None:
+        raise HTTPException(409, "La factura cambió mientras registrabas la acción. Actualiza el libro")
     registrar_auditoria(db, usuario["id"], f"factura_{nuevo}", "remisiones" if doc.get("remision_id") else "facturas",
                         doc.get("remision_id") or doc.get("paciente_id"),
                         f"{doc.get('numero') or oid}{' · ' + motivo if motivo else ''}")
@@ -332,6 +373,128 @@ def anular_factura(factura_id: str, cuerpo: MotivoIn, db=Depends(get_db),
                    usuario=Depends(requiere_rol("admin", "contable"))):
     """Anula la factura (no se borra): la remisión vuelve a quedar por facturar."""
     return _cambiar_factura(factura_id, "anulada", usuario, db, cuerpo.motivo)
+
+
+def recibo_de(db, remision_id: int) -> dict:
+    """Resumen administrativo del episodio. No es una constancia de pago.
+
+    Importes/conceptos de las facturas emitidas; nunca se recalculan con tarifas
+    actuales. Un reporte sin remision_id no se asigna por proximidad a un caso.
+    """
+    with db.cursor() as cur:
+        cur.execute("SELECT id FROM remisiones WHERE id = %s FOR SHARE;", (remision_id,))
+        if cur.fetchone() is None:
+            raise HTTPException(404, "Remisión no encontrada")
+    fila = liquidacion_de(db, remision_id)
+    if fila["abierta"]:
+        raise HTTPException(409, "Cierra el asiento antes de descargar el recibo del caso")
+    if fila["factura"] is None:
+        raise HTTPException(409, "Emite la factura del cierre antes de descargar el recibo")
+    with db.cursor() as cur:
+        cur.execute("SELECT id FROM reportes_ia WHERE remision_id = %s AND estado = 'aprobado';", (remision_id,))
+        reportes = [r[0] for r in cur.fetchall()]
+    filtro = {"$or": [{"servicio": "remision", "remision_id": remision_id},
+                       {"servicio": "analisis_ia", "reporte_id": {"$in": reportes}}]}
+    documentos = list(coleccion_facturas.find(filtro).sort([("fecha", 1), ("_id", 1)]))
+    facturas, anuladas = [], []
+    campos = ("numero", "servicio", "estado_pago", "valor", "moneda", "reporte_id", "fecha",
+              "pagada_en", "glosada_en", "anulada_en", "motivo_glosada", "motivo_anulada", "historial")
+    for d in documentos:
+        d = _doc_a_dict(d)  # Mongo devuelve UTC sin zona; PDF y JSON deben conservarla.
+        f = {k: d.get(k) for k in campos}
+        f["_id"] = str(d["_id"])
+        f["conceptos"] = d.get("conceptos") or [{
+            "codigo": "IA-ANAL" if d["servicio"] == "analisis_ia" else "REM-HIST",
+            "concepto": "Análisis de IA aprobado" if d["servicio"] == "analisis_ia" else "Remisión (factura histórica)",
+            "cantidad": 1, "unidad": "servicio", "valor_unitario": d["valor"], "valor": d["valor"],
+        }]
+        (anuladas if d.get("estado_pago") == "anulada" else facturas).append(f)
+    if any(f["moneda"] != "COP" for f in facturas):
+        raise HTTPException(409, "El caso contiene otra moneda. Concilia los cobros antes de emitir el recibo en COP")
+    total = sum((Decimal(str(f["valor"])) for f in facturas), Decimal(0))
+    pagado = sum((Decimal(str(f["valor"])) for f in facturas if f["estado_pago"] == "pagada"), Decimal(0))
+    pendientes = sorted(set(reportes) - {f["reporte_id"] for f in facturas if f["servicio"] == "analisis_ia"})
+    estado = ("pendiente_facturacion" if pendientes else "pagada" if all(f["estado_pago"] == "pagada" for f in facturas)
+              else "glosada" if any(f["estado_pago"] == "glosada" for f in facturas) else "pendiente")
+    return {"radicado": fila["radicado"], "remision_id": remision_id, "paciente_id": fila["paciente_id"],
+            "paciente_nombre": fila["paciente_nombre"], "paciente_documento": fila["paciente_documento"],
+            "eps": fila["eps"], "cerrada_en": fila["cerrada_en"], "estado_cobro": estado,
+            "facturas": facturas, "facturas_anuladas": anuladas, "reportes_sin_factura": pendientes,
+            "total": float(total), "pagado": float(pagado), "saldo": float(total - pagado), "moneda": "COP",
+            "generado_en": datetime.now(exportes.ZONA),
+            "nota": "Resumen del cobro con tarifas de referencia del proyecto. Solo las facturas pagadas acreditan pago. "
+                    "Los análisis sin vínculo explícito con este episodio se consultan en Facturas de otros servicios."}
+
+
+def _recibo_pdf(recibo: dict) -> bytes:
+    import io
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.units import cm
+    from reportlab.platypus import SimpleDocTemplate, Spacer, Table, TableStyle
+
+    buf = io.BytesIO()
+    doc = SimpleDocTemplate(buf, pagesize=A4, leftMargin=1.6*cm, rightMargin=1.6*cm,
+                            topMargin=1.5*cm, bottomMargin=1.6*cm, title=f"Recibo {recibo['radicado']}")
+    story = []
+    def par(t, estilo=exportes.E_CELDA):
+        story.append(exportes._p(t, estilo))
+    def dinero(v):
+        return f"$ {v:,.2f} COP".replace(",", "X").replace(".", ",").replace("X", ".")
+    par("HOSPITAL UNIVERSITARIO DEL VALLE · TrazaRed HUV", exportes.E_SUB)
+    par("Recibo desglosado del caso", exportes.E_TITULO)
+    par(recibo["radicado"], exportes.E_CELDA_B)
+    par(f"Generado: {exportes.texto(recibo['generado_en'])} · Cierre: {exportes.texto(recibo['cerrada_en'])}")
+    par(f"Paciente: {recibo['paciente_nombre']} · Documento: {recibo['paciente_documento']}")
+    par(f"EPS actual: {recibo['eps']} · Estado del cobro: {recibo['estado_cobro']}")
+    for f in recibo["facturas"]:
+        story.append(Spacer(1, .4*cm))
+        par(f"Factura {f['numero'] or f['_id']} · {f['servicio']} · {f['estado_pago']}", exportes.E_CELDA_B)
+        par(f"Emisión: {exportes.texto(f['fecha'])} · Pago: {exportes.texto(f['pagada_en']) or 'Sin pago registrado'}")
+        datos = [[exportes._p(c, exportes.E_CELDA_B) for c in ("Concepto", "Cantidad", "Unitario", "Subtotal")]]
+        datos += [[exportes._p(v) for v in (f"{c['codigo']} · {c['concepto']}",
+                  f"{c['cantidad']} {c['unidad']}", dinero(c['valor_unitario']), dinero(c['valor']))] for c in f['conceptos']]
+        ancho = A4[0] - doc.leftMargin - doc.rightMargin
+        tabla = Table(datos, colWidths=[ancho*p for p in (.42, .16, .21, .21)], repeatRows=1)
+        tabla.setStyle(TableStyle([('BACKGROUND', (0, 0), (-1, 0), exportes.LINEA),
+                                   ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+                                   ('LINEBELOW', (0, 0), (-1, -1), .4, exportes.LINEA)]))
+        story.append(tabla)
+        par(f"Total factura: {dinero(f['valor'])}", exportes.E_CELDA_B)
+        if f['motivo_glosada']:
+            par(f"Motivo de glosa: {f['motivo_glosada']}")
+        for evento in f['historial'] or []:
+            par(f"{exportes.texto(evento['fecha'])} · {evento['evento']} · Actor #{evento.get('por') or '-'}"
+                + (f" · {evento['motivo']}" if evento.get('motivo') else ''), exportes.E_SUB)
+    if recibo['facturas_anuladas']:
+        story.append(Spacer(1, .4*cm))
+        par("Facturas anuladas (excluidas del total)", exportes.E_CELDA_B)
+        for f in recibo['facturas_anuladas']:
+            par(f"{f['numero'] or f['_id']} · {dinero(f['valor'])} · {exportes.texto(f['anulada_en'])} · {f['motivo_anulada'] or 'Sin motivo registrado'}")
+    story.append(Spacer(1, .4*cm))
+    for titulo, valor in (("Total facturado vigente", recibo['total']), ("Pagado", recibo['pagado']), ("Saldo", recibo['saldo'])):
+        par(f"{titulo}: {dinero(valor)}", exportes.E_CELDA_B)
+    if recibo['reportes_sin_factura']:
+        par(f"Facturación incompleta: {len(recibo['reportes_sin_factura'])} análisis aprobados sin factura vigente.", exportes.E_CELDA_B)
+    story.append(Spacer(1, .3*cm))
+    par(recibo['nota'], exportes.E_PIE)
+    doc.build(story, onFirstPage=exportes._pie, onLaterPages=exportes._pie)
+    return buf.getvalue()
+
+
+@router.get("/contabilidad/remisiones/{remision_id}/recibo.json")
+def recibo_json(remision_id: int, db=Depends(get_db), usuario=Depends(requiere_rol("admin", "contable"))):
+    recibo = recibo_de(db, remision_id)
+    contenido = json.dumps(recibo, ensure_ascii=False, indent=2, default=str).encode("utf-8")
+    registrar_auditoria(db, usuario["id"], "exporte", "remisiones", remision_id, "recibo individual (JSON)")
+    return exportes.archivo(contenido, f"{recibo['radicado']}_recibo.json", "json")
+
+
+@router.get("/contabilidad/remisiones/{remision_id}/recibo.pdf")
+def recibo_pdf(remision_id: int, db=Depends(get_db), usuario=Depends(requiere_rol("admin", "contable"))):
+    recibo = recibo_de(db, remision_id)
+    contenido = _recibo_pdf(recibo)
+    registrar_auditoria(db, usuario["id"], "exporte", "remisiones", remision_id, "recibo individual (PDF)")
+    return exportes.archivo(contenido, f"{recibo['radicado']}_recibo.pdf", "pdf")
 
 
 # ── Descargas del libro contable ──────────────────────────────────────────────
@@ -531,7 +694,7 @@ def crear_factura(
     datos["fecha"] = datetime.now(timezone.utc)
     datos["creado_en"] = datetime.now(timezone.utc)
     datos["creado_por"] = usuario["id"]
-    resultado = coleccion_facturas.insert_one(datos)
+    resultado = _insertar_factura(datos)
     nuevo = coleccion_facturas.find_one({"_id": resultado.inserted_id})
 
     registrar_auditoria(

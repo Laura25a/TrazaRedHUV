@@ -454,6 +454,9 @@ function tabPaciente(cont, { r, p }) {
           ${puedeDescargar ? `
             <button class="btn btn-secundario btn-sm" id="btn-historia-pdf">
               ${icono("reportes")} Descargar historia clínica (PDF)
+            </button>
+            <button class="btn btn-secundario btn-sm" id="btn-historia-json">
+              ${icono("descargar")} Historia clínica (JSON)
             </button>` : ""}
           ${puedeSimularFHIR ? `
             <button class="btn btn-suave btn-sm" id="btn-simular-fhir" title="Envía una Observation de glucosa a HAPI FHIR; el webhook notifica al médico en vivo">
@@ -481,6 +484,8 @@ function tabPaciente(cont, { r, p }) {
 
   const btnPDF = $("#btn-historia-pdf", cont);
   if (btnPDF) btnPDF.addEventListener("click", () => descargarHistoriaPDF(p.id, btnPDF));
+  const btnJSON = $("#btn-historia-json", cont);
+  if (btnJSON) btnJSON.addEventListener("click", () => descargar(`/pacientes/${p.id}/historia`, `historia_${p.id}.json`, btnJSON));
 
   const btnFHIR = $("#btn-simular-fhir", cont);
   if (btnFHIR) btnFHIR.addEventListener("click", () => simularObservacionFHIR(p, btnFHIR));

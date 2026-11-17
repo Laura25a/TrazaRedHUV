@@ -58,11 +58,12 @@ def entorno():
             parche.setenv(clave, valor)
         parche.syspath_prepend(str(RAIZ / "python"))
         import main
+        main.contabilidad.preparar_indices_facturas()
         importar_usuario = main.auth.hash_password(CLAVE_PRUEBA)
         with closing(psycopg2.connect(pg)) as db, db, db.cursor() as cur:
             for nombre, rol in (
                 ("Auditor", "admin"), ("Medico", "medico"), ("Colega", "medico"),
-                ("Especialista", "especialista"),
+                ("Especialista", "especialista"), ("Contable", "contable"),
             ):
                 cur.execute("""INSERT INTO usuarios (nombre, correo, contrasena_hash, rol)
                                VALUES (%s, %s, %s, %s);""",
@@ -245,6 +246,327 @@ def test_referencias_facturas_y_un_solo_cobro(entorno, autorizaciones):
     with ThreadPoolExecutor(max_workers=2) as ejecutor:
         ids = list(ejecutor.map(lambda _: crear_factura_ia(p["id"], reporte_id), range(2)))
     assert len(set(ids)) == 1
+
+
+def test_historia_documental(entorno, autorizaciones, monkeypatch):
+    import io
+    from fastapi import HTTPException
+    from pypdf import PdfReader
+    import pacs
+
+    _, api, pg = entorno
+    h = autorizaciones["medico"]
+    p = comprobar(paciente(api, h, nombre="Paciente <documental> & prueba"), 201)
+    rid = comprobar(api.post("/remisiones", headers=h, json=datos_remision(p["id"])), 201)["id"]
+    eid = comprobar(api.get("/me", headers=autenticado(api, "especialista")), 200)["id"]
+    iid = comprobar(api.post("/remitir", headers=h, json={
+        "paciente_id": p["id"], "especialista_id": eid, "motivo": "Concepto documental de cardiología",
+    }), 201)["id"]
+    comprobar(api.post(f"/remitir/{iid}/aceptar", headers=autenticado(api, "especialista")), 200)
+    uid = comprobar(api.get("/me", headers=h), 200)["id"]
+    with closing(psycopg2.connect(pg)) as db, db, db.cursor() as cur:
+        for estado in ("aprobado", "pendiente", "rechazado"):
+            cur.execute("""INSERT INTO reportes_ia
+                (paciente_id, remision_id, probabilidad_urgente, prediccion,
+                 payload_seudonimizado, estado, revisado_por, revisado_en, observacion_revision)
+                VALUES (%s,%s,0.2,%s,'{}',%s,%s,now(),%s);""",
+                (p["id"], rid, f"RESULTADO-{estado}", estado, uid, "Revisión clínica documental"))
+        cur.execute("""INSERT INTO imagenes_eliminadas
+            (instance_id,paciente_id,descripcion,modalidad,motivo,eliminada_por)
+            VALUES ('oculta-documental',%s,'No debe exportarse','CR','Prueba de borrado lógico',%s);""", (p["id"], uid))
+    monkeypatch.setattr(pacs, "list_images", lambda documento: [
+        {"instance_id": "estudio-documental", "descripcion": "Radiografía de tórax documental",
+         "modalidad": "CR", "fecha": "20261117", "hora": "103000"},
+        {"instance_id": "oculta-documental", "descripcion": "No debe exportarse"},
+    ])
+    ruta = f"/pacientes/{p['id']}/historia"
+    historia = comprobar(api.get(ruta, headers=h), 200)
+    assert historia["interconsultas"][0]["id"] == iid
+    assert historia["interconsultas"][0]["estado"] == "aceptada"
+    assert historia["interconsultas"][0]["especialista_nombre"] == "Especialista"
+    assert [i["instance_id"] for i in historia["estudios"]] == ["estudio-documental"]
+    assert historia["estudios_disponibles"] is True
+    [reporte] = historia["reportes_ia"]
+    assert reporte["revisor_nombre"] == "Medico" and reporte["revisado_en"]
+    assert reporte["observacion_revision"] == "Revisión clínica documental"
+    pdf = api.get(ruta + ".pdf", headers=h)
+    assert pdf.status_code == 200
+    texto = "\n".join(p.extract_text() for p in PdfReader(io.BytesIO(pdf.content)).pages)
+    for esperado in ("Concepto documental de cardiología", "Radiografía de tórax documental",
+                     "Revisión clínica documental", "RESULTADO-aprobado", "Medico"):
+        assert esperado in texto
+    assert "RESULTADO-pendiente" not in texto and "RESULTADO-rechazado" not in texto
+    assert "No debe exportarse" not in texto
+    assert "no-store" in pdf.headers["cache-control"]
+    comprobar(api.get(ruta, headers=autorizaciones["colega"]), 404)
+    monkeypatch.setattr(pacs, "list_images", lambda _: (_ for _ in ()).throw(HTTPException(503, "PACS caído")))
+    parcial = comprobar(api.get(ruta, headers=h), 200)
+    assert parcial["estudios_disponibles"] is False and parcial["advertencias"]
+    degradado = api.get(ruta + ".pdf", headers=h)
+    texto_degradado = "\n".join(p.extract_text() for p in PdfReader(io.BytesIO(degradado.content)).pages)
+    assert "inventario de estudios está incompleto" in texto_degradado
+    with closing(psycopg2.connect(pg)) as db, db, db.cursor() as cur:
+        cur.execute("UPDATE remisiones_medicas SET observaciones = %s WHERE id = %s;",
+                    ("Nota extensa para verificar la paginación clínica. " * 220, iid))
+    largo = api.get(ruta + ".pdf", headers=h)
+    assert largo.status_code == 200 and len(PdfReader(io.BytesIO(largo.content)).pages) > 1
+
+
+def test_facturacion_documental_concurrente(entorno, autorizaciones):
+    from pymongo.errors import DuplicateKeyError
+    import contabilidad
+
+    _, api, _ = entorno
+    h = autorizaciones["auditor"]
+    contabilidad.preparar_indices_facturas()
+    contabilidad.preparar_indices_facturas()  # arranque idempotente
+    p = comprobar(paciente(api, h), 201)
+    rid = comprobar(api.post("/remisiones", headers=h, json=datos_remision(p["id"])), 201)["id"]
+    comprobar(api.post(f"/registro/remisiones/{rid}/cierre", headers=h, json={"resultado": "rechazada"}), 200)
+    ruta = f"/contabilidad/remisiones/{rid}/facturar"
+    barrera = threading.Barrier(4)
+    def emitir(_):
+        barrera.wait(timeout=10)
+        if _ % 2:
+            return api.post("/facturas", headers=h, json={
+                "paciente_id": p["id"], "servicio": "remision", "remision_id": rid, "valor": 1,
+            })
+        return api.post(ruta, headers=h)
+    with ThreadPoolExecutor(max_workers=4) as ejecutor:
+        respuestas = list(ejecutor.map(emitir, range(4)))
+    assert sorted(r.status_code for r in respuestas) == [201, 409, 409, 409]
+    factura = next(r.json() for r in respuestas if r.status_code == 201)
+    vigente = contabilidad.coleccion_facturas.find_one({"remision_id": rid, "estado_pago": "pendiente"})
+    copia = {k: v for k, v in vigente.items() if k != "_id"}
+    with pytest.raises(DuplicateKeyError):
+        contabilidad.coleccion_facturas.insert_one(copia)
+    comprobar(api.put(f"/facturas/{factura['_id']}/anular", headers=h, json={"motivo": "Refacturación documental"}), 200)
+    nueva = comprobar(api.post(ruta, headers=h), 201)
+    assert nueva["_id"] != factura["_id"]
+    assert contabilidad.coleccion_facturas.count_documents({"remision_id": rid}) == 2
+    assert contabilidad.coleccion_facturas.count_documents({"remision_id": rid, "estado_pago": {"$ne": "anulada"}}) == 1
+    recibo = comprobar(api.get(f"/contabilidad/remisiones/{rid}/recibo.json", headers=h), 200)
+    assert recibo["total"] == nueva["valor"] and len(recibo["facturas"]) == 1
+    assert recibo["facturas_anuladas"][0]["_id"] == factura["_id"]
+
+
+def test_recibo_documental(entorno, autorizaciones, monkeypatch):
+    import io
+    from pypdf import PdfReader
+    from contabilidad import crear_factura_ia, TARIFAS
+
+    _, api, pg = entorno
+    h = autorizaciones["auditor"]
+    p = comprobar(paciente(api, h), 201)
+    rid = comprobar(api.post("/remisiones", headers=h, json=datos_remision(p["id"])), 201)["id"]
+    ruta = f"/contabilidad/remisiones/{rid}"
+    comprobar(api.get(ruta + "/recibo.json", headers=h), 409)
+    comprobar(api.post(f"/registro/remisiones/{rid}/cierre", headers=h, json={"resultado": "rechazada"}), 200)
+    comprobar(api.get(ruta + "/recibo.json", headers=h), 409)
+    factura = comprobar(api.post(ruta + "/facturar", headers=h), 201)
+    with closing(psycopg2.connect(pg)) as db, db, db.cursor() as cur:
+        cur.execute("""INSERT INTO reportes_ia (paciente_id,remision_id,probabilidad_urgente,
+            prediccion,payload_seudonimizado,estado) VALUES (%s,%s,0.2,'Diagnóstico secreto','{}','aprobado')
+            RETURNING id;""", (p["id"], rid))
+        reporte_id = cur.fetchone()[0]
+    fid_ia = crear_factura_ia(p["id"], reporte_id)
+    monkeypatch.setitem(TARIFAS, "estancia_urgencias_hora", 999999)
+    recibo = comprobar(api.get(ruta + "/recibo.json", headers=h), 200)
+    assert len(recibo["facturas"]) == 2 and recibo["radicado"] == factura["radicado"]
+    assert recibo["total"] == factura["valor"] + 30000
+    assert recibo["saldo"] == recibo["total"] and recibo["pagado"] == 0
+    assert recibo["estado_cobro"] == "pendiente"
+    assert all(f["fecha"].endswith("+00:00") for f in recibo["facturas"])
+    comprobar(api.get(ruta + "/recibo.pdf", headers=autorizaciones["medico"]), 403)
+    comprobar(api.get(f"/contabilidad/remisiones/2147483000/recibo.json", headers=h), 404)
+    comprobar(api.put(f"/facturas/{factura['_id']}/glosar", headers=h, json={"motivo": "Conciliación de la EPS"}), 200)
+    assert comprobar(api.get(ruta + "/recibo.json", headers=h), 200)["estado_cobro"] == "glosada"
+    for fid in (factura["_id"], fid_ia):
+        comprobar(api.put(f"/facturas/{fid}/pagar", headers=h), 200)
+    final = comprobar(api.get(ruta + "/recibo.json", headers=h), 200)
+    assert final["saldo"] == 0 and final["pagado"] == final["total"]
+    assert final["estado_cobro"] == "pagada"
+    assert all(f["conceptos"] for f in final["facturas"])
+    pdf = api.get(ruta + "/recibo.pdf", headers=h)
+    assert pdf.status_code == 200 and pdf.content.startswith(b"%PDF-")
+    texto = "\n".join(p.extract_text() for p in PdfReader(io.BytesIO(pdf.content)).pages)
+    assert factura["numero"] in texto and "Saldo" in texto and "pagada" in texto.lower()
+    assert "Diagnóstico secreto" not in texto
+
+
+def test_pago_y_anulacion_documental_no_se_sobrescriben(entorno, autorizaciones, monkeypatch):
+    from bson import ObjectId
+    import contabilidad
+
+    _, api, _ = entorno
+    h = autorizaciones["auditor"]
+    p = comprobar(paciente(api, h), 201)
+    f = comprobar(api.post("/facturas", headers=h, json={
+        "paciente_id": p["id"], "servicio": "consulta", "valor": 1000,
+    }), 201)
+    barrera = threading.Barrier(2)
+    original = contabilidad.coleccion_facturas.find_one_and_update
+    def escritura_concurrente(filtro, *args, **kwargs):
+        if filtro.get("_id") == ObjectId(f["_id"]):
+            barrera.wait(timeout=10)
+        return original(filtro, *args, **kwargs)
+    monkeypatch.setattr(contabilidad.coleccion_facturas, "find_one_and_update", escritura_concurrente)
+    with ThreadPoolExecutor(max_workers=2) as ejecutor:
+        pagar = ejecutor.submit(api.put, f"/facturas/{f['_id']}/pagar", headers=h)
+        anular = ejecutor.submit(api.put, f"/facturas/{f['_id']}/anular", headers=h, json={"motivo": "Anulación concurrente"})
+        assert sorted([pagar.result().status_code, anular.result().status_code]) == [200, 409]
+    final = comprobar(api.get(f"/facturas/{f['_id']}", headers=h), 200)
+    assert final["estado_pago"] in ("pagada", "anulada") and len(final["historial"]) == 1
+
+
+def test_factura_documental_ia_solo_tras_aprobar_y_reintenta(entorno, autorizaciones, monkeypatch):
+    import contabilidad
+    from eventos import completar_facturas_ia
+
+    _, api, pg = entorno
+    h = autorizaciones["medico"]
+    p = comprobar(paciente(api, h), 201)
+    uid = comprobar(api.get("/me", headers=h), 200)["id"]
+    with closing(psycopg2.connect(pg)) as db, db, db.cursor() as cur:
+        cur.execute("""INSERT INTO reportes_ia (paciente_id,creado_por,probabilidad_urgente,
+            prediccion,payload_seudonimizado) VALUES (%s,%s,0.2,'Prueba documental','{}') RETURNING id;""", (p["id"], uid))
+        reporte = cur.fetchone()[0]
+    filtro = {"servicio": "analisis_ia", "reporte_id": reporte}
+    assert contabilidad.coleccion_facturas.count_documents(filtro) == 0
+    def no_disponible(*args, **kwargs):
+        raise RuntimeError("Mongo de facturación no disponible (simulado)")
+    with monkeypatch.context() as parche:
+        parche.setattr(contabilidad, "crear_factura_ia", no_disponible)
+        comprobar(api.post(f"/ia/reportes/{reporte}/aprobar", headers=h,
+                           json={"observaciones": "Análisis revisado clínicamente"}), 200)
+    assert contabilidad.coleccion_facturas.count_documents(filtro) == 0
+    with closing(psycopg2.connect(pg)) as db, db.cursor() as cur:
+        cur.execute("SELECT reporte_id FROM facturas_ia_pendientes WHERE reporte_id = %s;", (reporte,))
+        assert cur.fetchone() == (reporte,)
+    completar_facturas_ia(reporte)
+    completar_facturas_ia(reporte)
+    assert contabilidad.coleccion_facturas.count_documents(filtro) == 1
+    with closing(psycopg2.connect(pg)) as db, db.cursor() as cur:
+        cur.execute("SELECT reporte_id FROM facturas_ia_pendientes WHERE reporte_id = %s;", (reporte,))
+        assert cur.fetchone() is None
+
+
+def test_documentos_en_navegador(entorno, autorizaciones, monkeypatch, tmp_path):
+    import io
+    import json
+    import uvicorn
+    import pacs
+    from pypdf import PdfReader
+    from playwright.sync_api import expect, sync_playwright
+
+    main, api, pg = entorno
+    medico = autorizaciones["medico"]
+    p = comprobar(paciente(api, medico, nombre="Paciente documental navegador"), 201)
+    rid = comprobar(api.post("/remisiones", headers=medico, json=datos_remision(p["id"])), 201)["id"]
+    especialista = autenticado(api, "especialista")
+    eid = comprobar(api.get("/me", headers=especialista), 200)["id"]
+    ic = comprobar(api.post("/remitir", headers=medico, json={
+        "paciente_id": p["id"], "especialista_id": eid,
+        "motivo": "Interconsulta exportada desde el navegador",
+    }), 201)
+    comprobar(api.post(f"/remitir/{ic['id']}/aceptar", headers=especialista), 200)
+    uid = comprobar(api.get("/me", headers=medico), 200)["id"]
+    with closing(psycopg2.connect(pg)) as db, db, db.cursor() as cur:
+        cur.execute("""INSERT INTO reportes_ia (paciente_id,remision_id,probabilidad_urgente,prediccion,
+            payload_seudonimizado,estado,revisado_por,revisado_en,observacion_revision)
+            VALUES (%s,%s,0.2,'Resultado aprobado documental','{}','aprobado',%s,now(),%s);""",
+            (p["id"], rid, uid, "Revisión clínica exportable desde el navegador"))
+    monkeypatch.setattr(pacs, "list_images", lambda _: [{
+        "instance_id": "estudio-navegador", "descripcion": "Estudio de tórax para traslado",
+        "modalidad": "CR", "fecha": "20261117", "hora": "103000",
+    }])
+    comprobar(api.post(f"/registro/remisiones/{rid}/cierre", headers=medico, json={"resultado": "rechazada"}), 200)
+    salida = Path(os.getenv("TRAZARED_EVIDENCIA_DOCUMENTOS", str(tmp_path)))
+    salida.mkdir(parents=True, exist_ok=True)
+    with socket.socket() as puerto:
+        puerto.bind(("127.0.0.1", 0))
+        puerto.listen()
+        base = f"http://127.0.0.1:{puerto.getsockname()[1]}"
+        servidor = uvicorn.Server(uvicorn.Config(main.app, lifespan="off", log_level="error"))
+        hilo = threading.Thread(target=servidor.run, kwargs={"sockets": [puerto]}, daemon=True)
+        hilo.start()
+        try:
+            with sync_playwright() as control:
+                navegador = control.chromium.launch()
+                pagina = navegador.new_page(viewport={"width": 1440, "height": 1000})
+                pagina.goto(base + "/app/")
+                pagina.locator("#login-usuario").fill("medico@pruebas.test")
+                pagina.locator("#login-clave").fill(CLAVE_PRUEBA)
+                pagina.locator("#form-login button[type=submit]").click()
+                expect(pagina.locator("#vista-app")).to_be_visible()
+                pagina.locator('[data-seccion="pacientes"]').click()
+                pagina.locator(f'tr[data-pac="{p["id"]}"] td').first.click()
+                pagina.locator("#anexos summary").click()
+                expect(pagina.locator("#btn-historia-pdf")).to_be_visible()
+                for formato in ("pdf", "json"):
+                    with pagina.expect_download() as descarga:
+                        pagina.locator(f"#btn-historia-{formato}").click()
+                    archivo = salida / f"historia_navegador.{formato}"
+                    descarga.value.save_as(archivo)
+                    assert archivo.stat().st_size > 100
+                historia = json.loads((salida / "historia_navegador.json").read_text())
+                assert historia["interconsultas"][0]["id"] == ic["id"]
+                assert historia["reportes_ia"][0]["observacion_revision"]
+                assert historia["estudios"][0]["instance_id"] == "estudio-navegador"
+                pagina.screenshot(path=str(salida / "historia_navegador.png"), full_page=True)
+                pagina.close()
+                contable = navegador.new_page(viewport={"width": 1440, "height": 1000})
+                contable.goto(base + "/app/")
+                contable.locator("#login-usuario").fill("contable@pruebas.test")
+                contable.locator("#login-clave").fill(CLAVE_PRUEBA)
+                contable.locator("#form-login button[type=submit]").click()
+                boton = contable.locator(f'[data-facturar="{rid}"]')
+                expect(boton).to_be_visible()
+                boton.click()
+                recibo = contable.locator(f'[data-recibo-pdf="{rid}"]')
+                expect(recibo).to_be_visible()
+                factura = comprobar(api.get("/facturas", headers=autenticado(api, "contable"),
+                                            params={"remision_id": rid}), 200)[0]
+                contable.on("dialog", lambda d: d.accept("Glosa documental en navegador"))
+                contable.locator(f'[data-glosar="{factura["_id"]}"]').click()
+                expect(contable.locator(f'[data-anular="{factura["_id"]}"]')).to_be_visible()
+                contable.locator(f'[data-pagar="{factura["_id"]}"]').click()
+                expect(contable.locator(f'[data-pagar="{factura["_id"]}"]')).to_have_count(0)
+                contable.reload()
+                expect(recibo).to_be_visible()
+                for formato in ("pdf", "json"):
+                    with contable.expect_download() as descarga:
+                        contable.locator(f'[data-recibo-{formato}="{rid}"]').click()
+                    descarga.value.save_as(salida / f"recibo_navegador.{formato}")
+                final = json.loads((salida / "recibo_navegador.json").read_text())
+                # El análisis sembrado aún no se ha facturado: no se oculta este pendiente.
+                assert final["estado_cobro"] == "pendiente_facturacion"
+                assert final["saldo"] == 0 and final["reportes_sin_factura"]
+                from contabilidad import crear_factura_ia
+                fid_ia = crear_factura_ia(p["id"], historia["reportes_ia"][0]["id"])
+                comprobar(api.put(f"/facturas/{fid_ia}/pagar", headers=autenticado(api, "contable")), 200)
+                with contable.expect_download() as descarga:
+                    recibo.click()
+                descarga.value.save_as(salida / "recibo_navegador.pdf")
+                with contable.expect_download() as descarga:
+                    contable.locator(f'[data-recibo-json="{rid}"]').click()
+                descarga.value.save_as(salida / "recibo_navegador.json")
+                final = json.loads((salida / "recibo_navegador.json").read_text())
+                assert final["estado_cobro"] == "pagada" and final["saldo"] == 0
+                assert len(final["facturas"]) == 2
+                contable.screenshot(path=str(salida / "contabilidad_navegador.png"), full_page=True)
+                for nombre in ("historia_navegador.pdf", "recibo_navegador.pdf"):
+                    lector = PdfReader(io.BytesIO((salida / nombre).read_bytes()))
+                    assert lector.pages and all(p.extract_text() for p in lector.pages)
+                denegada = contable.evaluate("""async pid => {
+                    try { await API.get(`/pacientes/${pid}/historia`); return 200; }
+                    catch (e) { return e.status; }
+                }""", p["id"])
+                assert denegada == 403
+                navegador.close()
+        finally:
+            servidor.should_exit = True
+            hilo.join(timeout=10)
 
 
 def test_restricciones_sql_sin_api(entorno, autorizaciones):

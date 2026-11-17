@@ -142,6 +142,7 @@ def _suscripcion_fhir_al_arrancar():
 @app.on_event("startup")
 def al_arrancar():
     auth.migrar_base()               # db/schema.sql al día (roles nuevos, columnas nuevas...)
+    contabilidad.preparar_indices_facturas()
     auth.crear_usuarios_iniciales()  # un usuario de prueba por rol
     # En un hilo aparte para no retrasar el arranque de la API mientras
     # HAPI FHIR termina de bootear (puede tardar ~30 s la primera vez).

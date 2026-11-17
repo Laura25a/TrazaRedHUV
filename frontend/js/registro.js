@@ -570,9 +570,11 @@ async function vistaLibroContable() {
         <td style="font-size:.78rem;color:var(--texto-suave)">${f.conceptos.map(c => esc(CONCEPTO_CORTO[c.codigo] ? CONCEPTO_CORTO[c.codigo](c) : c.concepto)).join(" · ")}</td>
         <td class="mono" style="text-align:right;font-weight:600">${pesos(f.total)}</td>
         <td><span class="cobro ${esc(f.estado_cobro)}">${esc(f.estado_cobro_texto)}</span>${f.factura ? `<span class="sub-mono">${esc(f.factura.numero || "")}${f.factura.motivo_glosada && f.estado_cobro === "glosada" ? ` · ${esc(f.factura.motivo_glosada)}` : ""}</span>` : ""}</td>
-        <td style="white-space:nowrap">${f.estado_cobro === "por_facturar" ? `<button class="btn btn-primario btn-sm" data-facturar="${f.remision_id}">Facturar</button>` : ""}
+        <td style="min-width:11rem"><div style="display:flex;gap:.3rem;flex-wrap:wrap">${f.estado_cobro === "por_facturar" ? `<button class="btn btn-primario btn-sm" data-facturar="${f.remision_id}">Facturar</button>` : ""}
           ${f.estado_cobro === "facturada" ? `<button class="btn btn-ok btn-sm" data-pagar="${f.factura._id}">Pagada</button> <button class="btn btn-secundario btn-sm" data-glosar="${f.factura._id}">Glosa</button>` : ""}
-          ${f.estado_cobro === "glosada" ? `<button class="btn btn-ok btn-sm" data-pagar="${f.factura._id}">Pagada</button> <button class="btn btn-peligro btn-sm" data-anular="${f.factura._id}">Anular</button>` : ""}</td></tr>`).join("")}</tbody></table>
+          ${f.estado_cobro === "glosada" ? `<button class="btn btn-ok btn-sm" data-pagar="${f.factura._id}">Pagada</button> <button class="btn btn-peligro btn-sm" data-anular="${f.factura._id}">Anular</button>` : ""}
+          ${!f.abierta && f.factura ? `<button class="btn btn-secundario btn-sm" data-recibo-pdf="${f.remision_id}" data-radicado="${esc(f.radicado)}">Recibo PDF</button>
+            <button class="btn btn-secundario btn-sm" data-recibo-json="${f.remision_id}" data-radicado="${esc(f.radicado)}">Recibo JSON</button>` : ""}</div></td></tr>`).join("")}</tbody></table>
       ${lista.length > 300 ? `<div class="vacio">Se muestran 300 de ${lista.length}. Usa los filtros o descarga el Excel completo.</div>` : ""}`;
     const accion = (sel, fn) => $$(sel, $("#c-tabla")).forEach(b => b.addEventListener("click", async (e) => {
       e.preventDefault(); b.disabled = true;
@@ -582,6 +584,11 @@ async function vistaLibroContable() {
     accion("[data-pagar]", async b => { await API.put(`/facturas/${b.dataset.pagar}/pagar`); toast("Pago registrado", "ok"); });
     accion("[data-glosar]", async b => { const m = prompt("Motivo de la glosa de la EPS:"); if (!m || m.trim().length < 3) throw new Error("Escribe el motivo de la glosa."); await API.put(`/facturas/${b.dataset.glosar}/glosar`, { motivo: m.trim() }); toast("Glosa registrada", "ok"); });
     accion("[data-anular]", async b => { const m = prompt("Motivo de la anulación (la remisión vuelve a quedar por facturar):"); if (!m || m.trim().length < 3) throw new Error("Escribe el motivo de la anulación."); await API.put(`/facturas/${b.dataset.anular}/anular`, { motivo: m.trim() }); toast("Factura anulada", "ok"); });
+    for (const formato of ["pdf", "json"]) {
+      $$(`[data-recibo-${formato}]`, $("#c-tabla")).forEach(b => b.addEventListener("click", () =>
+        descargar(`/contabilidad/remisiones/${b.getAttribute(`data-recibo-${formato}`)}/recibo.${formato}`,
+          `${b.dataset.radicado}_recibo.${formato}`, b)));
+    }
     $$("[data-ver]", $("#c-tabla")).forEach(a => a.addEventListener("click", (e) => { e.preventDefault(); ir("ficha", { remision: +a.dataset.ver, desde: "contabilidad" }); }));
   }
   $("#c-q").addEventListener("input", debounce(e => { estadoContable.q = e.target.value; if (filas) pintar(); }, 200));
