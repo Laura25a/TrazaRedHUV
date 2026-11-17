@@ -579,3 +579,17 @@ sistema: nombres y documentos no van a ningún modelo de lenguaje. Respeta el ro
 requiere un YAML con valores ya resueltos, carga las variables en el entorno y ejecuta
 `python scripts/preparar_tester.py RUTA_PRIVADA.yml`. El archivo se crea con acceso
 solo para el dueño y se entrega por el canal privado.
+
+Para comprobar el contrato sobre un despliegue HTTPS de demostración, usa un entorno
+con `requests`, `python-dotenv` y `PyYAML` e indica el archivo privado de variables.
+La prueba crea registros sintéticos, cambia su estado y llama a las rutas de reentrenamiento.
+
+```sh
+python scripts/verificar_tester.py --env-file RUTA_PRIVADA.env \
+  --entorno-de-prueba --salida resultado-tester.json
+```
+
+La URL predeterminada sale de `tester.yaml`. El reporte JSON guarda el resultado y el
+código HTTP de cada caso por requisito, sin copiar cuerpos de respuesta ni credenciales.
+Los casos pendientes requieren revisar sus dependencias o completar una prueba manual.
+La demostración con el equipo socio (R33) se hace por separado.
