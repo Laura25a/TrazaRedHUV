@@ -36,7 +36,7 @@ import os
 import re
 import time
 import uuid
-from datetime import date, datetime, timezone
+from datetime import datetime, timezone
 from typing import Optional
 
 import psycopg2
@@ -51,7 +51,13 @@ from pydantic import BaseModel, Field
 import auth
 import cripto
 import seguridad
-from validaciones import bloquear_remision, hoy_bogota
+from interop_perfil import (
+    CATALOGO_LOINC, CLASE_REMISION, LOINC, SNOMED, SNOMED_REMISION, UCUM,
+    SID_ENCUENTRO, SID_FEDERADO, SID_OBSERVACION, SID_PROFESIONAL, SID_REMISION, Rechazo,
+    _identificador, _json, _lista, _obj, _validar_bundle, _validar_observation,
+)
+from validaciones import bloquear_remision
+from validacion_clinica import SIGNOS, validar_signo
 from auth import (PG_CONNECTION_STRING, ROLES_CLINICOS, get_db, get_usuario_actual, registrar_auditoria,
                   requiere_rol)
 
@@ -61,26 +67,12 @@ INSTITUCION = (os.getenv("INSTITUCION_NOMBRE") or "Hospital Universitario del Va
 # Secreto con el que las instituciones del acuerdo calculan el identificador federado.
 # El valor por defecto es el de la demo de clase: se cambia en el .env de ambos equipos.
 SECRETO_FEDERADO = (os.getenv("SECRETO_FEDERADO") or "secreto-federado-del-curso-solo-demo")
-SID_FEDERADO = os.getenv("SID_FEDERADO") or cripto.SID_FEDERADO
-SID_REMISION = "urn:trazared:remision"
 URL_LOCAL = (os.getenv("INTEROP_URL_LOCAL") or "http://127.0.0.1:8000")     # para el socio de prueba (bucle local)
 MINUTOS_TOKEN_SISTEMA = 10
 TOLERANCIA_S = int(os.getenv("INTEROP_TOLERANCIA_S") or "300")             # reloj del emisor: ±5 min
 SCOPES = ("system/Bundle.write", "system/Task.write", "system/Observation.write")
 SCOPE_DE = {"Bundle": SCOPES[0], "Task": SCOPES[1], "Observation": SCOPES[2]}
 
-LOINC = "http://loinc.org"
-SNOMED = "http://snomed.info/sct"
-UCUM = "http://unitsofmeasure.org"
-# Perfil común: códigos LOINC que este sistema entiende (signos vitales y glucosa)
-CATALOGO_LOINC = {
-    "8867-4": ("Frecuencia cardíaca", "/min"), "8480-6": ("Presión arterial sistólica", "mm[Hg]"),
-    "8462-4": ("Presión arterial diastólica", "mm[Hg]"), "9279-1": ("Frecuencia respiratoria", "/min"),
-    "59408-5": ("Saturación de oxígeno", "%"), "2708-6": ("Saturación de oxígeno", "%"),
-    "8310-5": ("Temperatura corporal", "Cel"), "9269-2": ("Escala de Glasgow", "{score}"),
-    "2339-0": ("Glucosa en sangre", "mg/dL"),
-}
-SNOMED_REMISION = ("3457005", "Remisión del paciente")        # Patient referral
 GLUCOSA_CRITICA = (54, 300)                                     # por debajo o desde aquí: alerta crítica (R20)
 
 
@@ -90,11 +82,6 @@ def operation_outcome(status: int, codigo: str, textos, severidad: str = "error"
     return JSONResponse(status_code=status, media_type="application/fhir+json", content={
         "resourceType": "OperationOutcome",
         "issue": [{"severity": severidad, "code": codigo, "diagnostics": t} for t in textos]})
-
-
-class Rechazo(Exception):
-    def __init__(self, status: int, codigo: str, textos):
-        self.status, self.codigo, self.textos = status, codigo, textos
 
 
 def _conexion():
@@ -282,171 +269,47 @@ def _rechazar(conn, socio, mensaje_id, tipo, r: Rechazo, ip: str) -> JSONRespons
     return respuesta
 
 
-def _json(cuerpo: bytes, tipo_esperado: str) -> dict:
-    try:
-        recurso = json.loads(cuerpo.decode("utf-8"))
-    except Exception:
-        raise Rechazo(400, "structure", "El cuerpo no es JSON válido")
-    if not isinstance(recurso, dict) or recurso.get("resourceType") != tipo_esperado:
-        raise Rechazo(400, "structure", f"Se esperaba un recurso FHIR de tipo {tipo_esperado}")
-    return recurso
-
-
-# ══════════════════════════════════════════════════════════════════════════
-# 3. R30 · Perfil FHIR: validar ANTES de guardar
-# ══════════════════════════════════════════════════════════════════════════
-def _federado_de(recurso: dict, campo: str = "identifier") -> Optional[str]:
-    """El identificador federado: el que trae nuestro system; si el socio usa otro
-    nombre de system, el primer identificador con forma de HMAC (64 hexadecimales)."""
-    idents = recurso.get(campo)
-    if isinstance(idents, dict):
-        idents = [idents]
-    idents = [i for i in (idents or []) if isinstance(i, dict)]
-    for i in idents:
-        if i.get("system") == SID_FEDERADO and i.get("value"):
-            return str(i["value"]).lower()
-    for i in idents:
-        if re.fullmatch(r"[0-9a-fA-F]{64}", str(i.get("value") or "")):
-            return str(i["value"]).lower()
-    return None
-
-
-def _validar_observation(o: dict, pos: str, exigir_sujeto: bool = False) -> tuple[list, Optional[dict]]:
-    errores = []
-    if o.get("status") not in ("final", "amended", "corrected"):
-        errores.append(f"{pos}: status debe ser final (llegó {o.get('status')!r})")
-    codigos = [c for c in ((o.get("code") or {}).get("coding") or []) if isinstance(c, dict)]
-    loinc = next((c.get("code") for c in codigos if c.get("system") == LOINC), None)
-    if loinc is None:
-        errores.append(f"{pos}: code.coding debe traer un código con system {LOINC}")
-    elif loinc not in CATALOGO_LOINC:
-        errores.append(f"{pos}: el código LOINC {loinc!r} no está en el perfil ({', '.join(sorted(CATALOGO_LOINC))})")
-    cantidad = o.get("valueQuantity") or {}
-    valor = cantidad.get("value")
-    if not isinstance(valor, (int, float)) or isinstance(valor, bool):
-        errores.append(f"{pos}: valueQuantity.value debe ser un número")
-    if cantidad.get("system") != UCUM or not (cantidad.get("code") or cantidad.get("unit")):
-        errores.append(f"{pos}: valueQuantity debe traer la unidad UCUM (system {UCUM} y code)")
-    federado = _federado_de(o.get("subject") or {}) if exigir_sujeto else None
-    if exigir_sujeto and not federado:
-        errores.append(f"{pos}: subject.identifier debe traer el identificador federado del paciente")
-    if errores:
-        return errores, None
-    return [], {"loinc": loinc, "valor": float(valor), "unidad": cantidad.get("code") or cantidad.get("unit"),
-                "nombre": CATALOGO_LOINC[loinc][0], "federado": federado}
-
-
-def _validar_bundle(b: dict) -> dict:
-    """Devuelve las partes ya interpretadas o lanza Rechazo(422) con TODOS los problemas."""
-    errores = []
-    entradas = b.get("entry")
-    if b.get("type") not in ("collection", "message", "transaction", "document") or not isinstance(entradas, list) or not entradas:
-        raise Rechazo(422, "invalid", "Bundle.type debe ser collection (o message) y traer al menos una entrada")
-    recursos = [e.get("resource") for e in entradas if isinstance(e, dict) and isinstance(e.get("resource"), dict)]
-    por_tipo: dict = {}
-    for r in recursos:
-        por_tipo.setdefault(r.get("resourceType"), []).append(r)
-    desconocidos = set(por_tipo) - {"Patient", "ServiceRequest", "Observation", "DiagnosticReport", "Consent",
-                                    "Organization", "Practitioner", "MessageHeader", "Condition"}
-    if desconocidos:
-        errores.append(f"Recursos fuera del perfil: {', '.join(sorted(map(str, desconocidos)))}")
-
-    # Patient: exactamente uno, identificado SOLO por el identificador federado
-    pacientes = por_tipo.get("Patient", [])
-    paciente, federado = (pacientes[0] if len(pacientes) == 1 else None), None
-    if paciente is None:
-        errores.append("El Bundle debe traer exactamente un Patient")
-    else:
-        federado = _federado_de(paciente)
-        if not federado:
-            errores.append(f"Patient.identifier debe traer el identificador federado (system {SID_FEDERADO})")
-        if paciente.get("gender") not in (None, "male", "female", "other", "unknown"):
-            errores.append("Patient.gender debe ser male, female, other o unknown")
-        if paciente.get("birthDate") and not re.fullmatch(r"\d{4}(-\d{2}(-\d{2})?)?", str(paciente["birthDate"])):
-            errores.append("Patient.birthDate debe tener formato AAAA-MM-DD")
-
-    # ServiceRequest: exactamente uno, con código SNOMED y un identificador para responderle
-    solicitudes = por_tipo.get("ServiceRequest", [])
-    sr, referencia, motivo, prioridad = (solicitudes[0] if len(solicitudes) == 1 else None), None, "", "routine"
-    if sr is None:
-        errores.append("El Bundle debe traer exactamente un ServiceRequest (la remisión)")
-    else:
-        if sr.get("status") not in ("active", "draft"):
-            errores.append(f"ServiceRequest.status debe ser active (llegó {sr.get('status')!r})")
-        if sr.get("intent") not in ("order", "proposal", "plan", "original-order"):
-            errores.append("ServiceRequest.intent debe ser order")
-        if not any(isinstance(c, dict) and c.get("system") == SNOMED and c.get("code")
-                   for c in ((sr.get("code") or {}).get("coding") or [])):
-            errores.append(f"ServiceRequest.code.coding debe traer un código SNOMED CT (system {SNOMED})")
-        idents = [i for i in (sr.get("identifier") or []) if isinstance(i, dict) and i.get("value")]
-        referencia = str(idents[0]["value"])[:80] if idents else None
-        if not referencia:
-            errores.append("ServiceRequest.identifier debe traer el número de la remisión en el sistema de origen")
-        razones = [r.get("text") or ((r.get("coding") or [{}])[0].get("display")) for r in (sr.get("reasonCode") or [])
-                   if isinstance(r, dict)]
-        motivo = "; ".join(str(t) for t in razones if t) or (sr.get("code") or {}).get("text") or ""
-        notas = "; ".join(str(n.get("text")) for n in (sr.get("note") or []) if isinstance(n, dict) and n.get("text"))
-        motivo = (motivo + (f". {notas}" if notas else "")).strip()
-        if len(motivo) < 5:
-            errores.append("ServiceRequest.reasonCode[].text debe decir el motivo de la remisión")
-        prioridad = sr.get("priority") or "routine"
-        if prioridad not in ("routine", "urgent", "asap", "stat"):
-            errores.append("ServiceRequest.priority debe ser routine, urgent, asap o stat")
-
-    observaciones = []
-    for n, o in enumerate(por_tipo.get("Observation", []), 1):
-        errs, obs = _validar_observation(o, f"Observation[{n}]")
-        errores.extend(errs)
-        if obs:
-            observaciones.append(obs)
-
-    # DiagnosticReport de IA: solo el APROBADO viaja (status final). Nunca uno pendiente ni rechazado.
-    reporte = None
-    for n, d in enumerate(por_tipo.get("DiagnosticReport", []), 1):
-        if d.get("status") != "final":
-            errores.append(f"DiagnosticReport[{n}]: solo se acepta un reporte aprobado (status final); llegó {d.get('status')!r}")
-        else:
-            reporte = {"conclusion": str(d.get("conclusion") or "")[:600],
-                       "codigo": (d.get("code") or {}).get("text") or "Reporte de apoyo diagnóstico"}
-
-    consentimientos = por_tipo.get("Consent", [])
-    if consentimientos and any(c.get("status") != "active" for c in consentimientos):
-        errores.append("Consent.status debe ser active")
-    if errores:
-        raise Rechazo(422, "invalid", errores)
-    nombre = None
-    for nm in paciente.get("name") or []:
-        if isinstance(nm, dict):
-            nombre = nm.get("text") or " ".join([*(nm.get("given") or []), nm.get("family") or ""]).strip()
-            if nombre:
-                break
-    return {"federado": federado, "nombre": (nombre or "")[:120], "genero": paciente.get("gender"),
-            "nacimiento": paciente.get("birthDate"), "referencia": referencia, "motivo": motivo[:600],
-            "prioridad": prioridad, "observaciones": observaciones, "reporte": reporte,
-            "con_consent": bool(consentimientos)}
-
-
-# ── Encontrar al paciente sin recibir su documento ────────────────────────
-_federados: dict = {}          # {paciente_id: id federado} (se calcula una vez por paciente)
-
-
-def paciente_por_federado(cur, federado: str) -> Optional[int]:
-    cur.execute("SELECT id FROM pacientes WHERE id_federado = %s LIMIT 1;", (federado,))
-    fila = cur.fetchone()
-    if fila:
-        return fila[0] if not isinstance(fila, dict) else fila["id"]
-    cur.execute("SELECT id, documento FROM pacientes WHERE NOT por_conciliar ORDER BY id;")
-    for fila in cur.fetchall():
-        pid, doc = (fila["id"], fila["documento"]) if isinstance(fila, dict) else fila
-        if pid not in _federados:
-            try:
-                _federados[pid] = cripto.id_federado(cripto.descifrar(doc, cripto.aad_paciente(pid, "documento")),
-                                                     SECRETO_FEDERADO)
-            except ValueError:
-                continue
-        if cripto.iguales(_federados[pid], federado):
+def paciente_por_federado(cur, federado):
+    cur.execute("SELECT id, documento FROM pacientes WHERE NOT por_conciliar AND conciliado_con IS NULL ORDER BY id;")
+    for pid, doc in cur:
+        try:
+            calculado = federado_de_paciente(pid, cripto.descifrar(doc, cripto.aad_paciente(pid, "documento")))
+        except ValueError:
+            continue
+        if cripto.iguales(calculado, federado):
             return pid
     return None
+
+
+def _bloquear_federado(cur, federado):
+    cur.execute("SELECT pg_advisory_xact_lock(hashtextextended(%s, 0));", ("interop:" + federado,))
+
+
+def _resolver_paciente(cur, federado):
+    _bloquear_federado(cur, federado)
+    paciente_id = paciente_por_federado(cur, federado)
+    if paciente_id:
+        return paciente_id, True
+    cur.execute("""SELECT id FROM pacientes WHERE por_conciliar AND id_federado = %s
+                   AND conciliado_con IS NULL ORDER BY id LIMIT 1;""", (federado,))
+    fila = cur.fetchone()
+    if fila:
+        return fila[0], False
+    cur.execute("""INSERT INTO pacientes (nombre, documento, genero, eps, id_federado, por_conciliar)
+                   VALUES (%s, '', 'O', 'Por conciliar', %s, TRUE) RETURNING id;""",
+                (f"Paciente por conciliar {federado[:8]}", federado))
+    paciente_id = cur.fetchone()[0]
+    cripto.cifrar_fila_paciente(cur, paciente_id, {"documento": f"PC-{federado}"})
+    return paciente_id, False
+
+
+def _insertar_observacion(cur, obs, socio_id, paciente_id, remision_id):
+    cur.execute("""INSERT INTO observaciones (remision_id, paciente_id, tipo, codigo_loinc, valor, unidad,
+                       fecha_observacion, socio_id, profesional_fhir, identificador_fhir)
+                   VALUES (%s, %s, %s, %s, %s, %s,
+                           COALESCE(%s::timestamptz, now()) AT TIME ZONE current_setting('TimeZone'), %s, %s, %s);""",
+                (remision_id, None if remision_id is not None else paciente_id, obs["nombre"], obs["loinc"],
+                 obs["valor"], obs["unidad"], obs["fecha"], socio_id, obs["profesional"], obs["identificador"]))
 
 
 def federado_de_paciente(paciente_id: int, documento_claro: str) -> str:
@@ -469,36 +332,25 @@ def _recibir_bundle(cabeceras: dict, cuerpo: bytes, ip: str):
         motivo, habia_orden = seguridad.neutralizar(partes["motivo"])       # texto de otro sistema = DATO (R25)
 
         cur = conn.cursor()
-        paciente_id = paciente_por_federado(cur, partes["federado"])
-        conciliado = paciente_id is not None
-        nacimiento = partes["nacimiento"]
-        if nacimiento:
-            try:
-                nacimiento = date.fromisoformat(nacimiento)
-                if nacimiento > hoy_bogota():
-                    raise ValueError
-            except (TypeError, ValueError) as exc:
-                raise Rechazo(422, "invalid", "Patient.birthDate debe ser una fecha válida y no futura") from exc
-        if not conciliado:      # 202: se recibe, pero el paciente queda "por conciliar" con su identificador federado
-            cur.execute("""INSERT INTO pacientes (nombre, documento, genero, eps, fecha_nacimiento, id_federado, por_conciliar)
-                           VALUES (%s, '', %s, %s, %s, %s, TRUE) RETURNING id;""",
-                        (partes["nombre"] or f"Paciente por conciliar {partes['federado'][:8]}",
-                         GENERO.get(partes["genero"], "O"), "Por conciliar", nacimiento or None,
-                         partes["federado"]))
-            paciente_id = cur.fetchone()[0]
-            cripto.cifrar_fila_paciente(cur, paciente_id, {"documento": f"PC-{partes['federado'][:16]}"})
+        paciente_id, conciliado = _resolver_paciente(cur, partes["federado"])
+        referencia = partes["referencia"]
+        cur.execute("SELECT pg_advisory_xact_lock(hashtextextended(%s, 0));",
+                    (f"interop:remision:{socio['id']}:{referencia}",))
+        cur.execute("""SELECT 1 FROM remisiones WHERE origen_externo AND socio_id = %s
+                       AND referencia_externa = %s;""", (socio["id"], referencia))
+        if cur.fetchone():
+            raise Rechazo(409, "duplicate", "El socio ya registró esta solicitud")
         cur.execute("""INSERT INTO remisiones (paciente_id, institucion_origen, institucion_destino, fecha_solicitud,
                                                motivo, estado, convenio_vigente, origen_externo, socio_id,
-                                               referencia_externa, estado_interop)
+                                               referencia_externa, estado_interop, encuentro_fhir, profesional_fhir)
                        VALUES (%s, registrar_institucion(%s), registrar_institucion(%s),
-                               (now() AT TIME ZONE 'America/Bogota')::date, %s, 'pendiente', FALSE, TRUE, %s, %s, 'recibida')
+                               (now() AT TIME ZONE 'America/Bogota')::date, %s, 'pendiente', FALSE, TRUE, %s, %s, 'recibida', %s, %s)
                        RETURNING id;""",
                     (paciente_id, socio["nombre"], INSTITUCION,
-                     f"[{PRIORIDAD_TXT[partes['prioridad']]}] {motivo}", socio["id"], partes["referencia"]))
+                     f"[{PRIORIDAD_TXT[partes['prioridad']]}] {motivo}", socio["id"], partes["referencia"], partes["encuentro"], partes["profesional"]))
         remision_id = cur.fetchone()[0]
-        for o in partes["observaciones"]:
-            cur.execute("""INSERT INTO observaciones (remision_id, tipo, codigo_loinc, valor, unidad)
-                           VALUES (%s, %s, %s, %s, %s);""", (remision_id, o["nombre"], o["loinc"], o["valor"], o["unidad"]))
+        for observacion in partes["observaciones"]:
+            _insertar_observacion(cur, observacion, socio["id"], paciente_id, remision_id)
         resumen = {"referencia": partes["referencia"], "prioridad": partes["prioridad"], "motivo": motivo,
                    "observaciones": [{k: o[k] for k in ("loinc", "nombre", "valor", "unidad")} for o in partes["observaciones"]],
                    "reporte_ia": partes["reporte"], "consentimiento_declarado": partes["con_consent"],
@@ -521,7 +373,7 @@ def _recibir_bundle(cabeceras: dict, cuerpo: bytes, ip: str):
             "origen": "externo", "socio": socio["nombre"],
             "mensaje": f"Remisión recibida de {socio['nombre']}: {motivo[:90]}"
                        + ("" if conciliado else " (paciente por conciliar)")})
-        return JSONResponse(status_code=codigo, content={
+        return JSONResponse(status_code=codigo, media_type="application/fhir+json", content={
             "resourceType": "OperationOutcome",
             "issue": [{"severity": "information", "code": "informational",
                        "diagnostics": "Remisión aceptada y asociada a un paciente" if conciliado
@@ -562,9 +414,7 @@ def _recibir_task(cabeceras: dict, cuerpo: bytes, ip: str):
         errores = []
         if t.get("status") not in ESTADO_DE_TASK:
             errores.append(f"Task.status debe ser uno de: {', '.join(ESTADO_DE_TASK)}")
-        foco = t.get("focus") or {}
-        ident = foco.get("identifier") if isinstance(foco.get("identifier"), dict) else {}
-        referencia = str(ident.get("value") or "")[:80]
+        referencia = _identificador(t.get("focus"), SID_REMISION)
         if not referencia:
             errores.append("Task.focus.identifier.value debe traer el número de la remisión que se responde")
         if errores:
@@ -573,15 +423,17 @@ def _recibir_task(cabeceras: dict, cuerpo: bytes, ip: str):
         cur.execute("""SELECT r.id, r.paciente_id, r.creado_por, r.estado, r.activo FROM interop_mensajes m
                        JOIN remisiones r ON r.id = m.remision_id
                        WHERE m.socio_id = %s AND m.direccion = 'saliente' AND m.tipo = 'Bundle'
-                         AND m.referencia_externa = %s ORDER BY m.id DESC LIMIT 1 FOR UPDATE OF r;""", (socio["id"], referencia))
+                         AND m.estado = 'enviado' AND m.referencia_externa = %s
+                         AND r.socio_id = m.socio_id ORDER BY m.id DESC LIMIT 1 FOR UPDATE OF r;""", (socio["id"], referencia))
         rem = cur.fetchone()
         if rem is None:
             raise Rechazo(422, "not-found", f"No hay una remisión enviada a {socio['nombre']} con el número {referencia}")
         nuevo = ESTADO_DE_TASK[t["status"]]
         if not rem["activo"] or (rem["estado"] != nuevo and rem["estado"] not in ("pendiente", "en_gestion")):
             raise Rechazo(409, "conflict", "La remisión ya no admite cambios de estado del socio")
-        nota, _ = seguridad.neutralizar(str((t.get("statusReason") or {}).get("text")
-                                            or ((t.get("note") or [{}])[0].get("text") if t.get("note") else "") or "")[:300])
+        notas = _lista(t.get("note"))
+        nota, _ = seguridad.neutralizar(str(_obj(t.get("statusReason")).get("text")
+                                            or (_obj(notas[0]).get("text") if notas else "") or "")[:300])
         if rem["estado"] != nuevo:
             _guardar_historial(cur, rem["id"], None)
         cur.execute("""UPDATE remisiones SET estado = %s, estado_interop = 'respondida',
@@ -599,7 +451,7 @@ def _recibir_task(cabeceras: dict, cuerpo: bytes, ip: str):
                              "origen": "externo", "socio": socio["nombre"], "estado": nuevo,
                              "mensaje": f"{socio['nombre']} {verbo} la remisión {referencia}" + (f": {nota[:80]}" if nota else "")},
                 extra_ids=(rem["creado_por"],))
-        return JSONResponse(status_code=201, content={
+        return JSONResponse(status_code=201, media_type="application/fhir+json", content={
             "resourceType": "OperationOutcome",
             "issue": [{"severity": "information", "code": "informational",
                        "diagnostics": f"Respuesta registrada: la remisión {referencia} quedó {nuevo}"}]})
@@ -621,6 +473,36 @@ async def recibir_respuesta(request: Request):
 # ══════════════════════════════════════════════════════════════════════════
 # 6. Entrada: POST /interop/Observation · un dato clínico suelto (práctica de clase)
 # ══════════════════════════════════════════════════════════════════════════
+def _episodio_observacion(cur, socio_id, obs, paciente_id):
+    if not obs["referencia"]:
+        if obs["encuentro"]:
+            raise Rechazo(422, "invalid", "Para asociar un encuentro se requiere basedOn")
+        return None, None
+    cur.execute("""SELECT r.id, r.paciente_id, r.creado_por, r.atendida_por, r.encuentro_fhir,
+                          r.origen_externo
+                   FROM remisiones r
+                   WHERE r.activo AND r.socio_id = %s AND (
+                       (r.origen_externo AND r.referencia_externa = %s) OR
+                       (NOT r.origen_externo AND EXISTS (
+                           SELECT 1 FROM interop_mensajes m WHERE m.remision_id = r.id
+                           AND m.socio_id = r.socio_id AND m.tipo = 'Bundle' AND m.direccion = 'saliente'
+                           AND m.estado = 'enviado' AND m.referencia_externa = %s)))
+                   FOR UPDATE;""", (socio_id, obs["referencia"], obs["referencia"]))
+    episodios = cur.fetchall()
+    # El socio de simulación utiliza las mismas tablas en ambos extremos. Si están
+    # las dos copias, el mensaje de retorno corresponde a la que se envió al socio.
+    salientes = [e for e in episodios if not e["origen_externo"]]
+    if salientes:
+        episodios = salientes
+    if len(episodios) != 1 or episodios[0]["paciente_id"] != paciente_id:
+        raise Rechazo(422, "invalid", "La solicitud no corresponde al paciente y socio de este mensaje")
+    episodio = episodios[0]
+    esperado = episodio["encuentro_fhir"] if episodio["origen_externo"] else obs["referencia"]
+    if obs["encuentro"] and obs["encuentro"] != esperado:
+        raise Rechazo(422, "invalid", "La observación no corresponde al encuentro de esa solicitud")
+    return episodio["id"], episodio["creado_por"] or episodio["atendida_por"]
+
+
 def _recibir_observation(cabeceras: dict, cuerpo: bytes, ip: str):
     conn = _conexion()
     socio, mensaje_id = None, cabeceras.get("x-message-id") or "sin-id"
@@ -629,37 +511,36 @@ def _recibir_observation(cabeceras: dict, cuerpo: bytes, ip: str):
         errores, obs = _validar_observation(_json(cuerpo, "Observation"), "Observation", exigir_sujeto=True)
         if errores:
             raise Rechazo(422, "invalid", errores)
-        cur = conn.cursor()
-        paciente_id = paciente_por_federado(cur, obs["federado"])
-        codigo = 201 if paciente_id else 202
-        remision_id = None
-        if paciente_id:
-            cur.execute("""SELECT id FROM remisiones WHERE paciente_id = %s AND activo
-                           ORDER BY fecha_solicitud DESC, id DESC LIMIT 1;""", (paciente_id,))
-            fila = cur.fetchone()
-            if fila:
-                remision_id = fila[0]
-                cur.execute("""INSERT INTO observaciones (remision_id, tipo, codigo_loinc, valor, unidad)
-                               VALUES (%s, %s, %s, %s, %s);""",
-                            (remision_id, obs["nombre"], obs["loinc"], obs["valor"], obs["unidad"]))
-        _registrar_mensaje(cur, socio["id"], "entrante", mensaje_id, "Observation",
-                           "aceptado" if paciente_id else "por_conciliar", codigo, remision_id, paciente_id,
-                           recurso={k: obs[k] for k in ("loinc", "nombre", "valor", "unidad")})
-        cur.close()
+        with conn.cursor() as cur:
+            paciente_id, conciliado = _resolver_paciente(cur, obs["federado"])
+        codigo = 201 if conciliado else 202
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            remision_id, responsable = _episodio_observacion(cur, socio["id"], obs, paciente_id)
+            _insertar_observacion(cur, obs, socio["id"], paciente_id, remision_id)
+            _registrar_mensaje(cur, socio["id"], "entrante", mensaje_id, "Observation",
+                               "aceptado" if conciliado else "por_conciliar", codigo, remision_id, paciente_id,
+                               referencia=obs["referencia"],
+                               recurso={k: obs[k] for k in ("loinc", "nombre", "valor", "unidad", "identificador")})
         registrar_auditoria(conn, None, "interop_observacion_recibida", "pacientes", paciente_id,
                             f"origen=externo socio={socio['nombre']} mensaje={mensaje_id} http={codigo} "
-                            f"loinc={obs['loinc']} valor={obs['valor']:g} {obs['unidad']} ip={ip}")
-        if paciente_id:
+                            f"loinc={obs['loinc']} remision_id={remision_id} ip={ip}")
+        if conciliado:
             critica = obs["loinc"] == "2339-0" and (obs["valor"] < GLUCOSA_CRITICA[0] or obs["valor"] >= GLUCOSA_CRITICA[1])
-            texto = f"{obs['nombre']} {obs['valor']:g} {obs['unidad']} recibida de {socio['nombre']} para el paciente {paciente_id}"
-            _avisar(("medico", "especialista", "admin"), {
-                "tipo": "alerta_critica" if critica else "observacion_fhir", "paciente_id": paciente_id,
-                "origen": "externo", "socio": socio["nombre"], "nivel": "critico",
-                "mensaje": ("Valor crítico: " if critica else "") + texto})
-        return JSONResponse(status_code=codigo, content={
+            texto = f"{obs['nombre']} {obs['valor']:g} {obs['unidad']} recibida de {socio['nombre']}"
+            _avisar(("admin",), {
+                "tipo": "alerta_critica" if critica else "interop_resultado", "paciente_id": paciente_id,
+                "remision_id": remision_id, "origen": "externo", "socio": socio["nombre"],
+                "nivel": "critico" if critica else "info",
+                "valor_glucosa": obs["valor"] if obs["loinc"] == "2339-0" else None,
+                "unidad": obs["unidad"], "mensaje": ("Valor crítico: " if critica else "") + texto},
+                extra_ids=(responsable,))
+        else:
+            _avisar(("admin",), {"tipo": "interop_resultado", "origen": "externo",
+                                 "mensaje": "Llegó una observación FHIR para un paciente por conciliar."})
+        return JSONResponse(status_code=codigo, media_type="application/fhir+json", content={
             "resourceType": "OperationOutcome",
             "issue": [{"severity": "information", "code": "informational",
-                       "diagnostics": "Observación aceptada y asociada a un paciente" if paciente_id
+                       "diagnostics": "Observación aceptada y asociada a un paciente" if conciliado
                        else "Observación aceptada; falta conciliar al paciente"}]})
     except Rechazo as r:
         return _rechazar(conn, socio, mensaje_id, "Observation", r, ip)
@@ -740,6 +621,50 @@ def _prioridad_fhir(motivo: str) -> str:
     return "stat" if "[CRITICA]" in m or "[CRÍTICA]" in m else ("urgent" if "[URGENTE]" in m else "routine")
 
 
+def _referencia_logica(tipo, sistema, valor):
+    return {"type": tipo, "identifier": {"system": sistema, "value": valor}}
+
+
+def _profesional(profesional_id):
+    return _referencia_logica("Practitioner", SID_PROFESIONAL,
+                              cripto.id_federado(f"{INSTITUCION}|{profesional_id}", SECRETO_FEDERADO, "PR"))
+
+
+def _fecha_fhir(instante):
+    from zoneinfo import ZoneInfo
+    if instante.tzinfo is None:
+        instante = instante.replace(tzinfo=ZoneInfo("America/Bogota"))
+    return instante.isoformat(timespec="seconds")
+
+
+def _sin_identificadores(texto, paciente):
+    for campo in ("nombre", "documento", "telefono", "correo", "direccion", "fecha_nacimiento"):
+        valor = str(paciente.get(campo) or "").strip()
+        if valor:
+            texto = re.sub(r"(?<!\w)" + re.escape(valor) + r"(?!\w)", "[dato reservado]", texto, flags=re.I)
+            if campo == "documento" and valor.isdecimal() and len(valor) >= 5:
+                variante = r"[. -]?".join(valor)
+                texto = re.sub(r"(?<!\d)" + variante + r"(?!\d)", "[dato reservado]", texto)
+    return texto
+
+
+def _recurso_observacion(o, sujeto, referencia, encuentro):
+    codigo = o["codigo_loinc"]
+    nombre, ucum = CATALOGO_LOINC[codigo]
+    recurso = {
+        "resourceType": "Observation", "status": "final",
+        "code": {"coding": [{"system": LOINC, "code": codigo, "display": nombre}]},
+        "subject": sujeto, "effectiveDateTime": _fecha_fhir(o["fecha_observacion"]),
+        "basedOn": [_referencia_logica("ServiceRequest", SID_REMISION, referencia)],
+        "valueQuantity": {"value": float(o["valor"]), "unit": ucum, "system": UCUM, "code": ucum},
+    }
+    if encuentro:
+        recurso["encounter"] = _referencia_logica("Encounter", SID_ENCUENTRO, encuentro)
+    if o.get("profesional_id"):
+        recurso["performer"] = [_profesional(o["profesional_id"])]
+    return recurso
+
+
 def armar_bundle(cur, remision: dict, paciente: dict, socio: dict, consentimiento: dict) -> dict:
     """Patient (identificador federado, sin documento ni teléfono ni dirección),
     ServiceRequest (SNOMED), Observation (LOINC + UCUM), DiagnosticReport SOLO si un
@@ -747,33 +672,49 @@ def armar_bundle(cur, remision: dict, paciente: dict, socio: dict, consentimient
     federado = federado_de_paciente(paciente["id"], paciente["documento"])
     ref_pac = "urn:uuid:" + str(uuid.uuid5(uuid.NAMESPACE_URL, federado))
     sujeto = {"reference": ref_pac, "identifier": {"system": SID_FEDERADO, "value": federado}}
+    radicado = _radicado(remision)
     motivo = re.sub(r"^\[[^\]]+\]\s*", "", remision["motivo"] or "").split(" (propuesta del asistente")[0]
+    motivo = _sin_identificadores(motivo, paciente)
+    encuentro = _referencia_logica("Encounter", SID_ENCUENTRO, radicado)
+    encuentro["reference"] = "urn:uuid:" + str(uuid.uuid4())
+    url_solicitud = "urn:uuid:" + str(uuid.uuid4())
     entradas = [{"fullUrl": ref_pac, "resource": {
-        "resourceType": "Patient", "identifier": [{"system": SID_FEDERADO, "value": federado}],
-        "name": [{"text": paciente["nombre"]}],
-        "gender": {"M": "male", "F": "female"}.get(paciente.get("genero"), "unknown"),
-        **({"birthDate": paciente["fecha_nacimiento"].isoformat()} if paciente.get("fecha_nacimiento") else {})}}]
-    entradas.append({"resource": {
+        "resourceType": "Patient", "identifier": [{"system": SID_FEDERADO, "value": federado}]}}]
+    entradas.append({"fullUrl": encuentro["reference"], "resource": {
+        "resourceType": "Encounter", "identifier": [encuentro["identifier"]], "status": "planned",
+        "class": CLASE_REMISION.copy(),
+        "subject": sujeto,
+        **({"participant": [{"individual": _profesional(remision["creado_por"])}]}
+           if remision.get("creado_por") else {})}})
+    entradas.append({"fullUrl": url_solicitud, "resource": {
         "resourceType": "ServiceRequest", "status": "active", "intent": "order",
         "priority": _prioridad_fhir(remision["motivo"]),
         "identifier": [{"system": SID_REMISION, "value": _radicado(remision)}],
         "code": {"coding": [{"system": SNOMED, "code": SNOMED_REMISION[0], "display": SNOMED_REMISION[1]}],
                  "text": "Remisión a otra institución"},
-        "subject": sujeto, "authoredOn": _ahora(),
-        "requester": {"display": INSTITUCION}, "performer": [{"display": socio["nombre"]}],
+        "subject": sujeto, "authoredOn": _ahora(), "encounter": encuentro,
+        "requester": (_profesional(remision["creado_por"]) if remision.get("creado_por") else {"display": INSTITUCION}), "performer": [{"display": socio["nombre"]}],
         "reasonCode": [{"text": motivo[:500]}]}})
-    cur.execute("""SELECT DISTINCT ON (codigo_loinc) codigo_loinc, valor, unidad, fecha_observacion
+    cur.execute("""SELECT DISTINCT ON (codigo_loinc) codigo_loinc, valor, unidad, profesional_id,
+                          fecha_observacion AT TIME ZONE current_setting('TimeZone') AS fecha_observacion
                    FROM observaciones WHERE remision_id = %s AND codigo_loinc IS NOT NULL
                    ORDER BY codigo_loinc, fecha_observacion DESC, id DESC;""", (remision["id"],))
     for o in cur.fetchall():
         if o["codigo_loinc"] not in CATALOGO_LOINC:
             continue
-        nombre, ucum = CATALOGO_LOINC[o["codigo_loinc"]]
-        entradas.append({"resource": {
-            "resourceType": "Observation", "status": "final",
-            "code": {"coding": [{"system": LOINC, "code": o["codigo_loinc"], "display": nombre}]},
-            "subject": sujeto, "effectiveDateTime": o["fecha_observacion"].isoformat(timespec="seconds"),
-            "valueQuantity": {"value": float(o["valor"]), "unit": o["unidad"] or ucum, "system": UCUM, "code": ucum}}})
+        recurso = _recurso_observacion(o, sujeto, radicado, radicado)
+        codigo_regla = "59408-5" if o["codigo_loinc"] == "2708-6" else o["codigo_loinc"]
+        try:
+            if codigo_regla in SIGNOS:
+                validar_signo(codigo_regla, float(o["valor"]), o["unidad"])
+            elif o["unidad"] != "mg/dL":
+                continue
+        except ValueError:
+            continue
+        if not _validar_observation(recurso, "Observation")[0]:
+            recurso["basedOn"][0]["reference"] = url_solicitud
+            recurso["encounter"] = encuentro
+            entradas.append({"resource": recurso})
     cur.execute("""SELECT id, probabilidad_urgente, prediccion, critico_segun_umbral, modelo, revisado_en
                    FROM reportes_ia WHERE paciente_id = %s AND estado = 'aprobado'
                    ORDER BY revisado_en DESC NULLS LAST, id DESC LIMIT 1;""", (paciente["id"],))
@@ -784,7 +725,7 @@ def armar_bundle(cur, remision: dict, paciente: dict, socio: dict, consentimient
             "resourceType": "DiagnosticReport", "status": "final",
             "code": {"text": "Apoyo diagnóstico por IA: clasificación de urgencia (aprobado por un clínico)"},
             "subject": sujeto,
-            "issued": (rep["revisado_en"] or datetime.now()).isoformat(timespec="seconds"),
+            "issued": _fecha_fhir(rep["revisado_en"] or datetime.now(timezone.utc)),
             "conclusion": f"Probabilidad de urgencia {prob} ({rep['prediccion']}"
                           f"{', caso crítico' if rep['critico_segun_umbral'] else ''}). "
                           f"Modelo {rep['modelo'] or 'XGBoost'}. Reporte revisado y aprobado por un clínico."}})
@@ -797,6 +738,8 @@ def armar_bundle(cur, remision: dict, paciente: dict, socio: dict, consentimient
         "policyRule": {"text": "Ley 1581 de 2012: autorización del titular para transferir datos sensibles de salud"},
         "provision": {"type": "permit", "actor": [{"role": {"text": "destinatario"}, "reference": {"display": socio["nombre"]}}],
                       "purpose": [{"display": consentimiento["finalidad"]}]}}})
+    for entrada in entradas:
+        entrada.setdefault("fullUrl", "urn:uuid:" + str(uuid.uuid4()))
     return {"resourceType": "Bundle", "type": "collection", "timestamp": _ahora(), "entry": entradas}
 
 
@@ -826,7 +769,7 @@ def vista_previa(remision_id: int, socio_id: int = Query(...), db=Depends(get_db
     return {"consentimiento": bool(consent), "socio": socio["nombre"], "radicado": _radicado(rem),
             "recursos": {t: tipos.count(t) for t in dict.fromkeys(tipos)},
             "reporte_ia_aprobado": "DiagnosticReport" in tipos,
-            "no_viaja": ["documento", "teléfono", "correo", "dirección", "EPS", "alergias", "tipo de sangre"],
+            "no_viaja": ["nombre", "fecha de nacimiento", "documento", "teléfono", "correo", "dirección", "EPS", "alergias", "tipo de sangre"],
             "bundle": bundle if consent else None}
 
 
@@ -843,7 +786,7 @@ def _cargar_para_envio(cur, remision_id: int, socio_id: int):
         raise HTTPException(status_code=404, detail="Remisión no encontrada")
     if rem["origen_externo"]:
         raise HTTPException(status_code=409, detail="Esta remisión llegó de otra institución; no se reenvía")
-    cur.execute("SELECT id, nombre, documento, genero, fecha_nacimiento FROM pacientes WHERE id = %s;", (rem["paciente_id"],))
+    cur.execute("SELECT id, nombre, documento, genero, fecha_nacimiento, telefono, correo, direccion FROM pacientes WHERE id = %s;", (rem["paciente_id"],))
     pac = cripto.descifrar_paciente(cur.fetchone())
     socio = _socio(cur, socio_id=socio_id)
     if socio is None or not socio["activo"]:
@@ -859,8 +802,8 @@ def enviar_remision(remision_id: int, body: EnviarIn, db=Depends(get_db),
     cur = db.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
     bloquear_remision(db, remision_id, usuario, exigir_abierta=True)
     rem, pac, socio = _cargar_para_envio(cur, remision_id, body.socio_id)
-    if rem["estado"] not in ("pendiente", "en_gestion"):
-        raise HTTPException(409, "La remisión ya no está pendiente de gestión")
+    if rem["estado"] not in ("pendiente", "en_gestion") or rem["estado_interop"] is not None:
+        raise HTTPException(409, "La remisión ya no está pendiente de envío")
     consent = _consentimiento_vigente(cur, pac["id"], socio["id"])
     if consent is None:
         cur.close()
@@ -913,6 +856,8 @@ def responder_remision(remision_id: int, body: ResponderIn, db=Depends(get_db),
     if rem is None:
         cur.close()
         raise HTTPException(status_code=404, detail="Remisión recibida no encontrada")
+    if rem["atendida_por"] and rem["atendida_por"] != usuario["id"] and usuario["rol"] != "admin":
+        raise HTTPException(403, "Solo el especialista a cargo puede responder")
     nuevo = "aceptada" if body.decision == "aceptar" else "rechazada"
     if rem["estado"] not in ("pendiente", "en_gestion") and (
         rem["estado"] != nuevo or rem["estado_interop"] == "respondida"
@@ -922,10 +867,10 @@ def responder_remision(remision_id: int, body: ResponderIn, db=Depends(get_db),
     socio = _socio(cur, socio_id=rem["socio_id"])
     if rem["estado"] != nuevo:
         _guardar_historial(cur, remision_id, usuario["id"])
-    cur.execute("""UPDATE remisiones SET estado = %s,
+    cur.execute("""UPDATE remisiones SET estado = %s, atendida_por = COALESCE(atendida_por, %s),
                           institucion_acepta = CASE WHEN %s = 'aceptada' THEN %s ELSE institucion_acepta END,
                           cerrada_en = CASE WHEN %s = 'rechazada' THEN now() ELSE cerrada_en END
-                   WHERE id = %s;""", (nuevo, nuevo, INSTITUCION, nuevo, remision_id))
+                   WHERE id = %s;""", (nuevo, usuario["id"], nuevo, INSTITUCION, nuevo, remision_id))
     registrar_auditoria(db, usuario["id"], f"interop_remision_{nuevo}", "remisiones", remision_id,
                         f"origen=externo socio={socio['nombre']} referencia={rem['referencia_externa']}")
     task = {"resourceType": "Task", "status": "accepted" if nuevo == "aceptada" else "rejected", "intent": "order",
@@ -1206,12 +1151,155 @@ def listar_mensajes(limite: int = Query(100, ge=1, le=500), db=Depends(get_db)):
     return filas
 
 
+@router.get("/interop/conciliaciones", dependencies=[Depends(requiere_rol("admin"))])
+def pendientes_conciliacion(db=Depends(get_db)):
+    with db.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+        cur.execute("""SELECT p.id, p.nombre, count(*) FILTER (WHERE m.tipo = 'Bundle') AS remisiones,
+                              count(*) FILTER (WHERE m.tipo = 'Observation') AS observaciones
+                       FROM pacientes p JOIN interop_mensajes m ON m.paciente_id = p.id
+                       WHERE p.por_conciliar AND p.conciliado_con IS NULL AND m.estado = 'por_conciliar'
+                       GROUP BY p.id ORDER BY p.id DESC LIMIT 200;""")
+        return cur.fetchall()
+
+
+class ConciliarIn(BaseModel):
+    documento: str = Field(min_length=1, max_length=40)
+
+
+@router.post("/interop/conciliaciones/{provisional_id}")
+def conciliar_paciente(provisional_id: int, body: ConciliarIn, db=Depends(get_db),
+                      usuario=Depends(requiere_rol("admin"))):
+    """Vincula datos clínicos solo si el documento local produce el mismo federado."""
+    with db.cursor() as cur:
+        cur.execute("SELECT id_federado FROM pacientes WHERE id = %s AND por_conciliar;", (provisional_id,))
+        fila = cur.fetchone()
+        if not fila or not fila[0]:
+            raise HTTPException(404, "Paciente provisional no encontrado")
+        federado = fila[0]
+        _bloquear_federado(cur, federado)
+        cur.execute("""SELECT id, documento FROM pacientes WHERE documento_idx = %s
+                       AND NOT por_conciliar AND conciliado_con IS NULL;""", (cripto.indice_ciego(body.documento),))
+        destino = cur.fetchone()
+        if not destino:
+            raise HTTPException(404, "La ficha local debe estar registrada antes de conciliar")
+        paciente_id, cifrado = destino
+        documento = cripto.descifrar(cifrado, cripto.aad_paciente(paciente_id, "documento"))
+        if not cripto.iguales(federado_de_paciente(paciente_id, documento), federado):
+            raise HTTPException(422, "El documento no coincide con el identificador federado recibido")
+        cur.execute("SELECT conciliado_con FROM pacientes WHERE id = %s FOR UPDATE;", (provisional_id,))
+        anterior = cur.fetchone()[0]
+        if anterior:
+            return {"paciente_id": anterior, "ya_conciliado": True}
+        cur.execute("UPDATE pacientes SET conciliado_con = %s WHERE id = %s;", (paciente_id, provisional_id))
+        try:
+            cur.execute("UPDATE remisiones SET paciente_id = %s WHERE paciente_id = %s RETURNING id;",
+                        (paciente_id, provisional_id))
+        except psycopg2.errors.CheckViolation as exc:
+            raise HTTPException(422, exc.diag.message_primary) from exc
+        remisiones = [r[0] for r in cur.fetchall()]
+        cur.execute("""UPDATE observaciones SET paciente_id = %s WHERE paciente_id = %s
+                       RETURNING id;""", (paciente_id, provisional_id))
+        observaciones = [r[0] for r in cur.fetchall()]
+        cur.execute("""UPDATE interop_mensajes SET paciente_id = %s, estado = 'conciliado'
+                       WHERE paciente_id = %s AND estado = 'por_conciliar';""", (paciente_id, provisional_id))
+        # Las observaciones de un episodio ya sincronizado deben cambiar también de sujeto.
+        cur.execute("""INSERT INTO fhir_pendientes(tipo, registro_id)
+                       SELECT 'Observation', id FROM observaciones WHERE remision_id = ANY(%s)
+                       ON CONFLICT (tipo, registro_id) DO UPDATE SET intentos = 0, intentar_en = now();""",
+                    (remisiones,))
+    registrar_auditoria(db, usuario["id"], "interop_paciente_conciliado", "pacientes", paciente_id,
+                        f"provisional={provisional_id} remisiones={len(remisiones)} observaciones_sin_episodio={len(observaciones)}")
+    _avisar(("admin",), {"tipo": "interop_conciliacion", "paciente_id": paciente_id,
+                         "mensaje": "Paciente FHIR conciliado y datos vinculados a la ficha local."})
+    return {"paciente_id": paciente_id, "remisiones": remisiones, "observaciones": observaciones}
+
+
+def _caso_contrarreferencia(db, remision_id, usuario):
+    with db.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+        cur.execute("""SELECT r.*, p.por_conciliar, p.documento
+                       FROM remisiones r JOIN pacientes p ON p.id = r.paciente_id
+                       WHERE r.id = %s AND r.activo AND r.origen_externo;""", (remision_id,))
+        fila = cur.fetchone()
+    if not fila:
+        raise HTTPException(404, "Remisión recibida no encontrada")
+    if usuario["rol"] != "admin" and fila["atendida_por"] != usuario["id"]:
+        raise HTTPException(403, "Solo el especialista a cargo puede enviar resultados")
+    if fila["estado"] not in ("aceptada", "completada") or fila["por_conciliar"]:
+        raise HTTPException(409, "Primero acepta la remisión y concilia al paciente")
+    return fila
+
+
+@router.get("/interop/recibidas/{remision_id}/resultados")
+def resultados_para_devolver(remision_id: int, db=Depends(get_db),
+                             usuario=Depends(requiere_rol("admin", "especialista"))):
+    remision = _caso_contrarreferencia(db, remision_id, usuario)
+    with db.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+        cur.execute("""SELECT o.id, o.tipo, o.valor, o.unidad,
+                              o.fecha_observacion AT TIME ZONE current_setting('TimeZone') AS fecha_observacion,
+                              EXISTS (SELECT 1 FROM interop_mensajes m WHERE m.remision_id = o.remision_id
+                                      AND m.tipo = 'Observation' AND m.direccion = 'saliente'
+                                      AND m.estado = 'enviado' AND m.recurso->>'observacion_id' = o.id::text) AS enviado
+                       FROM observaciones o WHERE o.remision_id = %s AND o.socio_id IS NULL AND o.codigo_loinc = ANY(%s)
+                       ORDER BY o.fecha_observacion DESC, o.id DESC;""", (remision_id, list(CATALOGO_LOINC)))
+        observaciones = cur.fetchall()
+        consentimiento = _consentimiento_vigente(cur, remision["paciente_id"], remision["socio_id"])
+    return {"observaciones": observaciones, "consentimiento": bool(consentimiento), "puede_registrar": remision["estado"] == "aceptada"}
+
+
+@router.post("/interop/recibidas/{remision_id}/resultados/{observacion_id}")
+def devolver_resultado(remision_id: int, observacion_id: int, db=Depends(get_db),
+                      usuario=Depends(requiere_rol("admin", "especialista"))):
+    rem = _caso_contrarreferencia(db, remision_id, usuario)
+    with db.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+        socio = _socio(cur, socio_id=rem["socio_id"])
+        if not socio or not socio["activo"]:
+            raise HTTPException(409, "La institución de origen está desactivada")
+        cur.execute("""SELECT o.*, o.fecha_observacion AT TIME ZONE current_setting('TimeZone') AS instante
+                       FROM observaciones o WHERE id = %s AND remision_id = %s AND socio_id IS NULL
+                       FOR UPDATE;""", (observacion_id, remision_id))
+        obs = cur.fetchone()
+        if obs is None or obs["codigo_loinc"] not in CATALOGO_LOINC:
+            raise HTTPException(404, "Resultado local del perfil no encontrado")
+        cur.execute("""SELECT 1 FROM interop_mensajes WHERE remision_id = %s AND tipo = 'Observation'
+                       AND direccion = 'saliente' AND estado = 'enviado' AND recurso->>'observacion_id' = %s;""",
+                    (remision_id, str(observacion_id)))
+        if cur.fetchone():
+            raise HTTPException(409, "Este resultado ya se envió")
+        consentimiento = _consentimiento_vigente(cur, rem["paciente_id"], socio["id"])
+        if not consentimiento:
+            raise HTTPException(403, "Se requiere consentimiento vigente para devolver resultados al socio")
+        documento = cripto.descifrar(rem["documento"], cripto.aad_paciente(rem["paciente_id"], "documento"))
+        federado = federado_de_paciente(rem["paciente_id"], documento)
+        sujeto = _referencia_logica("Patient", SID_FEDERADO, federado)
+        obs["fecha_observacion"] = obs["instante"]
+        recurso = _recurso_observacion(obs, sujeto, rem["referencia_externa"], rem["encuentro_fhir"])
+        recurso["identifier"] = [{"system": SID_OBSERVACION,
+                                  "value": cripto.firmar(SECRETO_FEDERADO, f"{INSTITUCION}|OBS|{observacion_id}".encode())}]
+        errores, _ = _validar_observation(recurso, "Observation", exigir_sujeto=True)
+        signo = SIGNOS.get("59408-5" if obs["codigo_loinc"] == "2708-6" else obs["codigo_loinc"])
+        if errores or obs["unidad"] not in ((signo.unidad, *signo.alias_unidad) if signo else ("mg/dL",)):
+            raise HTTPException(422, "Verifica el código, valor y unidad del resultado antes de compartirlo")
+        try:
+            codigo, mensaje_id, texto = _enviar(socio, "Observation", recurso)
+        except HTTPException as exc:
+            codigo, mensaje_id, texto = 0, str(uuid.uuid4()), str(exc.detail)
+        ok = codigo in (200, 201, 202)
+        _registrar_mensaje(cur, socio["id"], "saliente", mensaje_id, "Observation", "enviado" if ok else "error",
+                           codigo or None, remision_id, rem["paciente_id"], rem["referencia_externa"],
+                           detalle=texto, recurso={"observacion_id": observacion_id, "consentimiento_id": consentimiento["id"]})
+    registrar_auditoria(db, usuario["id"], "interop_resultado_enviado" if ok else "interop_resultado_fallido",
+                        "observaciones", observacion_id, f"socio={socio['id']} remision={remision_id} mensaje={mensaje_id} http={codigo}")
+    if not ok:
+        raise HTTPException(502, f"El socio no confirmó el resultado ({codigo or 'sin conexión'}). {texto}")
+    return {"codigo": codigo, "asociado": codigo in (200, 201)}
+
+
 @router.get("/interop/recibidas")
 def remisiones_recibidas(db=Depends(get_db), usuario=Depends(requiere_rol(*ROLES_CLINICOS))):
     """Bandeja del especialista: remisiones que llegaron de otra institución."""
     cur = db.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
     cur.execute("""SELECT r.id, r.paciente_id, p.nombre AS paciente_nombre, p.por_conciliar, r.institucion_origen,
-                          r.motivo, r.estado, r.estado_interop, r.referencia_externa,
+                          r.motivo, r.estado, r.estado_interop, r.referencia_externa, r.atendida_por,
                           r.radicada_en AT TIME ZONE current_setting('TimeZone') AS recibida_en,
                           m.recurso, m.codigo_http
                    FROM remisiones r JOIN pacientes p ON p.id = r.paciente_id
@@ -1232,6 +1320,8 @@ def remisiones_enviadas(db=Depends(get_db), usuario=Depends(requiere_rol(*ROLES_
                           r.estado_interop, m.codigo_http, m.detalle,
                           m.creado_en AT TIME ZONE current_setting('TimeZone') AS enviada_en,
                           t.detalle AS nota_respuesta,
+                          (SELECT count(*) FROM observaciones o WHERE o.remision_id = r.id AND o.socio_id = r.socio_id)
+                            AS resultados_recibidos,
                           t.creado_en AT TIME ZONE current_setting('TimeZone') AS respondida_en
                    FROM remisiones r JOIN pacientes p ON p.id = r.paciente_id
                    JOIN sistemas_socios s ON s.id = r.socio_id
@@ -1263,8 +1353,14 @@ def perfil():
         "identificador_federado": {"system": SID_FEDERADO,
                                    "calculo": 'HMAC-SHA256(secreto federado del acuerdo, "CC|" + documento sin puntos)'},
         "bundle": {"type": "collection", "obligatorios": ["Patient", "ServiceRequest"],
-                   "opcionales": ["Observation", "DiagnosticReport (status final)", "Consent (status active)"],
-                   "ServiceRequest.code": f"SNOMED CT ({SNOMED})", "ServiceRequest.identifier": SID_REMISION},
+                   "opcionales": ["Encounter", "Observation", "DiagnosticReport (status final)", "Consent (status active)"],
+                   "Patient": "Solo identificador federado",
+                   "ServiceRequest.code": {"system": SNOMED, "code": SNOMED_REMISION[0]},
+                   "ServiceRequest.identifier": SID_REMISION,
+                   "Encounter.identifier": SID_ENCUENTRO, "Encounter.class": CLASE_REMISION},
+        "observacion": {"subject.identifier": SID_FEDERADO, "basedOn[].identifier": SID_REMISION,
+                        "encounter.identifier": SID_ENCUENTRO, "performer[].identifier": SID_PROFESIONAL,
+                        "identifier": SID_OBSERVACION},
         "loinc_aceptados": {k: {"nombre": v[0], "ucum": v[1]} for k, v in CATALOGO_LOINC.items()},
         "unidades": UCUM,
         "respuestas": {"201": "aceptado y asociado a un paciente", "202": "aceptado; falta conciliar al paciente",

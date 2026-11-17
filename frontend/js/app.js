@@ -452,12 +452,18 @@ function tabPaciente(cont, { r, p }) {
               ${icono("trazo")} Simular Observation FHIR (R21)
             </button>` : ""}
         </div>` : ""}
-      ${puedeDescargar ? '<div id="historia-rag-aprobado"></div>' : ""}
+      ${puedeDescargar ? '<div id="historia-observaciones-fhir"></div><div id="historia-rag-aprobado"></div>' : ""}
     </div>`;
 
   const panelRag = $("#historia-rag-aprobado", cont);
   if (panelRag) API.get(`/pacientes/${p.id}/historia`).then(h => {
-    if (!panelRag.isConnected || !h.resultados_rag?.length) return;
+    if (!panelRag.isConnected) return;
+    const fhir = $("#historia-observaciones-fhir", cont);
+    const externas = (h.observaciones || []).filter(o => o.socio_id && !o.remision_id);
+    if (fhir && externas.length) fhir.innerHTML = `<h4>Observaciones FHIR sin remisión</h4><ul>
+      ${externas.map(o => `<li>${esc(o.tipo)} · ${esc(o.valor)} ${esc(o.unidad || "")} · ${esc(fechaHora(o.fecha_observacion))}</li>`).join("")}
+      </ul>`;
+    if (!h.resultados_rag?.length) return;
     panelRag.innerHTML = `<h4>Consultas RAG aprobadas</h4>${h.resultados_rag.map(r =>
       `<details class="ast-pasos"><summary>Consulta #${r.id} · ${esc(fechaCorta(r.revisado_en))}</summary>
         <p>${astFormato(r.respuesta)}</p>${astFuentes(r.fuentes)}</details>`).join("")}`;

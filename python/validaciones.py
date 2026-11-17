@@ -21,13 +21,15 @@ def institucion_del_catalogo(cur, nombre):
     return fila[0] if isinstance(fila, tuple) else fila["nombre"]
 
 
-def bloquear_remision(db, remision_id, usuario, exigir_abierta=False):
+def bloquear_remision(db, remision_id, usuario, exigir_abierta=False, *, admite_responsable_externo=False):
     with db.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
         cur.execute("SELECT * FROM remisiones WHERE id = %s FOR UPDATE;", (remision_id,))
         fila = cur.fetchone()
     if fila is None:
         raise HTTPException(404, "Remisión no encontrada")
-    if usuario["rol"] != "admin" and fila["creado_por"] != usuario["id"]:
+    responsable_externo = (admite_responsable_externo and fila["origen_externo"]
+                           and fila["atendida_por"] == usuario["id"] and fila["estado"] == "aceptada")
+    if usuario["rol"] != "admin" and fila["creado_por"] != usuario["id"] and not responsable_externo:
         raise HTTPException(403, "Solo puedes modificar remisiones que tú creaste")
     if not fila["activo"]:
         raise HTTPException(409, "La remisión está anulada")
@@ -44,11 +46,11 @@ def exigir_asignacion_clinica(db, paciente_id: int, usuario: dict) -> None:
     with db.cursor(cursor_factory=psycopg2.extensions.cursor) as cur:
         cur.execute(
             """SELECT EXISTS (
-                   SELECT 1 FROM remisiones WHERE paciente_id = %s AND activo AND creado_por = %s
+                   SELECT 1 FROM remisiones WHERE paciente_id = %s AND activo AND (creado_por = %s OR atendida_por = %s)
                    UNION ALL
                    SELECT 1 FROM remisiones_medicas
                     WHERE paciente_id = %s AND (medico_id = %s OR especialista_id = %s)
-               );""", (paciente_id, usuario_id, paciente_id, usuario_id, usuario_id),
+               );""", (paciente_id, usuario_id, usuario_id, paciente_id, usuario_id, usuario_id),
         )
         if not cur.fetchone()[0]:
             raise HTTPException(404, "Paciente no encontrado")

@@ -17,7 +17,7 @@ const ITP_ESTADO = { pendiente: "est-pendiente", en_gestion: "est-pendiente", ac
 async function vistaInterop(params = {}) {
   const rol = sesion.usuario.rol;
   const pestanas = [["recibidas", "Recibidas"], ["enviadas", "Enviadas"],
-    ...(rol === "admin" ? [["socios", "Instituciones socias"], ["mensajes", "Mensajes (bitácora)"]] : [])];
+    ...(rol === "admin" ? [["conciliaciones", "Por conciliar"], ["socios", "Instituciones socias"], ["mensajes", "Mensajes (bitácora)"]] : [])];
   ITP.pestana = params.pestana || ITP.pestana || (rol === "medico" ? "enviadas" : "recibidas");
   if (!pestanas.some(([k]) => k === ITP.pestana)) ITP.pestana = "recibidas";
   $("#contenido").innerHTML = `<div class="pagina">
@@ -26,11 +26,14 @@ async function vistaInterop(params = {}) {
       mensaje, consentimiento del paciente y solo los datos necesarios.</p></div></div>
     <section class="tarjeta"><div class="pestanas" id="itp-pestanas">${pestanas.map(([k, t]) =>
       `<button data-p="${k}" class="${k === ITP.pestana ? "activa" : ""}">${t}</button>`).join("")}</div>
-      <div id="itp-cuerpo" class="itp-cuerpo">${cargando()}</div></section></div>`;
+      <div id="itp-cuerpo" data-vista="${ITP.pestana}" class="itp-cuerpo">${cargando()}</div></section></div>`;
   $$("#itp-pestanas button").forEach(b => b.addEventListener("click", () => { ITP.pestana = b.dataset.p; vistaInterop(); }));
+  const cuerpo = $("#itp-cuerpo");
   try {
-    await ({ recibidas: itpRecibidas, enviadas: itpEnviadas, socios: itpSocios, mensajes: itpMensajes })[ITP.pestana]();
-  } catch (e) { $("#itp-cuerpo").innerHTML = `<div class="vacio">${esc(e.message)}</div>`; }
+    await ({ recibidas: itpRecibidas, enviadas: itpEnviadas, conciliaciones: itpConciliaciones, socios: itpSocios, mensajes: itpMensajes })[ITP.pestana]();
+  } catch (e) {
+    if (cuerpo.isConnected) cuerpo.innerHTML = `<div class="vacio">${esc(e.message)}</div>`;
+  }
 }
 
 const itpMotivo = (m) => esc(String(m || "").replace(/^\[[^\]]+\]\s*/, "").replace(/ \(propuesta del asistente.*$/, ""));
@@ -39,9 +42,12 @@ const itpUnidad = (u) => ({ "mm[Hg]": "mmHg", Cel: "°C", "{score}": "", "/min":
 
 // ---------- Recibidas: la bandeja del especialista ----------
 async function itpRecibidas() {
+  const cuerpo = $('#itp-cuerpo[data-vista="recibidas"]');
+  if (!cuerpo) return;
   const filas = await API.get("/interop/recibidas");
+  if (!cuerpo.isConnected) return;
   const puede = ["especialista", "admin"].includes(sesion.usuario.rol);
-  $("#itp-cuerpo").innerHTML = filas.length ? filas.map(r => {
+  cuerpo.innerHTML = filas.length ? filas.map(r => {
     const x = r.recurso || {};
     const abierta = ["pendiente", "en_gestion"].includes(r.estado);
     return `<article class="itp-tarjeta ${abierta ? "abierta" : ""}">
@@ -53,6 +59,11 @@ async function itpRecibidas() {
         `<span title="LOINC ${esc(o.loinc)}">${esc(o.nombre)} <strong>${esc(o.valor)}</strong> ${esc(itpUnidad(o.unidad))}</span>`).join("")}</div>` : ""}
       ${x.reporte_ia ? `<p class="itp-ia">${icono("ia")} <span><strong>Reporte de IA aprobado en origen.</strong> ${esc(x.reporte_ia.conclusion)}</span></p>` : ""}
       <footer><button class="btn btn-suave btn-sm" data-ver="${r.id}">Ver el formato</button>
+        ${puede && r.por_conciliar && sesion.usuario.rol === "admin"
+          ? `<button class="btn btn-suave btn-sm" data-conciliar="${r.paciente_id}">Conciliar paciente</button>` : ""}
+        ${puede && !r.por_conciliar && ["aceptada", "completada"].includes(r.estado)
+          && (sesion.usuario.rol === "admin" || r.atendida_por === sesion.usuario.id)
+          ? `<button class="btn btn-suave btn-sm" data-resultados="${r.id}">Devolver resultado</button>` : ""}
         ${abierta && puede ? `<span class="itp-acciones"><input type="text" maxlength="300" placeholder="Nota (obligatoria si rechazas)" data-nota="${r.id}">
           <button class="btn btn-ok btn-sm" data-resp="aceptar" data-id="${r.id}">Aceptar</button>
           <button class="btn btn-peligro btn-sm" data-resp="rechazar" data-id="${r.id}">Rechazar</button></span>`
@@ -61,6 +72,8 @@ async function itpRecibidas() {
     </article>`;
   }).join("") : `<div class="vacio">Aún no ha llegado ninguna remisión de otra institución.</div>`;
   $$("#itp-cuerpo [data-ver]").forEach(b => b.addEventListener("click", () => ir("ficha", { remision: +b.dataset.ver, desde: "interop" })));
+  $$("#itp-cuerpo [data-conciliar]").forEach(b => b.addEventListener("click", () => itpConciliar(b.dataset.conciliar, itpRecibidas)));
+  $$("#itp-cuerpo [data-resultados]").forEach(b => b.addEventListener("click", () => itpResultados(+b.dataset.resultados)));
   $$("#itp-cuerpo [data-resp]").forEach(b => b.addEventListener("click", async () => {
     const nota = ($(`[data-nota="${b.dataset.id}"]`) || {}).value || (b.dataset.reenviar ? "Reenvío de la respuesta" : "");
     if (b.dataset.resp === "rechazar" && !nota.trim()) { toast("Escribe el motivo del rechazo.", "error"); return; }
@@ -77,21 +90,95 @@ async function itpRecibidas() {
 
 // ---------- Enviadas ----------
 async function itpEnviadas() {
+  const cuerpo = $('#itp-cuerpo[data-vista="enviadas"]');
+  if (!cuerpo) return;
   const filas = await API.get("/interop/enviadas");
-  $("#itp-cuerpo").innerHTML = filas.length ? `<div class="tabla-scroll"><table><thead><tr><th>Paciente</th><th>Institución socia</th>
+  if (!cuerpo.isConnected) return;
+  cuerpo.innerHTML = filas.length ? `<div class="tabla-scroll"><table><thead><tr><th>Paciente</th><th>Institución socia</th>
     <th>Motivo</th><th>Enviada</th><th>Respuesta</th></tr></thead><tbody>${filas.map(r => `<tr class="clic" data-ver="${r.id}">
       <td>${esc(r.paciente_nombre)}</td><td>${esc(r.socio)}</td><td>${itpMotivo(r.motivo).slice(0, 90)}</td>
       <td>${r.enviada_en ? fechaHora(r.enviada_en) : "—"}<span class="sub">${r.codigo_http === 202 ? "recibida · paciente por conciliar allá" : r.codigo_http === 201 ? "recibida y asociada" : ""}</span></td>
       <td><span class="pildora ${ITP_ESTADO[r.estado] || ""}">${r.estado_interop === "respondida" ? esc(ESTADOS[r.estado]) : "Esperando respuesta"}</span>
-        ${r.nota_respuesta ? `<span class="sub">${esc(r.nota_respuesta)}</span>` : ""}</td></tr>`).join("")}</tbody></table></div>`
+        ${r.nota_respuesta ? `<span class="sub">${esc(r.nota_respuesta)}</span>` : ""}
+        ${r.resultados_recibidos ? `<span class="sub">Resultados recibidos: ${esc(r.resultados_recibidos)}</span>` : ""}</td></tr>`).join("")}</tbody></table></div>`
     : `<div class="vacio">No has remitido a ninguna institución socia todavía.<br>Abre una remisión en el libro y usa <strong>Remitir a institución socia</strong>.</div>`;
   $$("#itp-cuerpo [data-ver]").forEach(tr => tr.addEventListener("click", () => ir("ficha", { remision: +tr.dataset.ver, desde: "interop" })));
 }
 
+async function itpConciliaciones() {
+  const cuerpo = $('#itp-cuerpo[data-vista="conciliaciones"]');
+  if (!cuerpo) return;
+  const filas = await API.get("/interop/conciliaciones");
+  if (!cuerpo.isConnected) return;
+  cuerpo.innerHTML = filas.length ? filas.map(p => `<article class="itp-tarjeta">
+    <header><strong>${esc(p.nombre)}</strong></header>
+    <p>${esc(p.remisiones)} remisiones · ${esc(p.observaciones)} observaciones por asociar</p>
+    <footer><button class="btn btn-primario btn-sm" data-conciliar="${p.id}">Conciliar paciente</button></footer></article>`).join("")
+    : '<div class="vacio">No hay pacientes por conciliar.</div>';
+  $$("#itp-cuerpo [data-conciliar]").forEach(b => b.addEventListener("click", () => itpConciliar(b.dataset.conciliar, itpConciliaciones)));
+}
+
+function itpConciliar(id, refrescar) {
+  abrirFormulario({
+    titulo: "Conciliar paciente FHIR", textoBoton: "Confirmar coincidencia",
+    campos: `<p class="tenue">Verifica el documento del paciente en la ficha local. Si aún no existe la ficha, regístrala en Pacientes.</p>
+      <div class="campo"><label for="itp-documento">Documento de la ficha local</label>
+        <input id="itp-documento" name="documento" maxlength="40" required autocomplete="off"></div>`,
+    async alGuardar(d) {
+      await API.post(`/interop/conciliaciones/${id}`, { documento: d.documento.trim() });
+      remisionesCache = pacientesCache = null;
+      toast("Identidad verificada y datos asociados a la ficha local.", "ok");
+      refrescar();
+    },
+  });
+}
+
+async function itpResultados(id) {
+  let datos;
+  try { datos = await API.get(`/interop/recibidas/${id}/resultados`); }
+  catch (e) { toast(e.message, "error"); return; }
+  const fondo = document.createElement("div");
+  fondo.className = "fondo-modal";
+  fondo.innerHTML = `<div class="modal modal-itp" role="dialog" aria-label="Devolver resultado">
+    <div class="modal-cabeza"><h3>Devolver resultado clínico</h3></div>
+    <div class="modal-cuerpo">
+      ${datos.consentimiento ? "" : '<p class="itp-aviso">Solicita que se registre el consentimiento para compartir resultados con la institución de origen.</p>'}
+      ${datos.observaciones.length ? `<ul class="itp-lista">${datos.observaciones.map(o => `<li>
+        ${esc(o.tipo)} <strong>${esc(o.valor)} ${esc(itpUnidad(o.unidad))}</strong> · ${esc(fechaHora(o.fecha_observacion))}
+        ${o.enviado ? '<span class="tenue">Enviado</span>' : `<button type="button" class="btn btn-suave btn-sm" data-enviar="${o.id}"
+          ${datos.consentimiento ? "" : "disabled"}>Enviar resultado FHIR</button>`}</li>`).join("")}</ul>`
+        : '<p class="tenue">Aún no hay signos vitales locales para compartir.</p>'}
+      <p class="error-form" role="alert"></p>
+    </div><div class="modal-pie">
+      <button type="button" class="btn btn-secundario" data-cerrar>Cerrar</button>
+      ${datos.puede_registrar ? '<button type="button" class="btn btn-primario" data-anotar>Registrar signo vital</button>' : ""}
+    </div></div>`;
+  document.body.appendChild(fondo);
+  $("[data-cerrar]", fondo).addEventListener("click", () => fondo.remove());
+  $("[data-anotar]", fondo)?.addEventListener("click", () => {
+    fondo.remove();
+    formularioVital({ id }, () => itpResultados(id));
+  });
+  $$("[data-enviar]", fondo).forEach(b => b.addEventListener("click", async () => {
+    b.disabled = true;
+    try {
+      const r = await API.post(`/interop/recibidas/${id}/resultados/${b.dataset.enviar}`);
+      b.replaceWith(document.createTextNode(r.asociado ? "Enviado y asociado en origen" : "Enviado · por conciliar en origen"));
+      toast("El socio recibió el resultado clínico.", "ok");
+    } catch (e) {
+      $(".error-form", fondo).textContent = e.message;
+      b.disabled = false;
+    }
+  }));
+}
+
 // ---------- Socios (admin) ----------
 async function itpSocios() {
+  const cuerpo = $('#itp-cuerpo[data-vista="socios"]');
+  if (!cuerpo) return;
   const socios = await API.get("/interop/socios");
-  $("#itp-cuerpo").innerHTML = `
+  if (!cuerpo.isConnected) return;
+  cuerpo.innerHTML = `
     <div class="itp-barra"><button class="btn btn-primario btn-sm" id="itp-nuevo">+ Registrar institución socia</button>
       <button class="btn btn-secundario btn-sm" id="itp-prueba" title="Este mismo sistema hace de socio: sirve para ensayar el flujo completo sin el otro equipo">Crear socio de prueba (bucle local)</button>
       <a class="btn btn-suave btn-sm" href="${API.BASE}/interop/perfil" target="_blank" rel="noopener">Ver el contrato (JSON)</a></div>
@@ -152,9 +239,12 @@ async function itpSocios() {
 
 // ---------- Mensajes (admin): cada cosa que entró o salió, con su código ----------
 async function itpMensajes() {
+  const cuerpo = $('#itp-cuerpo[data-vista="mensajes"]');
+  if (!cuerpo) return;
   const filas = await API.get("/interop/mensajes?limite=150");
+  if (!cuerpo.isConnected) return;
   const tono = (c) => !c ? "est-inactivo" : c < 300 ? "est-activo" : c === 409 ? "est-pendiente" : "est-inactivo";
-  $("#itp-cuerpo").innerHTML = filas.length ? `<div class="tabla-scroll"><table><thead><tr><th>Cuándo</th><th></th><th>Socio</th><th>Recurso</th>
+  cuerpo.innerHTML = filas.length ? `<div class="tabla-scroll"><table><thead><tr><th>Cuándo</th><th></th><th>Socio</th><th>Recurso</th>
     <th>HTTP</th><th>Estado</th><th>Detalle</th></tr></thead><tbody>${filas.map(m => `<tr>
       <td class="num">${fechaHora(m.creado_en)}</td><td>${m.direccion === "entrante" ? "⇣ entró" : "⇡ salió"}</td><td>${esc(m.socio || "—")}</td>
       <td>${esc(m.tipo)}${m.remision_id ? `<span class="sub">remisión ${m.remision_id}</span>` : ""}</td>
@@ -187,7 +277,7 @@ async function abrirEnvioSocio(remisionId, pacienteId, recargar) {
     caja.innerHTML = cargando("Revisando…");
     try {
       const v = await API.get(`/interop/remisiones/${remisionId}/vista-previa?socio_id=${socio()}`);
-      const recursos = Object.entries(v.recursos).map(([t, n]) => `<li><strong>${n}</strong> ${esc({ Patient: "paciente (con identificador federado, sin documento)", ServiceRequest: "solicitud de remisión", Observation: "signos vitales (LOINC)", DiagnosticReport: "reporte de IA aprobado por un clínico", Consent: "consentimiento del paciente" }[t] || t)}</li>`).join("");
+      const recursos = Object.entries(v.recursos).map(([t, n]) => `<li><strong>${n}</strong> ${esc({ Patient: "identificador federado del paciente", ServiceRequest: "solicitud de remisión", Encounter: "episodio de la remisión", Observation: "signos vitales (LOINC)", DiagnosticReport: "reporte de IA aprobado por un clínico", Consent: "consentimiento del paciente" }[t] || t)}</li>`).join("");
       caja.innerHTML = `${v.consentimiento
         ? `<p class="itp-ok">${icono("check")} El paciente autorizó compartir sus datos con ${esc(v.socio)}.</p>`
         : `<div class="itp-aviso">${icono("alerta")} <div>El paciente <strong>no tiene consentimiento registrado</strong> para ${esc(v.socio)}. Sin él no se puede remitir (Ley 1581 de 2012).
@@ -230,7 +320,7 @@ if (typeof SECCIONES !== "undefined" && typeof ICONOS !== "undefined") {
 // abierta se actualiza sola, sin recargar.
 document.addEventListener("trazared:evento", (e) => {
   const ev = e.detail || {};
-  if (!["remision_externa_recibida", "respuesta_socio", "interop_rechazo"].includes(ev.tipo)) return;
+  if (!["remision_externa_recibida", "respuesta_socio", "interop_rechazo", "interop_resultado", "interop_conciliacion"].includes(ev.tipo)) return;
   toast(ev.mensaje, ev.tipo === "interop_rechazo" ? "error" : "ok");
   if (typeof remisionesCache !== "undefined") remisionesCache = null;
   if (sesion.usuario && sesion.seccion === "interop") vistaInterop();

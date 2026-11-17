@@ -151,10 +151,10 @@ def historia_json(paciente_id: int, db=Depends(get_db),
             raise HTTPException(status_code=404, detail="Paciente no encontrado")
 
         cur.execute(
-            """SELECT o.tipo, o.valor, o.unidad, o.fecha_observacion
+            """SELECT o.tipo, o.valor, o.unidad, o.fecha_observacion, o.socio_id, o.profesional_fhir, o.remision_id
                FROM observaciones o
-               JOIN remisiones r ON r.id = o.remision_id
-               WHERE r.paciente_id = %s
+               LEFT JOIN remisiones r ON r.id = o.remision_id
+               WHERE COALESCE(o.paciente_id, r.paciente_id) = %s
                ORDER BY o.fecha_observacion DESC;""", (paciente_id,))
         observaciones = cur.fetchall()
     finally:
@@ -185,10 +185,10 @@ def historia_pdf(paciente_id: int, db=Depends(get_db),
         raise HTTPException(status_code=404, detail="Paciente no encontrado")
 
     cur.execute(
-        """SELECT o.tipo, o.valor, o.unidad, o.fecha_observacion
+        """SELECT o.tipo, o.valor, o.unidad, o.fecha_observacion, o.socio_id, o.profesional_fhir, o.remision_id
            FROM observaciones o
-           JOIN remisiones r ON r.id = o.remision_id
-           WHERE r.paciente_id = %s
+           LEFT JOIN remisiones r ON r.id = o.remision_id
+           WHERE COALESCE(o.paciente_id, r.paciente_id) = %s
            ORDER BY o.fecha_observacion DESC;""", (paciente_id,))
     observaciones = cur.fetchall()
     cur.close()

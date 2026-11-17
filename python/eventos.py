@@ -56,7 +56,7 @@ EVENTOS_CLINICOS = {
     "remision_creada", "remision_aceptada", "reporte_aprobado",
     "alerta_critica", "alerta_escalada", "observacion_fhir",
     # Proyecto final · eventos externos (interoperabilidad con el sistema socio)
-    "remision_externa_recibida", "respuesta_socio",
+    "remision_externa_recibida", "respuesta_socio", "interop_conciliacion", "interop_resultado",
 }
 
 # Segundos sin reconocer una alerta antes de escalarla al admin (R20).

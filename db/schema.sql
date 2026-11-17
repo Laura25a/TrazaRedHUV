@@ -311,6 +311,7 @@ ALTER TABLE pacientes ADD COLUMN IF NOT EXISTS direccion TEXT;
 ALTER TABLE pacientes ADD COLUMN IF NOT EXISTS correo TEXT;
 ALTER TABLE pacientes ADD COLUMN IF NOT EXISTS id_federado TEXT;
 ALTER TABLE pacientes ADD COLUMN IF NOT EXISTS por_conciliar BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE pacientes ADD COLUMN IF NOT EXISTS conciliado_con INTEGER REFERENCES pacientes(id);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_pacientes_documento_idx ON pacientes (documento_idx);
 -- El cifrado de un mismo documento es distinto cada vez: la unicidad pasa al índice ciego.
 ALTER TABLE pacientes DROP CONSTRAINT IF EXISTS pacientes_documento_key;
@@ -523,10 +524,16 @@ DECLARE nacimiento DATE;
 DECLARE hoy DATE := (now() AT TIME ZONE 'America/Bogota')::date;
 BEGIN
     IF TG_OP = 'UPDATE' THEN
-        IF NEW.paciente_id <> OLD.paciente_id THEN
+        IF NEW.paciente_id <> OLD.paciente_id AND NOT (
+            OLD.origen_externo AND EXISTS (
+                SELECT FROM pacientes p WHERE p.id = OLD.paciente_id AND p.por_conciliar
+                    AND p.conciliado_con = NEW.paciente_id
+            )
+        ) THEN
             RAISE check_violation USING MESSAGE = 'El paciente del radicado es inmutable';
         END IF;
-        IF NEW.fecha_solicitud IS NOT DISTINCT FROM OLD.fecha_solicitud
+        IF NEW.paciente_id IS NOT DISTINCT FROM OLD.paciente_id
+           AND NEW.fecha_solicitud IS NOT DISTINCT FROM OLD.fecha_solicitud
            AND NEW.radicada_en IS NOT DISTINCT FROM OLD.radicada_en THEN
             RETURN NEW;
         END IF;
@@ -592,3 +599,50 @@ END $$;
 CREATE OR REPLACE TRIGGER impedir_borrado_remision
 BEFORE DELETE ON remisiones
 FOR EACH ROW EXECUTE FUNCTION impedir_borrado_remision();
+
+-- FHIR: observaciones de otro sistema, con episodio explícito o en historia del paciente.
+ALTER TABLE observaciones ALTER COLUMN remision_id DROP NOT NULL;
+ALTER TABLE observaciones ADD COLUMN IF NOT EXISTS paciente_id INTEGER REFERENCES pacientes(id);
+ALTER TABLE observaciones ADD COLUMN IF NOT EXISTS socio_id INTEGER REFERENCES sistemas_socios(id);
+ALTER TABLE observaciones ADD COLUMN IF NOT EXISTS profesional_id INTEGER REFERENCES usuarios(id);
+ALTER TABLE observaciones ADD COLUMN IF NOT EXISTS profesional_fhir TEXT;
+ALTER TABLE observaciones ADD COLUMN IF NOT EXISTS identificador_fhir TEXT;
+CREATE INDEX IF NOT EXISTS idx_observaciones_paciente ON observaciones(paciente_id) WHERE paciente_id IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_observaciones_socio_fhir
+    ON observaciones(socio_id, identificador_fhir) WHERE identificador_fhir IS NOT NULL;
+DO $$ BEGIN
+    ALTER TABLE observaciones ADD CONSTRAINT observacion_un_contexto
+        CHECK ((remision_id IS NOT NULL) <> (paciente_id IS NOT NULL));
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+ALTER TABLE remisiones ADD COLUMN IF NOT EXISTS profesional_fhir TEXT;
+ALTER TABLE remisiones ADD COLUMN IF NOT EXISTS encuentro_fhir TEXT;
+ALTER TABLE remisiones ADD COLUMN IF NOT EXISTS atendida_por INTEGER REFERENCES usuarios(id);
+
+-- Las escrituras clínicas encolan la réplica en la misma transacción.
+CREATE TABLE IF NOT EXISTS fhir_pendientes (
+    tipo TEXT NOT NULL CHECK (tipo IN ('Patient', 'Encounter', 'Observation')),
+    registro_id INTEGER NOT NULL,
+    intentos INTEGER NOT NULL DEFAULT 0,
+    intentar_en TIMESTAMPTZ NOT NULL DEFAULT now(),
+    PRIMARY KEY (tipo, registro_id)
+);
+
+CREATE OR REPLACE FUNCTION encolar_replica_fhir() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+    INSERT INTO fhir_pendientes(tipo, registro_id) VALUES (TG_ARGV[0], NEW.id)
+    ON CONFLICT (tipo, registro_id) DO UPDATE SET intentos = 0, intentar_en = now();
+    RETURN NEW;
+END $$;
+
+DROP TRIGGER IF EXISTS fhir_paciente ON pacientes;
+CREATE TRIGGER fhir_paciente AFTER INSERT OR UPDATE OF nombre, documento, genero, fecha_nacimiento ON pacientes
+    FOR EACH ROW WHEN (NOT NEW.por_conciliar AND NEW.conciliado_con IS NULL)
+    EXECUTE FUNCTION encolar_replica_fhir('Patient');
+DROP TRIGGER IF EXISTS fhir_remision ON remisiones;
+CREATE TRIGGER fhir_remision AFTER INSERT OR UPDATE OF paciente_id, fecha_solicitud, motivo, estado, activo, atendida_por ON remisiones
+    FOR EACH ROW EXECUTE FUNCTION encolar_replica_fhir('Encounter');
+DROP TRIGGER IF EXISTS fhir_observacion ON observaciones;
+CREATE TRIGGER fhir_observacion AFTER INSERT OR UPDATE OF remision_id, paciente_id, tipo, codigo_loinc, valor, unidad,
+    fecha_observacion, profesional_id, profesional_fhir ON observaciones
+    FOR EACH ROW EXECUTE FUNCTION encolar_replica_fhir('Observation');

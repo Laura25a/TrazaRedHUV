@@ -144,6 +144,7 @@ def al_arrancar():
     # HAPI FHIR termina de bootear (puede tardar ~30 s la primera vez).
     threading.Thread(target=_suscripcion_fhir_al_arrancar, daemon=True,
                      name="suscripcion-fhir").start()
+    threading.Thread(target=fhir_sync.ejecutar_replica, daemon=True, name="replica-fhir").start()
     # IA del libro de radicación: pronostica sola las remisiones abiertas al
     # arrancar y luego cada PRONOSTICO_CADA_MIN minutos (por defecto 30)
     registro.iniciar_pronosticos_automaticos()
@@ -281,15 +282,15 @@ def listar_pacientes(
     with db.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
         if q and q.strip():
             q = q.strip()
-            cur.execute(f"SELECT {COLUMNAS_PACIENTE} FROM pacientes WHERE documento_idx = %s;",
+            cur.execute(f"SELECT {COLUMNAS_PACIENTE} FROM pacientes WHERE documento_idx = %s AND NOT por_conciliar;",
                         (cripto.indice_ciego(q),))
             exactos = cur.fetchall()
             if exactos:
                 return cripto.descifrar_pacientes(exactos)
-            cur.execute(f"SELECT {COLUMNAS_PACIENTE} FROM pacientes WHERE nombre ILIKE %s ORDER BY id;",
+            cur.execute(f"SELECT {COLUMNAS_PACIENTE} FROM pacientes WHERE NOT por_conciliar AND nombre ILIKE %s ORDER BY id;",
                         (f"%{q}%",))
         else:
-            cur.execute(f"SELECT {COLUMNAS_PACIENTE} FROM pacientes ORDER BY id;")
+            cur.execute(f"SELECT {COLUMNAS_PACIENTE} FROM pacientes WHERE NOT por_conciliar ORDER BY id;")
         return cripto.descifrar_pacientes(cur.fetchall())
 
 
@@ -323,18 +324,7 @@ def crear_paciente(paciente: PacienteCreate, db=Depends(get_db), usuario=Depends
     # R13: sin datos personales en el detalle; el id basta para rastrearlo
     registrar_auditoria(db, usuario["id"], "paciente_creado", "pacientes", fila["id"])
 
-    # R15 · Interoperabilidad FHIR: sincronizar el paciente con HAPI FHIR.
-    # Si HAPI no responde, se registra el error pero no se tumba la creación
-    # del paciente en Postgres (ya está guardado y es lo importante).
-    _sincronizar_ficha(fila["id"])
     return fila
-
-
-def _sincronizar_ficha(paciente_id, *, corregir=False):
-    try:
-        fhir_sync.sincronizar_paciente(paciente_id, corregir=corregir)
-    except Exception as exc:
-        print(f"[FHIR] no se pudo sincronizar el paciente {paciente_id}: {exc}")
 
 
 @app.patch("/pacientes/{paciente_id}", response_model=PacienteOut,
@@ -364,7 +354,6 @@ def corregir_paciente(paciente_id: int, ficha: PacientePatch, db=Depends(get_db)
 
     registrar_auditoria(db, usuario["id"], "paciente_corregido", "pacientes", paciente_id,
                         "Campos: " + ", ".join(cambios))
-    _sincronizar_ficha(paciente_id, corregir=True)
     return fila
 
 
@@ -497,6 +486,7 @@ class ObservacionFHIRIn(BaseModel):
     subject: Optional[dict] = None
     valueQuantity: Optional[dict] = None
     effectiveDateTime: Optional[str] = None
+    meta: Optional[dict] = None
 
 
 class SimularObservacionIn(BaseModel):
@@ -562,6 +552,9 @@ async def recibir_observacion_fhir(
     except HTTPException as e:
         _auditar_webhook_rechazado(request, e.detail)
         raise
+    etiquetas = (observacion.meta or {}).get("tag")
+    if isinstance(etiquetas, list) and fhir_sync.ETIQUETA_REPLICA in etiquetas:
+        return {"recibido": True, "motivo": "réplica local"}
     problema = _validar_observacion_glucosa(observacion)
     if problema:
         _auditar_webhook_rechazado(request, problema)
@@ -610,6 +603,8 @@ async def recibir_observacion_fhir(
                VALUES (%s, %s, %s) ON CONFLICT (fhir_id) DO NOTHING;""",
             (obs_id, paciente_id, valor),
         )
+        if not cur.rowcount:
+            return {"recibido": True, "motivo": "ya procesada", "fhir_id": obs_id}
         conn.commit()
 
         # 4. Notificar a los clínicos activos

@@ -127,14 +127,23 @@ async function vistaLibro(params = {}) {
   activarDescargas($("#contenido"), descargas);
   if (radica) $("#btn-radicar").addEventListener("click", () => formularioRemision());
 
+  const kpis = $("#libro-kpis");
+  const tabla = $("#l-tabla");
   let datos;
   try {
     datos = await API.get(`/registro/libro?vista=todas&limite=2000${estadoLibro.inactivas ? "&incluir_inactivas=true" : ""}`);
-  } catch (e) { $("#libro-kpis").innerHTML = ""; $("#l-tabla").innerHTML = `<div class="vacio">${esc(e.message)}</div>`; return; }
+  } catch (e) {
+    if (tabla.isConnected) {
+      kpis.innerHTML = "";
+      tabla.innerHTML = `<div class="vacio">${esc(e.message)}</div>`;
+    }
+    return;
+  }
+  if (!tabla.isConnected) return;
   const todos = datos.asientos;
   const r = datos.resumen;
 
-  $("#libro-kpis").innerHTML = `<div class="kpis-libro">
+  kpis.innerHTML = `<div class="kpis-libro">
     <div class="kpi-libro k-tinta"><small>Radicadas hoy</small><strong>${r.radicadas_hoy}</strong><span>desde las 00:00</span></div>
     <div class="kpi-libro"><small>Asientos abiertos</small><strong>${r.abiertas}</strong><span>sin gestión, en curso o aceptados</span></div>
     <div class="kpi-libro k-coral"><small>Sin movimiento &gt; ${r.umbral_sin_movimiento_h} h</small><strong>${r.sin_movimiento}</strong><span>necesitan seguimiento</span></div>
@@ -153,6 +162,7 @@ async function vistaLibro(params = {}) {
   const vistas = { abiertas: abierta, cerradas: a => a.activo !== false && !a.abierta, riesgo: enRiesgo, todas: () => true };
 
   function pintar() {
+    if (!tabla.isConnected) return;
     const t = estadoLibro.q.trim().toLowerCase();
     const delMes = todos.filter(a => !estadoLibro.mes || String(a.radicada_en || a.fecha_solicitud).startsWith(estadoLibro.mes));
     const n = k => delMes.filter(vistas[k]).length;
@@ -169,9 +179,9 @@ async function vistaLibro(params = {}) {
       <div><small>ASIENTOS</small><strong>${ids.length ? `${String(Math.min(...ids)).padStart(6, "0")} – ${String(Math.max(...ids)).padStart(6, "0")}` : "—"}</strong></div>
       <div><small>EN ESTA VISTA</small><strong>${filas.length}</strong></div>`;
 
-    if (!filas.length) { $("#l-tabla").innerHTML = `<div class="vacio">No hay asientos con esos filtros.</div>`; return; }
+    if (!filas.length) { tabla.innerHTML = `<div class="vacio">No hay asientos con esos filtros.</div>`; return; }
     const visibles = filas.slice(0, estadoLibro.mostrar);
-    $("#l-tabla").innerHTML = `<table class="libro"><thead><tr><th>N.°</th><th>Fecha y hora</th><th>Paciente</th><th>Remite → Receptora</th>
+    tabla.innerHTML = `<table class="libro"><thead><tr><th>N.°</th><th>Fecha y hora</th><th>Paciente</th><th>Remite → Receptora</th>
       <th>Gestiones</th><th>Pronóstico IA</th><th>Cierre</th><th>Asentó</th></tr></thead><tbody>${visibles.map(a => {
         const [d, h] = partesFecha(a.radicada_en);
         const um = a.ultimo_movimiento;
@@ -213,9 +223,14 @@ async function vistaFormato({ remision }) {
   const main = $("#contenido");
   if (!remision) { ir("inicio"); return; }
   main.innerHTML = `<div class="pagina">${cargando("Abriendo el formato…")}</div>`;
+  const carga = main.firstElementChild;
   let f;
   try { f = await API.get(`/registro/remisiones/${remision}/formato`); }
-  catch (e) { main.innerHTML = `<div class="pagina"><div class="tarjeta vacio">${esc(e.message)}</div></div>`; return; }
+  catch (e) {
+    if (carga.isConnected) main.innerHTML = `<div class="pagina"><div class="tarjeta vacio">${esc(e.message)}</div></div>`;
+    return;
+  }
+  if (!carga.isConnected) return;
   const r = f.remision, p = f.paciente, per = f.permisos, ia = f.pronostico;
   const recargar = () => vistaFormato({ remision });
   const descargas = [

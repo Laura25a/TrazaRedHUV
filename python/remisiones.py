@@ -342,17 +342,17 @@ def listar_observaciones(remision_id: Optional[int] = Query(None), db=Depends(ge
     if remision_id is not None:
         cur.execute("SELECT * FROM observaciones WHERE remision_id = %s ORDER BY id;", (remision_id,))
     else:
-        cur.execute("SELECT * FROM observaciones ORDER BY id;")
+        cur.execute("SELECT * FROM observaciones WHERE remision_id IS NOT NULL ORDER BY id;")
     filas = cur.fetchall()
     cur.close()
     return filas
 
 
 @router.post("/observaciones", response_model=ObservacionOut, status_code=201,
-          dependencies=[Depends(requiere_rol("admin", "medico"))])
+          dependencies=[Depends(requiere_rol("admin", "medico", "especialista"))])
 def crear_observacion(observacion: ObservacionCreate, db=Depends(get_db),
                       usuario=Depends(get_usuario_actual)):
-    bloquear_remision(db, observacion.remision_id, usuario, exigir_abierta=True)
+    bloquear_remision(db, observacion.remision_id, usuario, exigir_abierta=True, admite_responsable_externo=True)
     codigo = observacion.codigo_loinc
     with db.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
         otro = {PAS: PAD, PAD: PAS}.get(codigo)
@@ -372,14 +372,14 @@ def crear_observacion(observacion: ObservacionCreate, db=Depends(get_db),
                     validar_presion(presion[PAS], presion[PAD])
                 except ValueError as exc:
                     raise HTTPException(422, f"{exc} Si es una nueva toma, registra ambos valores juntos.") from exc
-        insertar = """INSERT INTO observaciones (remision_id, tipo, codigo_loinc, valor, unidad)
-                      VALUES (%s, %s, %s, %s, %s) RETURNING *;"""
+        insertar = """INSERT INTO observaciones (remision_id, tipo, codigo_loinc, valor, unidad, profesional_id)
+                      VALUES (%s, %s, %s, %s, %s, %s) RETURNING *;"""
         cur.execute(insertar, (observacion.remision_id, observacion.tipo, codigo,
-                               observacion.valor, observacion.unidad))
+                               observacion.valor, observacion.unidad, usuario["id"]))
         fila = cur.fetchone()
         if otro and complemento is not None:
             signo = SIGNOS[otro]
-            cur.execute(insertar, (observacion.remision_id, signo.tipo, otro, complemento, signo.unidad))
+            cur.execute(insertar, (observacion.remision_id, signo.tipo, otro, complemento, signo.unidad, usuario["id"]))
     registrar_auditoria(db, usuario["id"], "observacion_creada", "remisiones", observacion.remision_id)
     return fila
 

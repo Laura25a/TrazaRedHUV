@@ -143,20 +143,32 @@ identificador = HMAC-SHA256( secreto federado del acuerdo,  "CC|" + documento si
 | Secreto | variable `SECRETO_FEDERADO`, **igual en los dos equipos** (el valor por defecto es el de la demo de clase: cámbienlo) |
 | Ejemplo | `CC|1144123456` → `fa0d2121aa10d0c2bb7a5acd8b596f2f…` |
 
-El receptor calcula el mismo HMAC sobre sus pacientes: si coincide, **201**; si no, crea al
-paciente como *por conciliar* y responde **202**.
+El receptor calcula el mismo HMAC sobre sus fichas locales. Si coincide, guarda el dato y responde
+**201**. Si desconoce al paciente, responde **202** y conserva la remisión o el resultado en una ficha
+provisional compartida por los mensajes del mismo identificador. El administrador verifica el
+documento de la ficha local en **Interoperabilidad → Por conciliar**. La coincidencia requerida
+reasigna los datos a esa ficha. La bitácora conserva el HTTP 202 original y muestra el estado
+`conciliado`. Si hace falta, primero se registra al paciente localmente.
 
 ### `POST /interop/Bundle` — la remisión
 
-`Bundle.type = "collection"`. Obligatorios: **un** `Patient` y **un** `ServiceRequest`.
+El intercambio admite `Bundle.type = "collection"`. Cada entrada requiere un `fullUrl` único y un
+recurso. Se rechazan `entry.request`, `entry.response` y `entry.search`, y los tipos de Bundle
+reservados para otras interacciones de FHIR. La colección requiere **un** `Patient` y **un**
+`ServiceRequest`. [HL7 FHIR R4 Bundle](https://hl7.org/fhir/R4/bundle.html)
 
 | Recurso | Reglas |
 |---|---|
-| `Patient` | `identifier` con el identificador federado. `name`, `gender` (`male`/`female`/`other`/`unknown`) y `birthDate`. **Sin** documento, teléfono, correo ni dirección |
-| `ServiceRequest` | `status: active`, `intent: order`, `priority` (`routine`/`urgent`/`asap`/`stat`), `code.coding` con **SNOMED CT** (`http://snomed.info/sct`, p. ej. `3457005` remisión del paciente), `identifier[0].value` = número de la remisión en el origen (con él se responde), `reasonCode[].text` = motivo |
-| `Observation` (0..n) | `status: final`, `code.coding` con **LOINC** (`http://loinc.org`) del catálogo, `valueQuantity` con `value` numérico y unidad **UCUM** (`system: http://unitsofmeasure.org` + `code`) |
-| `DiagnosticReport` (0..1) | **Solo el reporte de IA aprobado por un clínico**: `status: final`. Uno pendiente o rechazado nunca viaja; si llega con otro status → 422 |
-| `Consent` (0..1) | `status: active`: la autorización del paciente para compartir con el destinatario |
+| `Patient` | Un único `identifier` federado de 64 hexadecimales. Nombre, documento, fecha de nacimiento, teléfono, correo y dirección quedan en el sistema local |
+| `ServiceRequest` | `status: active`, `intent: order`, `priority` (`routine`/`urgent`/`asap`/`stat`), SNOMED CT `3457005` y un único `identifier` con sistema `urn:trazared:remision`. `subject` identifica el `Patient` |
+| `Encounter` (0..1) | `identifier` de sistema `urn:trazared:encuentro` y el mismo `subject`. Si se incluye, la solicitud y las mediciones pueden referenciarlo. TrazaRed declara `urn:trazared:clase-encuentro\|remision` para el episodio de coordinación. El perfil también admite las clases de atención de HL7 R4 |
+| `Observation` (0..n) | `status: final`, `amended` o `corrected`, un LOINC del catálogo, su UCUM exacto en `valueQuantity.code`, valor finito y el mismo `subject`. Si se incluye, `effectiveDateTime` lleva zona horaria |
+| `DiagnosticReport` (0..1) | Reporte de IA aprobado por un clínico, con `status: final` y el mismo `subject` |
+| `Consent` (0..1) | Autorización con `status: active` y `patient` vinculado al mismo paciente |
+
+`ServiceRequest.requester` y `Observation.performer` pueden identificar al profesional mediante
+`urn:trazared:profesional`. El seudónimo identifica al profesional dentro del acuerdo sin
+compartir su nombre ni el ID interno de su cuenta.
 
 LOINC aceptados:
 
@@ -175,16 +187,14 @@ Ejemplo mínimo:
 
 ```json
 {"resourceType": "Bundle", "type": "collection", "entry": [
-  {"resource": {"resourceType": "Patient",
-    "identifier": [{"system": "urn:salud-digital:sid-federado", "value": "fa0d2121…"}],
-    "name": [{"text": "Ana Ruiz"}], "gender": "female", "birthDate": "1951-03-02"}},
-  {"resource": {"resourceType": "ServiceRequest", "status": "active", "intent": "order", "priority": "urgent",
+  {"fullUrl": "urn:uuid:35cb1363-ce64-423b-aeb6-269643640b18", "resource": {"resourceType": "Patient",
+    "identifier": [{"system": "urn:salud-digital:sid-federado", "value": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"}]}},
+  {"fullUrl": "urn:uuid:5906b83d-43e2-4932-a82a-3a189df3b87b", "resource": {"resourceType": "ServiceRequest",
+    "status": "active", "intent": "order", "priority": "urgent",
     "identifier": [{"system": "urn:trazared:remision", "value": "REM-2026-000123"}],
-    "code": {"coding": [{"system": "http://snomed.info/sct", "code": "3457005", "display": "Remisión del paciente"}]},
-    "reasonCode": [{"text": "Neumonía con hipoxemia; requiere UCI"}]}},
-  {"resource": {"resourceType": "Observation", "status": "final",
-    "code": {"coding": [{"system": "http://loinc.org", "code": "59408-5"}]},
-    "valueQuantity": {"value": 86, "unit": "%", "system": "http://unitsofmeasure.org", "code": "%"}}}
+    "subject": {"reference": "urn:uuid:35cb1363-ce64-423b-aeb6-269643640b18"},
+    "code": {"coding": [{"system": "http://snomed.info/sct", "code": "3457005"}]},
+    "reasonCode": [{"text": "Solicitud de evaluación en la institución receptora"}]}}
 ]}
 ```
 
@@ -201,9 +211,26 @@ es el número que venía en `ServiceRequest.identifier` de la remisión original
 
 ### `POST /interop/Observation` — un dato suelto
 
-La misma `Observation` del perfil, con `subject.identifier` = identificador federado. Si es
-glucosa (`2339-0`) y el valor es crítico (menor de 54 o desde 300 mg/dL), en el receptor nace
-una **alerta crítica** que queda activa hasta que un clínico la reconozca (R20).
+La entrada acepta una medición con `subject.identifier` federado. Cuando viene sin
+`basedOn`, queda en la historia del paciente sin asignación a un radicado. Para devolver
+un resultado clínico a la institución de origen, `basedOn[].identifier` debe identificar la
+`ServiceRequest` original con sistema `urn:trazared:remision`. Si se envía
+`encounter.identifier`, debe coincidir con el episodio de esa solicitud. El receptor valida
+el socio, el radicado y el paciente antes de insertar el resultado.
+
+El especialista a cargo registra una medición en **Interoperabilidad → Recibidas → Devolver
+resultado**. Con consentimiento vigente para compartir con el origen, puede enviar una
+`Observation` firmada. El médico remitente ve el resultado en el formato del radicado y el
+conteo en **Enviadas**. El resultado se conserva como una nueva observación con procedencia
+del socio. `Task` sigue comunicando la decisión clínica.
+
+### Réplica interna a HAPI FHIR
+
+Las altas y modificaciones de la API se guardan primero en PostgreSQL con una cola persistente.
+La réplica consume la cola y usa `PUT /{tipo}?identifier={sistema}|{valor}` para crear o actualizar
+`Patient`, `Encounter` y `Observation`. Las dependencias se publican antes de usar sus referencias.
+Si HAPI no responde, la operación clínica queda guardada y la cola vuelve a intentarlo. El
+trabajador sincroniza altas y cambios desde la activación de la cola. [HL7 FHIR R4 REST](https://www.hl7.org/fhir/R4/http.html)
 
 ## 7. Consentimiento y minimización (R32)
 
@@ -212,7 +239,9 @@ una **alerta crítica** que queda activa hasta que un clínico la reconozca (R20
   auditado (`interop_envio_bloqueado`). El médico lo registra desde el mismo diálogo de envío
   (escrito, verbal o digital) y el paciente puede revocarlo cuando quiera.
 - **Solo lo necesario.** El diálogo muestra, antes de enviar, qué viaja y qué **no** sale del
-  hospital: documento, teléfono, correo, dirección, EPS, alergias y tipo de sangre.
+  hospital: nombre, fecha de nacimiento, documento, teléfono, correo, dirección, EPS, alergias y tipo de sangre.
+  El motivo de remisión sigue siendo texto clínico. Se enmascaran los identificadores detectados
+  antes del envío.
 - El reporte de IA solo viaja si un clínico lo **aprobó**.
 - Ley 1581 de 2012: los datos de salud son sensibles (arts. 5 y 6) y su tratamiento exige
   autorización del titular (art. 9).
@@ -223,6 +252,8 @@ una **alerta crítica** que queda activa hasta que un clínico la reconozca (R20
 |---|---|---|
 | `remision_externa_recibida` | Llegó y se aceptó una remisión del socio | especialistas y admin |
 | `respuesta_socio` | El socio aceptó o rechazó una remisión nuestra | el médico que la envió y admin |
+| `interop_resultado` | Un resultado recibido queda asociado o pendiente de conciliación | responsable del episodio y admin |
+| `interop_conciliacion` | Se vincularon datos externos a la ficha local verificada | admin |
 | `interop_rechazo` | Se rechazó un mensaje del socio por validación (400/422) | admin |
 
 Auditoría (todas con `origen=externo` y el nombre del socio): `interop_token_emitido`,
@@ -232,7 +263,8 @@ Auditoría (todas con `origen=externo` y el nombre del socio): `interop_token_em
 `interop_envio_bloqueado`, `consentimiento_registrado`, `consentimiento_revocado`.
 
 La bitácora técnica de cada mensaje (dirección, recurso, código HTTP, detalle) está en
-Admin › Interoperabilidad › *Mensajes*.
+Admin › Interoperabilidad › *Mensajes*. La conciliación y el envío de resultados también quedan
+en la cadena de auditoría.
 
 ## 9. La práctica en parejas y la demostración cruzada (R33)
 
@@ -249,6 +281,14 @@ Prueba automática de todo el recorrido contra el propio sistema (bucle local):
 ```bash
 docker compose exec api python /app/pruebas/probar_final.py
 ```
+
+La prueba con navegador `pruebas/probar_interop_fhir.py` usa solo un laboratorio local
+con cuentas y datos sintéticos. Ejecuta el intercambio con un socio en bucle local, verifica la
+conciliación y el retorno en Chromium, y consulta los recursos que quedaron almacenados en HAPI.
+
+El intercambio con otro equipo requiere acordar qué versión del perfil acepta. Para consultar
+camas, quirófanos o transporte todavía se necesita el contrato del equipo que publica cada dato,
+incluidos los permisos de lectura y una URL de prueba.
 
 ## 10. Variables de entorno
 

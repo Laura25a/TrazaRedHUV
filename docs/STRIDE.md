@@ -175,7 +175,7 @@ apruebe, rige la Ley 1581 de 2012. Conviene verificar su estado antes de sustent
 ## 6. Riesgos aceptados (resumen)
 
 1. HAPI conserva el documento como identificador y se debe proteger su almacenamiento y el acceso local (I6).
-2. El nombre del paciente no se cifra en reposo (I1) y viaja al socio (I5).
+2. El nombre del paciente queda en el sistema local y sigue en claro en PostgreSQL (I1). El motivo en texto libre puede conservar identificadores que el filtro no detecte (I5).
 3. Firma simétrica con el socio: trazabilidad cruzada, no no repudio ante terceros (T2, R4).
 4. Límite de tasa en memoria y por IP: no resiste un ataque distribuido (D1).
 5. Secretos derivados de `SECRET_KEY` cuando no se definen las variables propias: cómodo para desarrollo; en producción cada llave va en su variable (`.env.example`).
