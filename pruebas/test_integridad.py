@@ -60,7 +60,10 @@ def entorno():
         import main
         importar_usuario = main.auth.hash_password(CLAVE_PRUEBA)
         with closing(psycopg2.connect(pg)) as db, db, db.cursor() as cur:
-            for nombre, rol in (("Auditor", "admin"), ("Medico", "medico"), ("Colega", "medico")):
+            for nombre, rol in (
+                ("Auditor", "admin"), ("Medico", "medico"), ("Colega", "medico"),
+                ("Especialista", "especialista"),
+            ):
                 cur.execute("""INSERT INTO usuarios (nombre, correo, contrasena_hash, rol)
                                VALUES (%s, %s, %s, %s);""",
                             (nombre, f"{nombre.lower()}@pruebas.test", importar_usuario, rol))
@@ -321,6 +324,95 @@ def test_seguridad_alta_acceso_transporte_y_auditoria(entorno, autorizaciones, m
                        json={"resultado": "rechazada"}), 200)
 
 
+def test_interconsulta_y_auditoria_son_atomicas(entorno, autorizaciones, monkeypatch):
+    import remisiones
+
+    _, api, pg = entorno
+    admin, medico = (autorizaciones[n] for n in ("auditor", "medico"))
+    especialista = autenticado(api, "especialista")
+    destinatario = comprobar(api.get("/me", headers=especialista), 200)["id"]
+    ficha = comprobar(paciente(api, admin), 201)
+    datos = {"paciente_id": ficha["id"], "especialista_id": destinatario, "motivo": "Interconsulta de prueba"}
+    monkeypatch.setattr(remisiones.fhir_sync, "obtener_o_crear_paciente_fhir", lambda _: "prueba")
+    monkeypatch.setattr(remisiones.fhir_sync, "sincronizar_remision_medica", lambda *a, **kw: "prueba")
+
+    def fallar_sello(*args, **kwargs):
+        raise RuntimeError("Fallo simulado del sello")
+
+    with monkeypatch.context() as parche:
+        parche.setattr(remisiones, "registrar_auditoria", fallar_sello)
+        with pytest.raises(RuntimeError, match="Fallo simulado del sello"):
+            api.post("/remitir", headers=medico, json=datos)
+    with closing(psycopg2.connect(pg)) as db, db.cursor() as cur:
+        cur.execute("SELECT estado FROM remisiones_medicas WHERE paciente_id = %s;", (ficha["id"],))
+        assert cur.fetchall() == []
+
+    creada = comprobar(api.post("/remitir", headers=medico, json=datos), 201)
+    ruta = f"/remitir/{creada['id']}/aceptar"
+    with monkeypatch.context() as parche:
+        parche.setattr(remisiones, "registrar_auditoria", fallar_sello)
+        with pytest.raises(RuntimeError, match="Fallo simulado del sello"):
+            api.post(ruta, headers=especialista)
+    with closing(psycopg2.connect(pg)) as db, db.cursor() as cur:
+        cur.execute("SELECT estado FROM remisiones_medicas WHERE id = %s;", (creada["id"],))
+        assert cur.fetchone() == ("pendiente",)
+
+    comprobar(api.post(ruta, headers=especialista), 200)
+    comprobar(api.post(ruta, headers=especialista), 409)
+    with closing(psycopg2.connect(pg)) as db, db.cursor() as cur:
+        cur.execute("""SELECT accion FROM auditoria
+                        WHERE tabla = 'remisiones_medicas' AND registro_id = %s AND hash IS NOT NULL
+                        ORDER BY id;""", (creada["id"],))
+        assert cur.fetchall() == [("remision_creada",), ("remision_aceptada",)]
+        cur.execute("""SELECT tipo, mensaje, remision_id FROM notificaciones
+                        WHERE paciente_id = %s AND datos->>'interconsulta_id' = %s
+                        ORDER BY id;""", (ficha["id"], str(creada["id"])))
+        avisos = cur.fetchall()
+        assert [tipo for tipo, _, _ in avisos] == ["remision_creada", "remision_aceptada"]
+        assert all(ficha["nombre"] not in mensaje and remision_id is None
+                   for _, mensaje, remision_id in avisos)
+
+
+def test_reportes_ia_y_auditoria_son_atomicos(entorno, autorizaciones, monkeypatch):
+    import ia
+
+    _, api, pg = entorno
+    admin, medico = (autorizaciones[n] for n in ("auditor", "medico"))
+    ficha = comprobar(paciente(api, admin), 201)
+    datos = {"paciente_id": ficha["id"]}
+    monkeypatch.setattr(ia, "llamar_modelo", lambda _: {
+        "version_modelo": "pruebas", "probabilidad": 0.1, "critico": False, "nivel": "no_urgente",
+    })
+
+    def fallar_sello(*args, **kwargs):
+        raise RuntimeError("Fallo simulado del sello")
+
+    with monkeypatch.context() as parche:
+        parche.setattr(ia, "registrar_auditoria", fallar_sello)
+        with pytest.raises(RuntimeError, match="Fallo simulado del sello"):
+            api.post("/ia/analizar", headers=medico, json=datos)
+    with closing(psycopg2.connect(pg)) as db, db.cursor() as cur:
+        cur.execute("SELECT id FROM reportes_ia WHERE paciente_id = %s;", (ficha["id"],))
+        assert cur.fetchall() == []
+
+    for accion, estado in (("aprobar", "aprobado"), ("rechazar", "rechazado")):
+        reporte = comprobar(api.post("/ia/analizar", headers=medico, json=datos), 201)
+        ruta = f"/ia/reportes/{reporte['id']}/{accion}"
+        with monkeypatch.context() as parche:
+            parche.setattr(ia, "registrar_auditoria", fallar_sello)
+            with pytest.raises(RuntimeError, match="Fallo simulado del sello"):
+                api.post(ruta, headers=medico)
+        with closing(psycopg2.connect(pg)) as db, db.cursor() as cur:
+            cur.execute("SELECT estado FROM reportes_ia WHERE id = %s;", (reporte["id"],))
+            assert cur.fetchone() == ("pendiente",)
+        assert comprobar(api.post(ruta, headers=medico), 200)["estado"] == estado
+        with closing(psycopg2.connect(pg)) as db, db.cursor() as cur:
+            cur.execute("""SELECT accion FROM auditoria
+                            WHERE tabla = 'reportes_ia' AND registro_id = %s AND hash IS NOT NULL
+                            ORDER BY id;""", (reporte["id"],))
+            assert cur.fetchall() == [("analisis_ia",), (f"reporte_{estado}",)]
+
+
 def test_navegador_ficha_identidad_y_correccion(entorno, autorizaciones):
     import uvicorn
     from playwright.sync_api import expect, sync_playwright
@@ -328,6 +420,11 @@ def test_navegador_ficha_identidad_y_correccion(entorno, autorizaciones):
     main, api, _ = entorno
     h = autorizaciones["auditor"]
     ficha = comprobar(paciente(api, h, "9010788221", nombre="Paciente de navegación"), 201)
+    especialista = autenticado(api, "especialista")
+    destinatario = comprobar(api.get("/me", headers=especialista), 200)["id"]
+    interconsulta = comprobar(api.post("/remitir", headers=h, json={
+        "paciente_id": ficha["id"], "especialista_id": destinatario, "motivo": "Interconsulta en navegador",
+    }), 201)
     anulado = comprobar(api.post("/remisiones", json=datos_remision(ficha["id"]), headers=h), 201)
     comprobar(api.delete(f"/remisiones/{anulado['id']}", headers=h), 204)
 
@@ -349,6 +446,10 @@ def test_navegador_ficha_identidad_y_correccion(entorno, autorizaciones):
                     pagina.locator("#form-login button[type=submit]").click()
                 assert canal.value.header_value("authorization").startswith("Bearer ")
                 pagina.wait_for_function("Eventos.conectado()")
+                pagina.locator('[data-seccion="seguridad"]').click()
+                with pagina.expect_response(lambda r: r.url.endswith("/auditoria/verificar")) as auditoria:
+                    pagina.locator("#seg-verificar").click()
+                assert auditoria.value.json()["integra"] is True
                 pagina.locator('[data-seccion="usuarios"]').click()
                 pagina.locator("#btn-nuevo-usr").click()
                 pagina.locator('[name="nombre"]').last.fill("Alta desde navegador")
@@ -428,6 +529,21 @@ def test_navegador_ficha_identidad_y_correccion(entorno, autorizaciones):
                     pagina.get_by_role("button", name="Anotar corrección", exact=True).last.click()
                 assert respuesta.value.status == 200
                 assert respuesta.value.request.post_data_json == {"motivo": "Corrección probada en navegador"}
+                pagina_especialista = navegador.new_context().new_page()
+                pagina_especialista.goto(base + "/app/")
+                pagina_especialista.locator("#login-usuario").fill("especialista@pruebas.test")
+                pagina_especialista.locator("#login-clave").fill(CLAVE_PRUEBA)
+                pagina_especialista.locator("#form-login button[type=submit]").click()
+                pagina_especialista.locator('[data-seccion="remitir"]').click()
+                boton = pagina_especialista.locator(f'[data-aceptar="{interconsulta["id"]}"]')
+                ruta_aceptar = f"/remitir/{interconsulta['id']}/aceptar"
+                with pagina_especialista.expect_response(lambda r: r.url.endswith(ruta_aceptar)) as aceptacion:
+                    boton.click()
+                assert aceptacion.value.status == 200
+                tarjeta = pagina_especialista.locator("#remitir-contenido article").filter(
+                    has_text="Interconsulta en navegador",
+                )
+                expect(tarjeta.get_by_text("aceptada", exact=True)).to_be_visible()
                 pagina.locator("#f-anotar").click()
                 expect(pagina.locator("#g-res")).to_be_visible(timeout=3000)
                 expect(pagina.locator("#dl-g-ins option").first).to_be_attached()

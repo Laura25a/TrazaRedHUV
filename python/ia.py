@@ -207,22 +207,16 @@ def analizar(
         )
 
         reporte_id = cur.fetchone()["id"]
-        db.commit()
+        registrar_auditoria(
+            db, usuario["id"], "analisis_ia", "reportes_ia",
+            reporte_id, f"paciente_id={paciente['id']}",
+        )
 
     except Exception:
         db.rollback()
         raise
     finally:
         cur.close()
-
-    registrar_auditoria(
-        db,
-        usuario["id"],
-        "analisis_ia",
-        "reportes_ia",
-        reporte_id,
-        f"paciente_id={paciente['id']}",
-    )
 
     # R20: alerta crítica en el momento del análisis
     if resultado["critico"]:
@@ -349,19 +343,22 @@ def _revisar(db, reporte_id: int, usuario: dict, nuevo_estado: str,
             (nuevo_estado, observaciones, usuario["id"], reporte_id),
         )
         fila = cur.fetchone()
-        db.commit()
+        if fila is None:
+            actual = _buscar_reporte(db, reporte_id)  # 404 si no existe
+            raise HTTPException(
+                status_code=409,
+                detail=f"El reporte ya está {actual['estado']}",
+            )
+        registrar_auditoria(
+            db, usuario["id"], f"reporte_{nuevo_estado}", "reportes_ia",
+            reporte_id, f"paciente_id={fila['paciente_id']}",
+        )
     except Exception:
         db.rollback()
         raise
     finally:
         cur.close()
 
-    if fila is None:
-        actual = _buscar_reporte(db, reporte_id)  # 404 si no existe
-        raise HTTPException(
-            status_code=409,
-            detail=f"El reporte ya está {actual['estado']}",
-        )
     return fila
 
 
@@ -374,9 +371,6 @@ def aprobar_reporte(
 ):
     fila = _revisar(db, reporte_id, usuario, "aprobado",
                     cuerpo.observaciones if cuerpo else None)
-    registrar_auditoria(db, usuario["id"], "reporte_aprobado", "reportes_ia",
-                        reporte_id, f"paciente_id={fila['paciente_id']}")
-
     # R19: de aquí la Persona 4 arma la factura (sin datos clínicos)
     publicar(ids_con_rol(db, "contable"), {
         "tipo": "reporte_aprobado",
@@ -394,10 +388,8 @@ def rechazar_reporte(
     db=Depends(get_db),
     usuario=Depends(requiere_rol("medico", "especialista")),
 ):
-    fila = _revisar(db, reporte_id, usuario, "rechazado",
-                    cuerpo.observaciones if cuerpo else None)
-    registrar_auditoria(db, usuario["id"], "reporte_rechazado", "reportes_ia",
-                        reporte_id, f"paciente_id={fila['paciente_id']}")
+    _revisar(db, reporte_id, usuario, "rechazado",
+             cuerpo.observaciones if cuerpo else None)
     return {"id": reporte_id, "estado": "rechazado"}
 
 

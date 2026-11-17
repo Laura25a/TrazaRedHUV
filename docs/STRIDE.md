@@ -180,4 +180,4 @@ apruebe, rige la Ley 1581 de 2012. Conviene verificar su estado antes de sustent
 4. Límite de tasa en memoria y por IP: no resiste un ataque distribuido (D1).
 5. Secretos derivados de `SECRET_KEY` cuando no se definen las variables propias: cómodo para desarrollo; en producción cada llave va en su variable (`.env.example`).
 6. Requiere rotación de cualquier credencial ya distribuida o guardada en el historial del repositorio (I7).
-7. La auditoría y los cambios de PostgreSQL comparten transacción. Las gestiones que escriben en Mongo y los llamados externos conservan riesgo de fallo parcial.
+7. El libro de radicación, las interconsultas y la creación y revisión de reportes de IA sellan la auditoría en la misma transacción que el cambio en PostgreSQL. Las gestiones en Mongo, las notificaciones y la sincronización externa conservan riesgo de fallo parcial.

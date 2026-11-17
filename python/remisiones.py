@@ -511,10 +511,9 @@ def remitir(body: RemitirIn, db=Depends(get_db), usuario=Depends(get_usuario_act
          body.motivo, body.observaciones),
     )
     fila = cur.fetchone()
-    db.commit()
     cur.close()
 
-    # Auditoría (R13)
+    # El sello confirma la interconsulta en la misma transacción.
     registrar_auditoria(
         db, usuario["id"], "remision_creada", "remisiones_medicas", fila["id"],
         f"paciente {body.paciente_id} → especialista {body.especialista_id}"
@@ -534,9 +533,9 @@ def remitir(body: RemitirIn, db=Depends(get_db), usuario=Depends(get_usuario_act
     # R19: notificar al especialista
     publicar([body.especialista_id], {
         "tipo": "remision_creada",
-        "mensaje": f"Nueva remisión de {usuario['nombre']}: {paciente['nombre']}",
+        "mensaje": f"Nueva interconsulta #{fila['id']} de {usuario['nombre']}",
         "paciente_id": body.paciente_id,
-        "remision_id": fila["id"],
+        "interconsulta_id": fila["id"],
     })
 
     return {"id": fila["id"], "estado": fila["estado"]}
@@ -553,10 +552,10 @@ def aceptar_remision(
     """R08: el especialista acepta la remisión. Se avisa al médico remitente."""
     cur = db.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
     cur.execute(
-        """SELECT r.*, p.nombre AS paciente_nombre, p.id AS paciente_id
+        """SELECT r.*
              FROM remisiones_medicas r
-             JOIN pacientes p ON p.id = r.paciente_id
-            WHERE r.id = %s;""",
+            WHERE r.id = %s
+            FOR UPDATE OF r;""",
         (remision_id,),
     )
     r = cur.fetchone()
@@ -580,7 +579,6 @@ def aceptar_remision(
         (observaciones, remision_id),
     )
     fila = cur.fetchone()
-    db.commit()
     cur.close()
 
     registrar_auditoria(
@@ -591,9 +589,9 @@ def aceptar_remision(
     # R19: avisar al médico remitente
     publicar([r["medico_id"]], {
         "tipo": "remision_aceptada",
-        "mensaje": f"El especialista aceptó la remisión de {r['paciente_nombre']}",
+        "mensaje": f"El especialista aceptó la interconsulta #{remision_id}",
         "paciente_id": r["paciente_id"],
-        "remision_id": remision_id,
+        "interconsulta_id": remision_id,
     })
 
     return {"id": fila["id"], "estado": fila["estado"]}
