@@ -319,6 +319,7 @@ rutas:
       valueQuantity:
         value: 250
         unit: "mg/dL"
+        code: "mg/dL"
         system: "http://unitsofmeasure.org"
 
   # ── R10 · Alias para simular análisis de IA desde el frontend ──────────────
@@ -354,6 +355,8 @@ rutas:
       valueQuantity:
         value: 250
         unit: "mg/dL"
+        code: "mg/dL"
+        system: "http://unitsofmeasure.org"
     campos: ["recibido", "paciente_id"]
 
   # ── Libro de radicación y descargas (módulo registro, Luz · 28/10) ─────────

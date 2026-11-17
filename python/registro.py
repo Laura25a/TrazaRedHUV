@@ -744,6 +744,27 @@ def ia_resumen(db=Depends(get_db), usuario=Depends(requiere_rol(*ROLES_CLINICOS)
     }
 
 
+def _guardar_pronostico_vigente(db, asiento, contactos, carga, respuesta, usuario_id):
+    """Tras la inferencia, descarta resultados calculados sobre un asiento que cambió."""
+    remision_id = asiento["id"]
+    with db.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+        cur.execute("""SELECT r.estado, r.activo, r.paciente_id, r.institucion_origen,
+                              r.motivo, r.convenio_vigente, p.fecha_nacimiento, p.genero, p.eps
+                         FROM remisiones r JOIN pacientes p ON p.id = r.paciente_id
+                        WHERE r.id = %s FOR UPDATE OF r FOR SHARE OF p;""", (remision_id,))
+        vigente = cur.fetchone()
+    if not vigente or not vigente["activo"] or vigente["estado"] in libro.ESTADOS_CERRADOS:
+        db.rollback()
+        return False
+    bitacora = libro.cargar_contactos([remision_id])[remision_id]
+    if _payload_ia(vigente, bitacora, _signos(db, remision_id)) != carga:
+        db.rollback()
+        return False
+    _guardar_pronostico(db, asiento, contactos, respuesta, usuario_id)
+    db.commit()
+    return True
+
+
 @router.post("/registro/ia/recalcular")
 def ia_recalcular(db=Depends(get_db), usuario=Depends(requiere_rol("admin"))):
     """Pronostica TODAS las remisiones abiertas (útil después de cargar el dataset
@@ -758,16 +779,18 @@ def ia_recalcular(db=Depends(get_db), usuario=Depends(requiere_rol("admin"))):
     cargas = [_payload_ia(a, contactos[a["id"]], _signos(db, a["id"])) for a in abiertas]
     with ThreadPoolExecutor(max_workers=8) as hilos:
         respuestas = list(hilos.map(_pedir_pronostico, cargas))
-    hechos = fallos = 0
-    for a, p in zip(abiertas, respuestas):
+    hechos = fallos = cambiaron = 0
+    for a, carga, p in zip(abiertas, cargas, respuestas):
         if p is None:
             fallos += 1
             continue
-        _guardar_pronostico(db, a, contactos[a["id"]], p, usuario["id"])
-        hechos += 1
+        if _guardar_pronostico_vigente(db, a, contactos[a["id"]], carga, p, usuario["id"]):
+            hechos += 1
+        else:
+            cambiaron += 1
     registrar_auditoria(db, usuario["id"], "pronosticos_recalculados", "modelo", None,
-                        f"{hechos} remisiones abiertas · {fallos} sin respuesta de la IA")
-    return {"recalculadas": hechos, "sin_respuesta": fallos}
+                        f"{hechos} remisiones abiertas · {fallos} sin respuesta de la IA · {cambiaron} cambiaron")
+    return {"recalculadas": hechos, "sin_respuesta": fallos, "cambiaron": cambiaron}
 
 
 @router.post("/registro/ia/entrenar")
@@ -854,9 +877,13 @@ def pronosticar_pendientes() -> dict:
         for a in abiertas:
             if a.get("version_modelo") == version:
                 continue                      # ya tiene pronóstico de este modelo
-            p = pronosticar(db, a, libro.cargar_contactos([a["id"]])[a["id"]], None)
-            hechas += p is not None
-            fallos += p is None
+            contactos = libro.cargar_contactos([a["id"]])[a["id"]]
+            carga = _payload_ia(a, contactos, _signos(db, a["id"]))
+            p = _pedir_pronostico(carga)
+            if p is not None:
+                hechas += _guardar_pronostico_vigente(db, a, contactos, carga, p, None)
+            else:
+                fallos += 1
         if hechas:
             registrar_auditoria(db, None, "pronosticos_automaticos", "modelo", None,
                                 f"{hechas} remisiones abiertas · modelo {version}")

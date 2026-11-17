@@ -50,6 +50,8 @@ from pydantic import BaseModel, Field
 
 import auth
 import cripto
+import reactividad
+from eventos import ids_con_rol, registrar_evento
 import seguridad
 from interop_perfil import (
     CATALOGO_LOINC, CLASE_REMISION, LOINC, SNOMED, SNOMED_REMISION, UCUM,
@@ -72,8 +74,6 @@ MINUTOS_TOKEN_SISTEMA = 10
 TOLERANCIA_S = int(os.getenv("INTEROP_TOLERANCIA_S") or "300")             # reloj del emisor: ±5 min
 SCOPES = ("system/Bundle.write", "system/Task.write", "system/Observation.write")
 SCOPE_DE = {"Bundle": SCOPES[0], "Task": SCOPES[1], "Observation": SCOPES[2]}
-
-GLUCOSA_CRITICA = (54, 300)                                     # por debajo o desde aquí: alerta crítica (R20)
 
 
 # ── Respuestas FHIR ───────────────────────────────────────────────────────
@@ -307,9 +307,11 @@ def _insertar_observacion(cur, obs, socio_id, paciente_id, remision_id):
     cur.execute("""INSERT INTO observaciones (remision_id, paciente_id, tipo, codigo_loinc, valor, unidad,
                        fecha_observacion, socio_id, profesional_fhir, identificador_fhir)
                    VALUES (%s, %s, %s, %s, %s, %s,
-                           COALESCE(%s::timestamptz, now()) AT TIME ZONE current_setting('TimeZone'), %s, %s, %s);""",
+                           COALESCE(%s::timestamptz, now()) AT TIME ZONE current_setting('TimeZone'), %s, %s, %s) RETURNING id;""",
                 (remision_id, None if remision_id is not None else paciente_id, obs["nombre"], obs["loinc"],
                  obs["valor"], obs["unidad"], obs["fecha"], socio_id, obs["profesional"], obs["identificador"]))
+    fila = cur.fetchone()
+    return fila["id"] if isinstance(fila, dict) else fila[0]
 
 
 def federado_de_paciente(paciente_id: int, documento_claro: str) -> str:
@@ -361,6 +363,11 @@ def _recibir_bundle(cabeceras: dict, cuerpo: bytes, ip: str):
                            partes["referencia"], recurso=resumen)
         cur.close()
 
+        registrar_evento(conn, ids_con_rol(conn, "especialista", "admin"), {
+            "tipo": "remision_externa_recibida", "remision_id": remision_id, "paciente_id": paciente_id,
+            "origen": "externo", "socio": socio["nombre"],
+            "mensaje": f"Remisión recibida de {socio['nombre']}: {motivo[:90]}"
+                       + ("" if conciliado else " (paciente por conciliar)")})
         registrar_auditoria(conn, None, "interop_remision_recibida", "remisiones", remision_id,
                             f"origen=externo socio={socio['nombre']} mensaje={mensaje_id} http={codigo} "
                             f"referencia={partes['referencia']} observaciones={len(partes['observaciones'])} "
@@ -368,11 +375,6 @@ def _recibir_bundle(cabeceras: dict, cuerpo: bytes, ip: str):
         if habia_orden:
             seguridad.registrar_inyeccion_indirecta(None, f"interop:{socio['nombre']}",
                                                     f"orden escondida en el motivo de la remisión {remision_id}")
-        _avisar(("especialista", "admin"), {
-            "tipo": "remision_externa_recibida", "remision_id": remision_id, "paciente_id": paciente_id,
-            "origen": "externo", "socio": socio["nombre"],
-            "mensaje": f"Remisión recibida de {socio['nombre']}: {motivo[:90]}"
-                       + ("" if conciliado else " (paciente por conciliar)")})
         return JSONResponse(status_code=codigo, media_type="application/fhir+json", content={
             "resourceType": "OperationOutcome",
             "issue": [{"severity": "information", "code": "informational",
@@ -444,13 +446,12 @@ def _recibir_task(cabeceras: dict, cuerpo: bytes, ip: str):
                            rem["paciente_id"], referencia, detalle=nota,
                            recurso={"status": t["status"], "nota": nota, "referencia": referencia})
         cur.close()
+        verbo = {"aceptada": "ACEPTÓ", "rechazada": "RECHAZÓ", "en_gestion": "está gestionando"}[nuevo]
+        registrar_evento(conn, [*ids_con_rol(conn, "admin"), rem["creado_por"]], {"tipo": "respuesta_socio", "remision_id": rem["id"], "paciente_id": rem["paciente_id"],
+                             "origen": "externo", "socio": socio["nombre"], "estado": nuevo,
+                             "mensaje": f"{socio['nombre']} {verbo} la remisión {referencia}" + (f": {nota[:80]}" if nota else "")})
         registrar_auditoria(conn, None, "interop_respuesta_recibida", "remisiones", rem["id"],
                             f"origen=externo socio={socio['nombre']} mensaje={mensaje_id} estado={nuevo} ip={ip}")
-        verbo = {"aceptada": "ACEPTÓ", "rechazada": "RECHAZÓ", "en_gestion": "está gestionando"}[nuevo]
-        _avisar(("admin",), {"tipo": "respuesta_socio", "remision_id": rem["id"], "paciente_id": rem["paciente_id"],
-                             "origen": "externo", "socio": socio["nombre"], "estado": nuevo,
-                             "mensaje": f"{socio['nombre']} {verbo} la remisión {referencia}" + (f": {nota[:80]}" if nota else "")},
-                extra_ids=(rem["creado_por"],))
         return JSONResponse(status_code=201, media_type="application/fhir+json", content={
             "resourceType": "OperationOutcome",
             "issue": [{"severity": "information", "code": "informational",
@@ -477,7 +478,7 @@ def _episodio_observacion(cur, socio_id, obs, paciente_id):
     if not obs["referencia"]:
         if obs["encuentro"]:
             raise Rechazo(422, "invalid", "Para asociar un encuentro se requiere basedOn")
-        return None, None
+        return None
     cur.execute("""SELECT r.id, r.paciente_id, r.creado_por, r.atendida_por, r.encuentro_fhir,
                           r.origen_externo
                    FROM remisiones r
@@ -500,7 +501,7 @@ def _episodio_observacion(cur, socio_id, obs, paciente_id):
     esperado = episodio["encuentro_fhir"] if episodio["origen_externo"] else obs["referencia"]
     if obs["encuentro"] and obs["encuentro"] != esperado:
         raise Rechazo(422, "invalid", "La observación no corresponde al encuentro de esa solicitud")
-    return episodio["id"], episodio["creado_por"] or episodio["atendida_por"]
+    return episodio
 
 
 def _recibir_observation(cabeceras: dict, cuerpo: bytes, ip: str):
@@ -515,28 +516,28 @@ def _recibir_observation(cabeceras: dict, cuerpo: bytes, ip: str):
             paciente_id, conciliado = _resolver_paciente(cur, obs["federado"])
         codigo = 201 if conciliado else 202
         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
-            remision_id, responsable = _episodio_observacion(cur, socio["id"], obs, paciente_id)
-            _insertar_observacion(cur, obs, socio["id"], paciente_id, remision_id)
+            episodio = _episodio_observacion(cur, socio["id"], obs, paciente_id)
+            remision_id = episodio["id"] if episodio else None
+            observacion_id = _insertar_observacion(cur, obs, socio["id"], paciente_id, remision_id)
             _registrar_mensaje(cur, socio["id"], "entrante", mensaje_id, "Observation",
                                "aceptado" if conciliado else "por_conciliar", codigo, remision_id, paciente_id,
                                referencia=obs["referencia"],
                                recurso={k: obs[k] for k in ("loinc", "nombre", "valor", "unidad", "identificador")})
+        if conciliado:
+            destino = episodio or reactividad.episodio_activo(conn, paciente_id)
+            reactividad.registrar_observaciones(conn, destino, paciente_id, [{
+                "id": observacion_id if episodio else None, "tipo": obs["nombre"],
+                "codigo_loinc": obs["loinc"], "valor": obs["valor"], "unidad": obs["unidad"],
+            }], tipo="interop_resultado", origen="externo", socio=socio["nombre"],
+                valor_glucosa=obs["valor"] if obs["loinc"] == "2339-0" else None, unidad=obs["unidad"])
+        else:
+            registrar_evento(conn, ids_con_rol(conn, "admin"), {
+                "tipo": "interop_resultado", "origen": "externo",
+                "mensaje": "Llegó una observación FHIR para un paciente por conciliar.",
+            })
         registrar_auditoria(conn, None, "interop_observacion_recibida", "pacientes", paciente_id,
                             f"origen=externo socio={socio['nombre']} mensaje={mensaje_id} http={codigo} "
                             f"loinc={obs['loinc']} remision_id={remision_id} ip={ip}")
-        if conciliado:
-            critica = obs["loinc"] == "2339-0" and (obs["valor"] < GLUCOSA_CRITICA[0] or obs["valor"] >= GLUCOSA_CRITICA[1])
-            texto = f"{obs['nombre']} {obs['valor']:g} {obs['unidad']} recibida de {socio['nombre']}"
-            _avisar(("admin",), {
-                "tipo": "alerta_critica" if critica else "interop_resultado", "paciente_id": paciente_id,
-                "remision_id": remision_id, "origen": "externo", "socio": socio["nombre"],
-                "nivel": "critico" if critica else "info",
-                "valor_glucosa": obs["valor"] if obs["loinc"] == "2339-0" else None,
-                "unidad": obs["unidad"], "mensaje": ("Valor crítico: " if critica else "") + texto},
-                extra_ids=(responsable,))
-        else:
-            _avisar(("admin",), {"tipo": "interop_resultado", "origen": "externo",
-                                 "mensaje": "Llegó una observación FHIR para un paciente por conciliar."})
         return JSONResponse(status_code=codigo, media_type="application/fhir+json", content={
             "resourceType": "OperationOutcome",
             "issue": [{"severity": "information", "code": "informational",
@@ -1207,10 +1208,10 @@ def conciliar_paciente(provisional_id: int, body: ConciliarIn, db=Depends(get_db
                        SELECT 'Observation', id FROM observaciones WHERE remision_id = ANY(%s)
                        ON CONFLICT (tipo, registro_id) DO UPDATE SET intentos = 0, intentar_en = now();""",
                     (remisiones,))
+    registrar_evento(db, ids_con_rol(db, "admin"), {"tipo": "interop_conciliacion", "paciente_id": paciente_id,
+                         "mensaje": "Paciente FHIR conciliado y datos vinculados a la ficha local."})
     registrar_auditoria(db, usuario["id"], "interop_paciente_conciliado", "pacientes", paciente_id,
                         f"provisional={provisional_id} remisiones={len(remisiones)} observaciones_sin_episodio={len(observaciones)}")
-    _avisar(("admin",), {"tipo": "interop_conciliacion", "paciente_id": paciente_id,
-                         "mensaje": "Paciente FHIR conciliado y datos vinculados a la ficha local."})
     return {"paciente_id": paciente_id, "remisiones": remisiones, "observaciones": observaciones}
 
 

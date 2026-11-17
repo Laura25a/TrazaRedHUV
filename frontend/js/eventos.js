@@ -12,16 +12,25 @@ const Eventos = (() => {
   let conexion = null;
   let conectado = false;
   let reconexion = null;
+  let tokenAnterior = null;
+  let ultimoId = null;
 
   async function iniciar() {
     detener();
     const token = sessionStorage.getItem("trazared_token");
     if (!token) return;
+    if (tokenAnterior !== token) {
+      tokenAnterior = token;
+      ultimoId = null;
+    }
     const controlador = new AbortController();
     conexion = controlador;
     try {
       const respuesta = await fetch(API.ruta("/eventos/stream"), {
-        headers: { Authorization: `Bearer ${token}`, Accept: "text/event-stream" },
+        headers: {
+          Authorization: `Bearer ${token}`, Accept: "text/event-stream",
+          ...(ultimoId === null ? {} : { "Last-Event-ID": ultimoId }),
+        },
         signal: controlador.signal,
       });
       if (respuesta.status === 401 || respuesta.status === 403) {
@@ -39,17 +48,27 @@ const Eventos = (() => {
         pendiente += value;
         const mensajes = pendiente.split("\n\n");
         pendiente = mensajes.pop();
+        let refrescar = false;
+        let refrescarAlertas = false;
         for (const mensaje of mensajes) {
           if (controlador.signal.aborted) break;
-          if (!mensaje.startsWith("data: ")) continue;
+          const lineas = mensaje.split("\n");
+          const datos = lineas.filter(l => l.startsWith("data: ")).map(l => l.slice(6));
+          if (!datos.length) continue;
           let ev;
-          try { ev = JSON.parse(mensaje.slice(6)); } catch { continue; }
+          try { ev = JSON.parse(datos.join("\n")); } catch { continue; }
+          const id = lineas.find(l => l.startsWith("id: "));
+          if (id) ultimoId = id.slice(4);
+          refrescar = true;
+          refrescarAlertas ||= ev.tipo === "conectado" || ev.tipo.startsWith("alerta_");
           document.dispatchEvent(new CustomEvent("trazared:evento", { detail: ev }));
-          if (window.Notificaciones) Notificaciones.refrescar();
-          if (/alerta|cr[ií]tico/i.test(ev.tipo || "")) {
-            if (window.Alertas) Alertas.refrescar();
+          if (["alerta_critica", "alerta_escalada"].includes(ev.tipo))
             toast(ev.mensaje || "Alerta crítica", "error");
-          }
+        }
+        if (refrescar && !controlador.signal.aborted) {
+          window.Notificaciones?.refrescar();
+          $("#notif-lista")?.dispatchEvent(new Event("actualizar"));
+          if (refrescarAlertas) window.Alertas?.refrescar();
         }
       }
     } catch (error) {
@@ -71,7 +90,7 @@ const Eventos = (() => {
     conectado = false;
   }
 
-  return { iniciar, detener, conectado: () => conectado };
+  return { iniciar, detener, conectado: () => conectado, iniciando: () => conexion !== null };
 })();
 
 // Se expone en window para poder inspeccionarlo desde la consola (const no se
@@ -81,7 +100,7 @@ window.Eventos = Eventos;
 // El arranque de app.js llama a entrar() con el token guardado ANTES de que
 // este archivo cargue (auto-login); si ya hay sesión, abrimos el canal aquí.
 setTimeout(() => {
-  if (typeof sesion !== "undefined" && sesion.usuario) Eventos.iniciar();
+  if (typeof sesion !== "undefined" && sesion.usuario && !Eventos.iniciando()) Eventos.iniciar();
 }, 1500);
 
 // ── Enganches con app.js (sin modificarlo) ────────────────────────────────

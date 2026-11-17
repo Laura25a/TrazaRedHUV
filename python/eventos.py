@@ -1,45 +1,10 @@
-"""
-eventos.py — El "pegante" del sistema reactivo (Corte 2: R17, R18, R19, R20).
-
-Regla del equipo: cuando pasa algo importante, el módulo que lo detecta NO
-notifica ni factura por su cuenta; solo llama a publicar(). Así:
-
-    from eventos import publicar, ids_con_rol
-
-    publicar(ids_con_rol(db, "admin"), {
-        "tipo": "usuario_bloqueado",
-        "mensaje": "La cuenta medico@huv.gov.co se bloqueó por 3 intentos fallidos",
-        "usuario_afectado": "medico@huv.gov.co",
-    })
-
-Quién lo llama (y quién lo llamará):
-  * auth.py          -> "usuario_bloqueado"   (Persona 1, ya conectado)
-  * remisiones.py    -> "remision_creada", "remision_aceptada"   (Persona 3)
-  * ia.py            -> "reporte_aprobado", "alerta_critica"     (Persona 2)
-  * fhir (rest-hook) -> "observacion_fhir"                       (Persona 3)
-
-Qué hace publicar() hoy (Persona 4):
-  1. REACCIONES (R19/R20): según el tipo, crea la factura automática en MongoDB
-     ("reporte_aprobado"), la alerta crítica ("alerta_critica") o solo audita
-     ("observacion_fhir"). Es el "hecho dispara consecuencias" del Corte 2.
-  2. BANDEJA (R18): guarda una notificación por destinatario en la tabla
-     notificaciones; sobrevive a recargas y solo su dueño la ve o la marca leída.
-  3. TIEMPO REAL (R17): empuja el evento por el canal SSE de cada destinatario
-     conectado (GET /eventos/stream). El paciente y el contable jamás reciben
-     eventos clínicos, aunque un módulo los pase por error en destinatarios.
-
-NUNCA lanza errores: un aviso que falla no puede tumbar el login ni una remisión.
-
-IMPORTACIÓN CIRCULAR: auth.py importa este módulo desde su línea 34 (antes de
-definir get_db/SECRET_KEY/db_mongo). Por eso aquí NO se hace "from auth import
-..." a nivel de módulo: cada función importa lo que necesita cuando ya corre,
-con auth completamente cargado.
-"""
+"""Notificaciones persistentes, stream SSE y escalamiento de alertas."""
 import asyncio
 import json
 import os
 import threading
 import time
+from contextlib import closing
 from datetime import datetime, timezone
 from typing import Iterable, Optional
 
@@ -53,8 +18,9 @@ router = APIRouter(tags=["Sistema reactivo"])
 
 # Eventos clínicos: jamás se entregan por el canal de un paciente o un contable.
 EVENTOS_CLINICOS = {
-    "remision_creada", "remision_aceptada", "reporte_aprobado",
-    "alerta_critica", "alerta_escalada", "observacion_fhir",
+    "remision_creada", "remision_aceptada",
+    "alerta_critica", "alerta_escalada", "alerta_reconocida", "observacion_fhir",
+    "observacion_clinica", "imagen_clinica", "reporte_pendiente",
     # Proyecto final · eventos externos (interoperabilidad con el sistema socio)
     "remision_externa_recibida", "respuesta_socio", "interop_conciliacion", "interop_resultado",
 }
@@ -67,57 +33,10 @@ ESCALAMIENTO_SEGUNDOS = int(os.getenv("ESCALAMIENTO_SEGUNDOS", "600"))
 VALOR_ANALISIS_IA = float(os.getenv("VALOR_ANALISIS_IA", "80000"))
 
 
-# ── Canal en tiempo real (R17) ────────────────────────────────────────────
-# Cada conexión SSE deja aquí su asyncio.Queue; publicar() empuja a las colas
-# de los destinatarios. Un solo proceso de API: no hace falta broker (REQUISITOS §8).
-class _Suscripcion:
-    def __init__(self, usuario_id: int, rol: str, cola: "asyncio.Queue", loop):
-        self.usuario_id = usuario_id
-        self.rol = rol
-        self.cola = cola
-        self.loop = loop
-
-
-_suscripciones: dict = {}
-_candado = threading.Lock()
-
-
-def _suscribir(usuario_id: int, rol: str, cola, loop) -> _Suscripcion:
-    sus = _Suscripcion(usuario_id, rol, cola, loop)
-    with _candado:
-        _suscripciones[id(sus)] = sus
-    return sus
-
-
-def _desuscribir(sus: _Suscripcion) -> None:
-    with _candado:
-        _suscripciones.pop(id(sus), None)
-
-
-def _emitir(destinatarios: list, evento: dict) -> None:
-    """Empuja el evento a las colas SSE de los destinatarios conectados."""
-    texto = json.dumps(evento, default=str)
-    clinico = evento.get("tipo") in EVENTOS_CLINICOS
-    with _candado:
-        suscripciones = list(_suscripciones.values())
-    for sus in suscripciones:
-        if sus.usuario_id not in destinatarios:
-            continue
-        # Defensa extra del aislamiento (R17): rol paciente/contable nunca recibe clínicos.
-        if clinico and sus.rol in ("paciente", "contable", "director", "biomedico"):
-            continue
-        try:
-            sus.loop.call_soon_threadsafe(sus.cola.put_nowait, texto)
-        except RuntimeError:      # el loop ya cerró: conexión muerta que aún no se desuscribió
-            _desuscribir(sus)
-        except asyncio.QueueFull:  # consumidor atascado: se descarta este evento, no la acción
-            print(f"[evento] cola SSE llena para el usuario {sus.usuario_id}; evento descartado")
-
-
 # ── Utilidades de acceso (imports diferidos: ver docstring) ────────────────
 def _conexion_pg():
     import auth
-    return psycopg2.connect(auth.PG_CONNECTION_STRING)
+    return psycopg2.connect(auth.PG_CONNECTION_STRING, connect_timeout=5)
 
 
 def _ahora_iso() -> str:
@@ -141,165 +60,128 @@ def ids_con_rol(db, *roles: str) -> list:
 
 
 def publicar(destinatarios: Iterable[int], evento: dict) -> None:
-    """Publica un evento para una lista de usuarios (ids).
-
-    evento: dict con al menos "tipo" y "mensaje"; "paciente_id" cuando aplique.
-    La fecha se agrega aquí si no viene.
-
-    Hace las tres cosas del sistema activo: reacciona (factura/alerta/auditoría),
-    deja la notificación en la bandeja de cada destinatario y la empuja en vivo
-    por el canal SSE. Nunca lanza excepciones.
-    """
+    """Publica desde operaciones ya confirmadas. Los avisos críticos usan su propia transacción de origen."""
     try:
-        destinatarios = [int(d) for d in destinatarios]
-        evento = dict(evento)
-        evento.setdefault("fecha", _ahora_iso())
-        print(f"[evento] {evento.get('tipo')} -> usuarios {destinatarios}: {evento.get('mensaje')}")
-        _reaccionar(destinatarios, evento)          # R19/R20: hecho -> consecuencia
-        _guardar_notificaciones(destinatarios, evento)  # R18: bandeja persistente
-        _emitir(destinatarios, evento)              # R17: tiempo real
-    except Exception as e:  # un aviso nunca debe romper la acción que lo disparó
-        print(f"[evento] no se pudo publicar: {e}")
-
-
-# ── Reactores (R19/R20): el hecho dispara consecuencias ───────────────────
-def _reaccionar(destinatarios: list, evento: dict) -> None:
-    tipo = evento.get("tipo", "")
-    if tipo == "reporte_aprobado":
-        _facturar_analisis(evento)
-    elif tipo == "alerta_critica":
-        _crear_alerta(evento)
-    elif tipo == "observacion_fhir":
-        _auditar_evento_fhir(evento)
-
-
-def _facturar_analisis(evento: dict) -> None:
-    """R19: al aprobarse un reporte de IA se crea SOLA la factura en MongoDB,
-    ligada al reporte por reporte_id (colección facturas de la Persona 3)."""
-    try:
-        from contabilidad import crear_factura_ia
-
-        reporte_id = evento["reporte_id"]
-        crear_factura_ia(evento["paciente_id"], reporte_id, VALOR_ANALISIS_IA)
+        with closing(_conexion_pg()) as db, db:
+            registrar_evento(db, destinatarios, evento)
     except Exception as e:
-        print(f"[evento] no se pudo facturar el reporte: {e}")
+        print(f"[evento] no se pudo publicar {evento.get('tipo')}: {type(e).__name__}")
 
 
-def _crear_alerta(evento: dict) -> None:
-    """R20: el caso crítico crea una alerta 'activa' que solo se va con el
-    reconocimiento de un clínico. Deja el id en el evento para bandeja y SSE."""
-    try:
-        db = _conexion_pg()
-        cur = db.cursor()
-        cur.execute(
-            """INSERT INTO alertas (paciente_id, nivel, estado, mensaje, reporte_id, responsable_id)
-               VALUES (%s, %s, 'activa', %s, %s, %s) RETURNING id;""",
-            (evento.get("paciente_id"), evento.get("nivel", "critico"),
-             evento.get("mensaje", "Caso crítico"), evento.get("reporte_id"),
-             evento.get("responsable_id")),
-        )
-        alerta_id = cur.fetchone()[0]
-        evento["alerta_id"] = alerta_id
-        db.commit()
-        cur.close()
-        db.close()
-        _auditar(None, "alerta_creada", "alertas", alerta_id, evento.get("mensaje", ""))
-        print(f"[evento] alerta crítica {alerta_id} creada")
-    except Exception as e:
-        print(f"[evento] no se pudo crear la alerta: {e}")
-
-
-def _auditar_evento_fhir(evento: dict) -> None:
-    """R13: 'evento recibido desde FHIR' queda en la auditoría con origen FHIR."""
-    try:
-        _auditar(None, "evento_fhir", "fhir", evento.get("paciente_id"),
-                 f"Observation recibida por rest-hook: {evento.get('mensaje', '')}")
-    except Exception as e:
-        print(f"[evento] no se pudo auditar el evento FHIR: {e}")
-
-
-def _auditar(usuario_id, accion: str, tabla: str, registro_id, detalle: str = None) -> None:
+def registrar_evento(db, destinatarios: Iterable[int], evento: dict) -> None:
+    """Escribe el hecho y su bandeja dentro de la transacción del llamador."""
     from auth import registrar_auditoria
-    db = _conexion_pg()
+
+    evento = dict(evento)
+    tipo = evento["tipo"]
+    if tipo == "alerta_critica":
+        with db.cursor() as cur:
+            cur.execute("""INSERT INTO alertas (paciente_id, nivel, estado, mensaje, reporte_id, responsable_id)
+                           VALUES (%s, 'critico', 'activa', %s, %s, %s) RETURNING id;""",
+                        (evento.get("paciente_id"), evento["mensaje"], evento.get("reporte_id"),
+                         evento.get("responsable_id")))
+            evento["alerta_id"] = cur.fetchone()[0]
+    _guardar_notificaciones(db, destinatarios, evento)
+    if tipo == "alerta_critica":
+        registrar_auditoria(db, None, "alerta_creada", "alertas", evento["alerta_id"], confirmar=False)
+    if tipo == "observacion_fhir":
+        registrar_auditoria(db, None, "evento_fhir", "fhir", evento.get("paciente_id"),
+                            f"Observation/{evento['fhir_observation_id']} recibida por rest-hook",
+                            confirmar=False)
+
+
+def completar_facturas_ia(reporte_id=None):
+    """La factura es idempotente. Si Mongo falla, la solicitud queda pendiente."""
+    from contabilidad import crear_factura_ia
+
     try:
-        registrar_auditoria(db, usuario_id, accion, tabla, registro_id, detalle)
-    finally:
-        db.close()
+        with closing(_conexion_pg()) as db:
+            with db, db.cursor() as cur:
+                cur.execute("""SELECT t.reporte_id, r.paciente_id FROM facturas_ia_pendientes t
+                               JOIN reportes_ia r ON r.id = t.reporte_id
+                               WHERE (%s::integer IS NULL OR t.reporte_id = %s)
+                               ORDER BY t.reporte_id LIMIT 20;""", (reporte_id, reporte_id))
+                solicitudes = cur.fetchall()
+            for reporte, paciente in solicitudes:
+                try:
+                    crear_factura_ia(paciente, reporte, VALOR_ANALISIS_IA)
+                    with db, db.cursor() as cur:
+                        cur.execute("DELETE FROM facturas_ia_pendientes WHERE reporte_id = %s;", (reporte,))
+                except Exception as e:
+                    print(f"[evento] factura de IA pendiente: {type(e).__name__}")
+    except Exception as e:
+        print(f"[evento] no se pudo consultar las facturas pendientes: {type(e).__name__}")
 
 
-# ── Bandeja (R18) ─────────────────────────────────────────────────────────
-def _guardar_notificaciones(destinatarios: list, evento: dict) -> None:
-    """Una notificación por destinatario. Los campos extra del hecho van en
-    'datos' (JSONB) y salen planos en la respuesta de GET /notificaciones."""
-    if not destinatarios:
+# Los IDs de la bandeja también son el cursor SSE. Serializar la asignación
+# hasta el commit impide que un ID menor se confirme después de uno mayor.
+def _guardar_notificaciones(db, destinatarios, evento):
+    ids = sorted({int(d) for d in destinatarios if d is not None})
+    if not ids:
         return
-    estandar = {"tipo", "mensaje", "fecha", "paciente_id", "reporte_id",
-                "remision_id", "alerta_id"}
-    extras = {k: v for k, v in evento.items() if k not in estandar}
-    try:
-        db = _conexion_pg()
-        cur = db.cursor()
-        for usuario_id in destinatarios:
-            cur.execute(
-                """INSERT INTO notificaciones
-                       (usuario_id, tipo, mensaje, paciente_id, reporte_id,
-                        remision_id, alerta_id, datos)
-                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s);""",
-                (usuario_id, evento.get("tipo", ""), evento.get("mensaje", ""),
-                 evento.get("paciente_id"), evento.get("reporte_id"),
-                 evento.get("remision_id"), evento.get("alerta_id"),
-                 psycopg2.extras.Json(extras) if extras else None),
-            )
-        db.commit()
-        cur.close()
-        db.close()
-    except Exception as e:
-        print(f"[evento] no se pudieron guardar las notificaciones: {e}")
-
-
-# ── Escalamiento de alertas (R20) ─────────────────────────────────────────
-def _escalar_vencidas() -> None:
-    """Alertas activas sin reconocer más allá del plazo -> aviso al admin."""
-    db = _conexion_pg()
-    try:
-        cur = db.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    campos = {"tipo", "mensaje", "fecha", "paciente_id", "reporte_id", "remision_id", "alerta_id"}
+    extras = {k: v for k, v in evento.items() if k not in campos}
+    roles_excluidos = ["paciente", "contable", "director", "biomedico", "eps"] if evento["tipo"] in EVENTOS_CLINICOS else []
+    with db.cursor() as cur:
+        cur.execute("SELECT pg_advisory_xact_lock(82401937);")
         cur.execute(
-            """SELECT id, paciente_id, mensaje FROM alertas
-               WHERE estado = 'activa' AND escalada = FALSE
-                 AND creada_en < now() - make_interval(secs => %s);""",
-            (ESCALAMIENTO_SEGUNDOS,),
+            """INSERT INTO notificaciones
+                   (usuario_id, tipo, mensaje, paciente_id, reporte_id, remision_id, alerta_id, datos)
+               SELECT id, %s, %s, %s, %s, %s, %s, %s FROM usuarios
+                WHERE activo AND id = ANY(%s) AND NOT (rol = ANY(%s::text[]))
+                ORDER BY id;""",
+            (evento["tipo"], evento["mensaje"], evento.get("paciente_id"), evento.get("reporte_id"),
+             evento.get("remision_id"), evento.get("alerta_id"),
+             psycopg2.extras.Json(extras) if extras else None, ids, roles_excluidos),
         )
-        vencidas = cur.fetchall()
-        for alerta in vencidas:
-            cur.execute("UPDATE alertas SET escalada = TRUE WHERE id = %s;", (alerta["id"],))
-        db.commit()
+
+
+def _escalar_vencidas() -> None:
+    """Confirma el escalamiento junto con el aviso. Una falla deja la alerta reintentable."""
+    with closing(_conexion_pg()) as db, db, db.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
         admins = ids_con_rol(db, "admin")
-        cur.close()
-        for alerta in vencidas:
-            publicar(admins, {
+        if not admins:
+            return
+        cur.execute(
+            """SELECT id, paciente_id FROM alertas
+               WHERE estado = 'activa' AND NOT escalada
+                 AND creada_en < now() - make_interval(secs => %s)
+               ORDER BY id LIMIT 100 FOR UPDATE SKIP LOCKED;""", (ESCALAMIENTO_SEGUNDOS,),
+        )
+        for alerta in cur.fetchall():
+            registrar_evento(db, admins, {
                 "tipo": "alerta_escalada",
-                "mensaje": (f"Alerta {alerta['id']} sin reconocer tras "
-                            f"{ESCALAMIENTO_SEGUNDOS} s (paciente {alerta['paciente_id']}): "
-                            f"escalada al administrador"),
-                "paciente_id": alerta["paciente_id"],
-                "alerta_id": alerta["id"],
+                "mensaje": f"Alerta {alerta['id']} sin reconocer tras {ESCALAMIENTO_SEGUNDOS} s",
+                "paciente_id": alerta["paciente_id"], "alerta_id": alerta["id"],
             })
-    except Exception as e:
-        print(f"[evento] no se pudo escalar alertas: {e}")
-    finally:
-        db.close()
+            cur.execute("UPDATE alertas SET escalada = TRUE WHERE id = %s;", (alerta["id"],))
 
 
 def _vigilar_alertas() -> None:
     while True:
-        time.sleep(20)
         try:
             _escalar_vencidas()
         except Exception as e:
-            print(f"[evento] vigilancia de alertas: {e}")
+            print(f"[evento] vigilancia de alertas: {type(e).__name__}")
+        completar_facturas_ia()
+        time.sleep(20)
 
 
-threading.Thread(target=_vigilar_alertas, daemon=True).start()
+def iniciar_escalamiento() -> None:
+    threading.Thread(target=_vigilar_alertas, daemon=True, name="escalamiento-alertas").start()
+
+
+def _notificaciones_desde(usuario, despues):
+    with closing(_conexion_pg()) as db, db.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+        if despues is None:
+            cur.execute("SELECT COALESCE(max(id), 0) AS ultimo FROM notificaciones WHERE usuario_id = %s;",
+                        (usuario["id"],))
+            return cur.fetchone()["ultimo"]
+        cur.execute("""SELECT id, tipo, mensaje, leida, fecha, paciente_id, reporte_id,
+                              remision_id, alerta_id, datos
+                         FROM notificaciones WHERE usuario_id = %s AND id > %s
+                         ORDER BY id LIMIT 100;""", (usuario["id"], despues))
+        return [_fila_notificacion(fila) for fila in cur.fetchall()]
 
 
 # ── Endpoints del contrato (tester.yaml) ──────────────────────────────────
@@ -317,33 +199,35 @@ async def canal_eventos(request: Request):
 
     usuario = await asyncio.to_thread(validar_sesion)
 
-    cola: "asyncio.Queue" = asyncio.Queue(maxsize=200)
-    loop = asyncio.get_running_loop()
-    sus = _suscribir(usuario["id"], usuario["rol"], cola, loop)
+    ultimo = request.headers.get("Last-Event-ID", "")
+    if ultimo and (not ultimo.isascii() or not ultimo.isdecimal() or len(ultimo) > 10
+                   or int(ultimo) > 2147483647):
+        raise HTTPException(422, "Cursor de eventos inválido")
+    inicial = int(ultimo) if ultimo else await asyncio.to_thread(_notificaciones_desde, usuario, None)
 
     async def generador():
+        cursor = inicial
         try:
-            yield "data: " + json.dumps({
-                "tipo": "conectado",
-                "mensaje": "canal en tiempo real abierto",
-                "fecha": _ahora_iso(),
+            yield f"id: {cursor}\ndata: " + json.dumps({
+                "tipo": "conectado", "mensaje": "canal en tiempo real abierto", "fecha": _ahora_iso(),
             }) + "\n\n"
             siguiente_revision = time.monotonic() + 15
             while True:
-                try:
-                    texto = await asyncio.wait_for(cola.get(), timeout=max(0, siguiente_revision - time.monotonic()))
-                except asyncio.TimeoutError:
-                    texto = None
                 if time.monotonic() >= siguiente_revision:
                     vigente = await asyncio.to_thread(validar_sesion)
                     if vigente["rol"] != usuario["rol"]:
-                        break
+                        return
                     siguiente_revision = time.monotonic() + 15
-                yield f"data: {texto}\n\n" if texto is not None else ": ping\n\n"
-        except HTTPException:
-            pass  # El token venció o la cuenta perdió el acceso.
-        finally:
-            _desuscribir(sus)
+                    yield ": ping\n\n"
+                filas = await asyncio.to_thread(_notificaciones_desde, usuario, cursor)
+                for fila in filas:
+                    cursor = fila["id"]
+                    if fila["tipo"] in EVENTOS_CLINICOS and usuario["rol"] not in ("admin", "medico", "especialista"):
+                        continue
+                    yield f"id: {cursor}\ndata: {json.dumps(fila, default=str)}\n\n"
+                await asyncio.sleep(1 if len(filas) == 100 else 2)
+        except (HTTPException, psycopg2.Error):
+            return  # El cliente vuelve a conectar con su último evento recibido.
 
     return StreamingResponse(
         generador(),
@@ -386,8 +270,7 @@ def _fila_notificacion(fila: dict) -> dict:
     datos = fila.pop("datos", None) or {}
     if fila.get("fecha"):
         fila["fecha"] = fila["fecha"].isoformat()
-    fila.update(datos)
-    return fila
+    return {**datos, **fila}
 
 
 @router.get("/notificaciones")
@@ -438,15 +321,20 @@ def trabajo_pendiente(usuario=Depends(_usuario_actual), db=Depends(_db)):
     # Reportes de IA pendientes de revisión clínica (compartidos entre clínicos).
     for tabla in ("reportes_ia", "ml_reports"):
         try:
-            cur.execute(f"SELECT COUNT(*) FROM {tabla} WHERE estado = 'pendiente';")
+            filtro = ""
+            valores = ()
+            if tabla == "reportes_ia" and usuario["rol"] != "admin":
+                filtro = " AND (huella_automatica IS NULL OR creado_por = %s)"
+                valores = (usuario["id"],)
+            cur.execute(f"SELECT COUNT(*) FROM {tabla} WHERE estado = 'pendiente'{filtro};", valores)
             res["reportes_por_revisar"] += cur.fetchone()[0]
         except Exception:
             db.rollback()
     try:
         cur.execute(
             """SELECT COUNT(*) FROM alertas
-               WHERE estado = 'activa' AND (responsable_id IS NULL OR responsable_id = %s);""",
-            (usuario["id"],))
+               WHERE estado = 'activa' AND (%s OR responsable_id = %s);""",
+            (usuario["rol"] == "admin", usuario["id"]))
         res["alertas_activas"] = cur.fetchone()[0]
     except Exception:
         db.rollback()
@@ -482,13 +370,12 @@ def trabajo_pendiente(usuario=Depends(_usuario_actual), db=Depends(_db)):
 
 @router.get("/alertas")
 def listar_alertas(usuario=Depends(_usuario_clinico), db=Depends(_db)):
-    """R20 · Alertas críticas. El admin ve todas; los clínicos las suyas y las
-    sin asignar. Paciente y contable ni las ven (403)."""
+    """R20 · El administrador ve todas las alertas. Los clínicos ven las asignadas."""
     if usuario["rol"] == "admin":
         sql = "SELECT * FROM alertas ORDER BY creada_en DESC LIMIT 100;"
         valores = []
     else:
-        sql = ("SELECT * FROM alertas WHERE responsable_id IS NULL OR responsable_id = %s "
+        sql = ("SELECT * FROM alertas WHERE responsable_id = %s "
                "ORDER BY creada_en DESC LIMIT 100;")
         valores = [usuario["id"]]
     cur = db.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
@@ -507,22 +394,21 @@ def reconocer_alerta(alerta_id: int, datos: ReconocerIn,
                      usuario=Depends(_usuario_clinico), db=Depends(_db)):
     """R20 · El clínico reconoce la alerta con una nota; queda en la auditoría.
     Paciente y contable no pueden (403)."""
-    cur = db.cursor()
-    cur.execute("SELECT estado FROM alertas WHERE id = %s;", (alerta_id,))
-    fila = cur.fetchone()
-    if fila is None:
-        cur.close()
-        raise HTTPException(status_code=404, detail="Alerta no encontrada")
-    if fila[0] != "reconocida":
-        cur.execute(
-            """UPDATE alertas
-               SET estado = 'reconocida', reconocida_en = now(),
-                   reconocida_por = %s, nota = %s
-               WHERE id = %s;""",
-            (usuario["id"], datos.nota or "", alerta_id))
-        db.commit()
-    cur.close()
     from auth import registrar_auditoria
-    registrar_auditoria(db, usuario["id"], "alerta_reconocida", "alertas", alerta_id,
-                        (datos.nota or "")[:200])
+
+    with db.cursor() as cur:
+        cur.execute("SELECT estado, responsable_id FROM alertas WHERE id = %s FOR UPDATE;", (alerta_id,))
+        fila = cur.fetchone()
+        if not fila or (fila[1] != usuario["id"] and usuario["rol"] != "admin"):
+            raise HTTPException(404, "Alerta no encontrada")
+        if fila[0] == "activa":
+            cur.execute("""UPDATE alertas SET estado = 'reconocida', reconocida_en = now(),
+                                  reconocida_por = %s, nota = %s WHERE id = %s;""",
+                        (usuario["id"], datos.nota or "", alerta_id))
+            registrar_evento(db, [fila[1], usuario["id"], *ids_con_rol(db, "admin")], {
+                "tipo": "alerta_reconocida", "alerta_id": alerta_id,
+                "mensaje": f"Alerta {alerta_id} reconocida",
+            })
+            registrar_auditoria(db, usuario["id"], "alerta_reconocida", "alertas", alerta_id,
+                                (datos.nota or "")[:200])
     return {"id": alerta_id, "estado": "reconocida"}

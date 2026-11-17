@@ -22,7 +22,8 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 
 from auth import ROLES_CLINICOS, con_zona, db_mongo, get_db, get_usuario_actual, registrar_auditoria, requiere_rol
 from causas import causa_por_reglas
-from eventos import publicar
+from eventos import publicar, registrar_evento
+import reactividad
 import fhir_sync
 from validacion_clinica import PAD, PAS, SIGNOS, codigo_signo, validar_presion, validar_signo
 from validaciones import bloquear_remision, hoy_bogota, institucion_del_catalogo
@@ -352,7 +353,7 @@ def listar_observaciones(remision_id: Optional[int] = Query(None), db=Depends(ge
           dependencies=[Depends(requiere_rol("admin", "medico", "especialista"))])
 def crear_observacion(observacion: ObservacionCreate, db=Depends(get_db),
                       usuario=Depends(get_usuario_actual)):
-    bloquear_remision(db, observacion.remision_id, usuario, exigir_abierta=True, admite_responsable_externo=True)
+    episodio = bloquear_remision(db, observacion.remision_id, usuario, exigir_abierta=True, admite_responsable_externo=True)
     codigo = observacion.codigo_loinc
     with db.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
         otro = {PAS: PAD, PAD: PAS}.get(codigo)
@@ -377,9 +378,12 @@ def crear_observacion(observacion: ObservacionCreate, db=Depends(get_db),
         cur.execute(insertar, (observacion.remision_id, observacion.tipo, codigo,
                                observacion.valor, observacion.unidad, usuario["id"]))
         fila = cur.fetchone()
+        filas = [fila]
         if otro and complemento is not None:
             signo = SIGNOS[otro]
             cur.execute(insertar, (observacion.remision_id, signo.tipo, otro, complemento, signo.unidad, usuario["id"]))
+            filas.append(cur.fetchone())
+    reactividad.registrar_observaciones(db, episodio, episodio["paciente_id"], filas)
     registrar_auditoria(db, usuario["id"], "observacion_creada", "remisiones", observacion.remision_id)
     return fila
 
@@ -549,6 +553,14 @@ def remitir(body: RemitirIn, db=Depends(get_db), usuario=Depends(get_usuario_act
     fila = cur.fetchone()
     cur.close()
 
+    # R19: notificar al especialista
+    registrar_evento(db, [body.especialista_id], {
+        "tipo": "remision_creada",
+        "mensaje": f"Nueva interconsulta #{fila['id']} de {usuario['nombre']}",
+        "paciente_id": body.paciente_id,
+        "interconsulta_id": fila["id"],
+    })
+
     # El sello confirma la interconsulta en la misma transacción.
     registrar_auditoria(
         db, usuario["id"], "remision_creada", "remisiones_medicas", fila["id"],
@@ -566,13 +578,6 @@ def remitir(body: RemitirIn, db=Depends(get_db), usuario=Depends(get_usuario_act
     except Exception as e:
         print(f"[FHIR] no se pudo sincronizar la remisión {fila['id']}: {e}")
 
-    # R19: notificar al especialista
-    publicar([body.especialista_id], {
-        "tipo": "remision_creada",
-        "mensaje": f"Nueva interconsulta #{fila['id']} de {usuario['nombre']}",
-        "paciente_id": body.paciente_id,
-        "interconsulta_id": fila["id"],
-    })
 
     return {"id": fila["id"], "estado": fila["estado"]}
 
@@ -617,18 +622,19 @@ def aceptar_remision(
     fila = cur.fetchone()
     cur.close()
 
-    registrar_auditoria(
-        db, usuario["id"], "remision_aceptada", "remisiones_medicas", remision_id,
-        f"paciente {r['paciente_id']}"
-    )
-
     # R19: avisar al médico remitente
-    publicar([r["medico_id"]], {
+    registrar_evento(db, [r["medico_id"]], {
         "tipo": "remision_aceptada",
         "mensaje": f"El especialista aceptó la interconsulta #{remision_id}",
         "paciente_id": r["paciente_id"],
         "interconsulta_id": remision_id,
     })
+
+    registrar_auditoria(
+        db, usuario["id"], "remision_aceptada", "remisiones_medicas", remision_id,
+        f"paciente {r['paciente_id']}"
+    )
+
 
     return {"id": fila["id"], "estado": fila["estado"]}
 

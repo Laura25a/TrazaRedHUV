@@ -12,16 +12,20 @@ import hashlib
 import hmac
 import json
 import os
-from datetime import date
+import threading
+import time
+from contextlib import closing
+from datetime import date, timedelta
 from typing import Optional
 
 import httpx
 import psycopg2.extras
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 from auth import SECRET_KEY, get_db, get_usuario_actual, registrar_auditoria, requiere_rol
-from eventos import ids_con_rol, publicar
+from eventos import _conexion_pg, ids_con_rol, registrar_evento
+from reactividad import VITALES_KTAS, responsable_episodio
 from validacion_clinica import validar_presion
 
 router = APIRouter(tags=["IA"])
@@ -67,7 +71,12 @@ class AnalisisIn(PrediccionIn):
 
 
 class RevisionIn(BaseModel):
-    observaciones: Optional[str] = None
+    observaciones: str = Field(min_length=1, max_length=300)
+
+    @field_validator("observaciones", mode="before")
+    @classmethod
+    def limpiar_nota(cls, valor):
+        return valor.strip() if isinstance(valor, str) else valor
 
 
 # ── R12: seudonimización ──────────────────────────────────────────────────
@@ -181,67 +190,155 @@ def analizar(
         payload = armar_payload(paciente, datos)
         resultado = llamar_modelo(payload)
 
-        nivel_bd = (
-            "urgente"
-            if resultado["nivel"] in ("critico", "urgente")
-            else "no_urgente"
-        )
-
-        # Nombres de columnas de la tabla reportes_ia existente
-        cur.execute(
-            """
-            INSERT INTO reportes_ia (
-                remision_id,
-                paciente_id,
-                creado_por,
-                modelo,
-                probabilidad_urgente,
-                prediccion,
-                critico_segun_umbral,
-                payload_seudonimizado
-            )
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-            RETURNING id;
-            """,
-            (
-                remision_id,
-                paciente["id"],
-                usuario["id"],
-                resultado["version_modelo"],
-                resultado["probabilidad"],
-                nivel_bd,
-                resultado["critico"],
-                json.dumps(payload),
-            ),
-        )
-
-        reporte_id = cur.fetchone()["id"]
-        registrar_auditoria(
-            db, usuario["id"], "analisis_ia", "reportes_ia",
-            reporte_id, f"paciente_id={paciente['id']}",
-        )
-
+        reporte_id = _guardar_reporte(db, paciente["id"], remision_id, usuario["id"], payload, resultado)
+        registrar_auditoria(db, usuario["id"], "analisis_ia", "reportes_ia",
+                            reporte_id, f"paciente_id={paciente['id']}")
     except Exception:
         db.rollback()
         raise
     finally:
         cur.close()
 
-    # R20: alerta crítica en el momento del análisis
-    if resultado["critico"]:
-        publicar([usuario["id"]], {
-            "tipo": "alerta_critica",
-            "mensaje": f"Caso crítico en el paciente {paciente['id']} (probabilidad {resultado['probabilidad']})",
-            "paciente_id": paciente["id"],
-            "reporte_id": reporte_id,
-            "nivel": "critico",
-        })
-
     return {"id": reporte_id, "estado": "pendiente"}
 
 
+def _guardar_reporte(db, paciente_id, remision_id, responsable, payload, resultado, huella=None):
+    nivel = "urgente" if resultado["nivel"] in ("critico", "urgente") else "no_urgente"
+    with db.cursor() as cur:
+        cur.execute("""INSERT INTO reportes_ia
+                       (remision_id, paciente_id, creado_por, modelo, probabilidad_urgente,
+                        prediccion, critico_segun_umbral, payload_seudonimizado, huella_automatica)
+                       VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                       ON CONFLICT (remision_id, huella_automatica) WHERE huella_automatica IS NOT NULL
+                       DO NOTHING RETURNING id;""",
+                    (remision_id, paciente_id, responsable, resultado["version_modelo"], resultado["probabilidad"],
+                     nivel, resultado["critico"], json.dumps(payload), huella))
+        fila = cur.fetchone()
+    if not fila:
+        return None
+    reporte_id = fila[0]
+    if responsable:
+        contexto = {"paciente_id": paciente_id, "remision_id": remision_id, "reporte_id": reporte_id}
+        if huella:
+            registrar_evento(db, [responsable], {
+                "tipo": "reporte_pendiente", "mensaje": "Hay un borrador automático de urgencia para revisar", **contexto,
+            })
+        if resultado["critico"]:
+            registrar_evento(db, [responsable], {
+                "tipo": "alerta_critica", "mensaje": "El borrador de urgencia requiere revisión prioritaria",
+                "responsable_id": responsable, **contexto,
+            })
+    return reporte_id
+
+
+# ── Procesamiento de tomas pendientes ────────────────────────────────────────
+CAMPOS_AUTOMATICOS = dict(zip(VITALES_KTAS, ("sbp", "dbp", "fc", "fr", "saturacion", "temperatura")))
+VENTANA_TOMA = timedelta(minutes=30)
+
+
+def _toma_automatica(db, remision_id):
+    with db.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+        cur.execute("""SELECT r.id, r.paciente_id, r.creado_por, r.atendida_por, p.genero, p.fecha_nacimiento
+                         FROM remisiones r JOIN pacientes p ON p.id = r.paciente_id
+                        WHERE r.id = %s AND r.activo AND r.estado IN ('pendiente','en_gestion','aceptada')
+                          AND NOT p.por_conciliar;""", (remision_id,))
+        episodio = cur.fetchone()
+        if not episodio or not episodio["fecha_nacimiento"] or episodio["genero"] not in MAPA_SEXO:
+            return None
+        cur.execute("""SELECT DISTINCT ON (codigo) codigo, id, valor, unidad, fecha_observacion
+                         FROM (SELECT CASE WHEN codigo_loinc = '2708-6' THEN '59408-5'
+                                           ELSE codigo_loinc END AS codigo,
+                                      id, valor, unidad, fecha_observacion
+                                 FROM observaciones WHERE remision_id = %s) o
+                        WHERE codigo = ANY(%s)
+                        ORDER BY codigo, fecha_observacion DESC, id DESC;""",
+                    (remision_id, list(VITALES_KTAS)))
+        signos = cur.fetchall()
+    if len(signos) != len(VITALES_KTAS):
+        return None
+    fechas = [s["fecha_observacion"] for s in signos]
+    if max(fechas) - min(fechas) > VENTANA_TOMA:
+        return None
+    responsable = responsable_episodio(db, episodio)
+    if not responsable:
+        return None
+    from validacion_clinica import validar_signo
+    from validaciones import hoy_bogota
+
+    try:
+        valores = {CAMPOS_AUTOMATICOS[s["codigo"]]: float(s["valor"]) for s in signos}
+        for signo in signos:
+            validar_signo(signo["codigo"], float(signo["valor"]), signo["unidad"])
+        nacimiento = episodio["fecha_nacimiento"]
+        hoy = hoy_bogota()
+        edad = hoy.year - nacimiento.year - ((hoy.month, hoy.day) < (nacimiento.month, nacimiento.day))
+        # El formulario manual también usa categorías base. Para el borrador
+        # automático, las categorías no observadas se entregan como faltantes.
+        datos = AnalisisIn(paciente_id=episodio["paciente_id"], edad=edad, **valores)
+        payload = armar_payload({**episodio, "id": episodio["paciente_id"]}, datos)
+        for campo in ("modo_llegada", "lesion", "mental", "dolor"):
+            payload[campo] = None
+    except ValueError:
+        return None
+    huella = ":".join(str(signo["id"]) for signo in signos)
+    return episodio["paciente_id"], responsable, payload, huella
+
+
+def procesar_analisis_automaticos():
+    """El modelo se consulta fuera de la transacción de escritura."""
+    with closing(_conexion_pg()) as db:
+        with db, db.cursor() as cur:
+            cur.execute("""SELECT remision_id, observacion_id FROM analisis_automaticos_pendientes
+                            WHERE intentar_en <= now() ORDER BY intentar_en LIMIT 20;""")
+            solicitudes = cur.fetchall()
+        for remision_id, observacion_id in solicitudes:
+            with db:
+                toma = _toma_automatica(db, remision_id)
+            try:
+                resultado = llamar_modelo(toma[2]) if toma else None
+            except HTTPException as e:
+                with db, db.cursor() as cur:
+                    cur.execute("""UPDATE analisis_automaticos_pendientes
+                                      SET intentar_en = now() + interval '1 minute'
+                                    WHERE remision_id = %s AND observacion_id = %s;""",
+                                (remision_id, observacion_id))
+                print(f"[IA] análisis automático reprogramado ({e.status_code})")
+                continue
+            with db, db.cursor() as cur:
+                cur.execute("SELECT id FROM remisiones WHERE id = %s FOR UPDATE;", (remision_id,))
+                cur.execute("""DELETE FROM analisis_automaticos_pendientes
+                                WHERE remision_id = %s AND observacion_id = %s RETURNING remision_id;""",
+                            (remision_id, observacion_id))
+                if not cur.fetchone():
+                    continue
+                toma_vigente = _toma_automatica(db, remision_id)
+                if toma_vigente != toma:
+                    if toma_vigente:
+                        cur.execute("""INSERT INTO analisis_automaticos_pendientes (remision_id, observacion_id)
+                                       VALUES (%s, %s);""", (remision_id, observacion_id))
+                    continue
+                if toma:
+                    paciente_id, responsable, payload, huella = toma
+                    reporte_id = _guardar_reporte(db, paciente_id, remision_id, responsable, payload, resultado, huella)
+                    if reporte_id is not None:
+                        registrar_auditoria(db, None, "analisis_ia_automatico", "reportes_ia", reporte_id, confirmar=False)
+
+
+def _ciclo_analisis_automatico():
+    while True:
+        try:
+            procesar_analisis_automaticos()
+        except Exception as e:
+            print(f"[IA] no se pudo procesar la cola automática: {type(e).__name__}")
+        time.sleep(5)
+
+
+def iniciar_analisis_automatico():
+    threading.Thread(target=_ciclo_analisis_automatico, daemon=True, name="analisis-automatico").start()
+
+
 # ── Consulta de reportes ──────────────────────────────────────────────────
-def _buscar_reporte(db, reporte_id: int) -> dict:
+def _buscar_reporte(db, reporte_id: int, usuario: dict) -> dict:
     cur = db.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
 
     try:
@@ -253,7 +350,7 @@ def _buscar_reporte(db, reporte_id: int) -> dict:
     finally:
         cur.close()
 
-    if fila is None:
+    if fila is None or (fila["huella_automatica"] and usuario["rol"] != "admin" and fila["creado_por"] != usuario["id"]):
         raise HTTPException(
             status_code=404,
             detail="Reporte no encontrado",
@@ -270,6 +367,9 @@ def listar_reportes(
     usuario=Depends(requiere_rol("admin", "medico", "especialista")),
 ):
     cond, params = [], []
+    if usuario["rol"] != "admin":
+        cond.append("(huella_automatica IS NULL OR creado_por = %s)")
+        params.append(usuario["id"])
     if paciente_id is not None:
         cond.append("paciente_id = %s")
         params.append(paciente_id)
@@ -287,7 +387,7 @@ def listar_reportes(
                    prediccion AS nivel,
                    critico_segun_umbral AS critico,
                    observacion_revision AS observaciones,
-                   creado_en AS fecha_creacion
+                   creado_en AS fecha_creacion, huella_automatica IS NOT NULL AS automatico
             FROM reportes_ia {donde}
             ORDER BY id DESC;
             """,
@@ -308,7 +408,7 @@ def ver_reporte(
     db=Depends(get_db),
     usuario=Depends(requiere_rol("admin", "medico", "especialista")),
 ):
-    r = _buscar_reporte(db, reporte_id)
+    r = _buscar_reporte(db, reporte_id, usuario)
 
     return {
         "id": r["id"],
@@ -329,13 +429,13 @@ def ver_payload(
 ):
     """Devuelve el payload seudonimizado enviado al modelo."""
     return {
-        "payload": _buscar_reporte(db, reporte_id)["payload_seudonimizado"]
+        "payload": _buscar_reporte(db, reporte_id, usuario)["payload_seudonimizado"]
     }
 
 
 # ── Aprobación clínica (R10) ──────────────────────────────────────────────
 def _revisar(db, reporte_id: int, usuario: dict, nuevo_estado: str,
-             observaciones: Optional[str]) -> dict:
+             observaciones: str) -> dict:
     """Pasa un reporte de 'pendiente' a aprobado/rechazado. Nada se borra."""
     cur = db.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
     try:
@@ -347,17 +447,24 @@ def _revisar(db, reporte_id: int, usuario: dict, nuevo_estado: str,
                    revisado_por = %s,
                    revisado_en = now()
              WHERE id = %s AND estado = 'pendiente'
+                   AND (huella_automatica IS NULL OR creado_por = %s)
          RETURNING id, paciente_id;
             """,
-            (nuevo_estado, observaciones, usuario["id"], reporte_id),
+            (nuevo_estado, observaciones, usuario["id"], reporte_id, usuario["id"]),
         )
         fila = cur.fetchone()
         if fila is None:
-            actual = _buscar_reporte(db, reporte_id)  # 404 si no existe
+            actual = _buscar_reporte(db, reporte_id, usuario)  # 404 si no existe
             raise HTTPException(
                 status_code=409,
                 detail=f"El reporte ya está {actual['estado']}",
             )
+        if nuevo_estado == "aprobado":
+            registrar_evento(db, ids_con_rol(db, "contable"), {
+                "tipo": "reporte_aprobado", "mensaje": "Se aprobó un análisis de IA: genera su factura",
+                "reporte_id": reporte_id,
+            })
+            cur.execute("INSERT INTO facturas_ia_pendientes (reporte_id) VALUES (%s);", (reporte_id,))
         registrar_auditoria(
             db, usuario["id"], f"reporte_{nuevo_estado}", "reportes_ia",
             reporte_id, f"paciente_id={fila['paciente_id']}",
@@ -374,31 +481,24 @@ def _revisar(db, reporte_id: int, usuario: dict, nuevo_estado: str,
 @router.post("/ia/reportes/{reporte_id}/aprobar")
 def aprobar_reporte(
     reporte_id: int,
-    cuerpo: Optional[RevisionIn] = None,
+    cuerpo: RevisionIn,
     db=Depends(get_db),
     usuario=Depends(requiere_rol("medico", "especialista")),
 ):
-    fila = _revisar(db, reporte_id, usuario, "aprobado",
-                    cuerpo.observaciones if cuerpo else None)
-    # R19: de aquí la Persona 4 arma la factura (sin datos clínicos)
-    publicar(ids_con_rol(db, "contable"), {
-        "tipo": "reporte_aprobado",
-        "mensaje": "Se aprobó un análisis de IA: genera su factura",
-        "paciente_id": fila["paciente_id"],
-        "reporte_id": reporte_id,
-    })
+    _revisar(db, reporte_id, usuario, "aprobado", cuerpo.observaciones)
+    from eventos import completar_facturas_ia
+    completar_facturas_ia(reporte_id)
     return {"id": reporte_id, "estado": "aprobado"}
 
 
 @router.post("/ia/reportes/{reporte_id}/rechazar")
 def rechazar_reporte(
     reporte_id: int,
-    cuerpo: Optional[RevisionIn] = None,
+    cuerpo: RevisionIn,
     db=Depends(get_db),
     usuario=Depends(requiere_rol("medico", "especialista")),
 ):
-    _revisar(db, reporte_id, usuario, "rechazado",
-             cuerpo.observaciones if cuerpo else None)
+    _revisar(db, reporte_id, usuario, "rechazado", cuerpo.observaciones)
     return {"id": reporte_id, "estado": "rechazado"}
 
 

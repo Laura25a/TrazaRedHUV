@@ -36,7 +36,7 @@ async function vistaRevision() {
   $("#rev-lista").innerHTML = `<div class="tabla-envoltura"><table class="rev-tabla"><thead><tr>
       <th>#</th><th>Paciente</th><th>Probabilidad</th><th>Nivel</th><th>Fecha</th><th>${REV.estado === "pendiente" ? "Decisión" : "Observación"}</th></tr></thead>
     <tbody>${lista.slice(0, 80).map(r => `<tr data-id="${r.id}">
-      <td class="mono">#${r.id}</td>
+      <td class="mono">#${r.id}${r.automatico ? '<span class="sub">Automático</span>' : ""}</td>
       <td><a href="#" data-pac="${r.paciente_id}">Paciente ${r.paciente_id}</a></td>
       <td><div class="rev-prob"><span>${agrNum(r.probabilidad * 100, 1)} %</span><i style="width:${Math.min(100, r.probabilidad * 100)}%"></i></div></td>
       <td><span class="pildora ${r.critico ? "est-pendiente" : r.nivel === "urgente" ? "est-pendiente" : "est-activo"}">${r.critico ? "Crítico" : r.nivel === "urgente" ? "Urgente" : "No urgente"}</span></td>
@@ -51,7 +51,7 @@ async function vistaRevision() {
 // Botones reutilizables (también en la pantalla de predicción)
 function revisionBotones(id) {
   return `<div class="rev-acciones" data-reporte="${id}">
-    <input type="text" class="rev-obs" maxlength="300" placeholder="Observación clínica">
+    <input type="text" class="rev-obs" maxlength="300" placeholder="Nota clínica requerida" aria-label="Nota clínica requerida" required>
     <button class="btn btn-ok btn-sm" data-decision="aprobar">Aprobar</button>
     <button class="btn btn-peligro btn-sm" data-decision="rechazar">Rechazar</button>
     <button class="btn btn-suave btn-sm" data-decision="payload" title="Ver exactamente qué recibió el modelo">Qué vio la IA</button>
@@ -70,12 +70,12 @@ function activarRevision(raiz, alTerminar) {
         return;
       }
       const obs = $(".rev-obs", caja).value.trim();
-      if (b.dataset.decision === "rechazar" && !obs) { toast("Escribe por qué lo rechazas.", "error"); $(".rev-obs", caja).focus(); return; }
+      if (!obs) { toast("Escribe la nota clínica de la decisión.", "error"); $(".rev-obs", caja).focus(); return; }
       $$("button, input", caja).forEach(x => x.disabled = true);
       try {
-        await API.post(`/ia/reportes/${id}/${b.dataset.decision}`, { observaciones: obs || null });
+        await API.post(`/ia/reportes/${id}/${b.dataset.decision}`, { observaciones: obs });
         caja.innerHTML = `<span class="pildora ${b.dataset.decision === "aprobar" ? "est-activo" : "est-pendiente"}">${b.dataset.decision === "aprobar"
-          ? "Aprobado: entra a la historia y se generó la factura" : "Rechazado: no entra a la historia"}</span>`;
+          ? "Aprobado: entra a la historia. Facturación solicitada." : "Rechazado: no entra a la historia"}</span>`;
         toast(b.dataset.decision === "aprobar" ? "Reporte aprobado." : "Reporte rechazado.", "ok");
         if (alTerminar) alTerminar();
       } catch (e) {
@@ -94,3 +94,9 @@ if (typeof SECCIONES !== "undefined" && typeof ICONOS !== "undefined") {
     pintar: vistaRevision, grupo: "Inteligencia artificial",
   };
 }
+
+
+document.addEventListener("trazared:evento", ({ detail }) => {
+  if (sesion.seccion === "revision" && detail.tipo === "reporte_pendiente" &&
+      !document.activeElement?.closest(".rev-acciones")) vistaRevision();
+});

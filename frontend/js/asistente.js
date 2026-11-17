@@ -147,7 +147,7 @@ async function astCargarHistorial() {
   } catch (e) {
     if (!vigente()) return;
     astBienvenida();
-    if (e.status === 403) astMensaje("sistema", "Tu rol no puede usar el asistente (solo médico y especialista).");
+    if (e.status === 403) astMensaje("sistema", e.message);
   }
 }
 
@@ -341,7 +341,7 @@ async function astEnviar() {
   } catch (e) {
     if (!espera.isConnected) return;
     espera.remove();
-    astMensaje("sistema", e.status === 403 ? "Tu rol no puede usar el asistente." : e.message);
+    astMensaje("sistema", e.message || "No se pudo consultar el asistente.");
   } finally {
     AST.ocupado = false;
     if ($("#ast-enviar")) $("#ast-enviar").disabled = false;

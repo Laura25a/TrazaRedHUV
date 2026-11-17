@@ -646,3 +646,26 @@ DROP TRIGGER IF EXISTS fhir_observacion ON observaciones;
 CREATE TRIGGER fhir_observacion AFTER INSERT OR UPDATE OF remision_id, paciente_id, tipo, codigo_loinc, valor, unidad,
     fecha_observacion, profesional_id, profesional_fhir ON observaciones
     FOR EACH ROW EXECUTE FUNCTION encolar_replica_fhir('Observation');
+
+-- Reactividad clínica. Cada toma mueve la revisión de su episodio y habilita
+-- un nuevo intento. Se elimina la tarea al guardar el borrador o si faltan datos.
+ALTER TABLE reportes_ia ADD COLUMN IF NOT EXISTS huella_automatica TEXT;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_reportes_ia_toma
+    ON reportes_ia (remision_id, huella_automatica) WHERE huella_automatica IS NOT NULL;
+
+CREATE TABLE IF NOT EXISTS analisis_automaticos_pendientes (
+    remision_id INTEGER PRIMARY KEY REFERENCES remisiones(id),
+    observacion_id INTEGER NOT NULL REFERENCES observaciones(id),
+    intentar_en TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_notificaciones_cursor ON notificaciones (usuario_id, id);
+CREATE TABLE IF NOT EXISTS fhir_observaciones_procesadas (
+    fhir_id TEXT PRIMARY KEY,
+    paciente_id INTEGER,
+    valor NUMERIC,
+    procesado_en TIMESTAMP DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS facturas_ia_pendientes (
+    reporte_id INTEGER PRIMARY KEY REFERENCES reportes_ia(id)
+);

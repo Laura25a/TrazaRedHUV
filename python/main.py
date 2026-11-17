@@ -19,11 +19,13 @@ y quedan publicadas solas, porque aquí se incluyen todos los routers.
 """
 from datetime import date, datetime
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Literal, Optional
 
 import psycopg2
 import psycopg2.extras
 import os
+import re
+import requests
 import threading
 
 from fastapi import Depends, FastAPI, HTTPException, Query, Request
@@ -31,7 +33,7 @@ from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, ConfigDict, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 import auth
 import contabilidad
@@ -41,6 +43,7 @@ import fhir_sync
 import historia
 import ia
 import registro
+import reactividad
 import remisiones
 from auth import (PG_CONNECTION_STRING, ROLES_CLINICOS, get_db, get_usuario_actual,
                   mongo_client, registrar_auditoria, requiere_rol)
@@ -75,7 +78,7 @@ app.add_middleware(
     allow_origins=ORIGENES_CORS,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allow_headers=["Authorization", "Content-Type"],
+    allow_headers=["Authorization", "Content-Type", "Last-Event-ID"],
 )
 
 # Cabeceras de seguridad en todas las respuestas de la API (nginx también las pone):
@@ -148,6 +151,8 @@ def al_arrancar():
     # IA del libro de radicación: pronostica sola las remisiones abiertas al
     # arrancar y luego cada PRONOSTICO_CADA_MIN minutos (por defecto 30)
     registro.iniciar_pronosticos_automaticos()
+    eventos.iniciar_escalamiento()
+    ia.iniciar_analisis_automatico()
     # RAG: guías con su vector en pgvector (si la imagen de Postgres lo trae)
     threading.Thread(target=_preparar_rag, daemon=True, name="rag-pgvector").start()
 
@@ -443,6 +448,12 @@ def subir_imagen(
 
     instance_id = pacs.dicomize(limpio.getvalue(), paciente, descripcion, modalidad.upper(),
                                 datetime.now().strftime("%Y%m%d"))
+    episodio = reactividad.episodio_activo(db, paciente_id)
+    _, destinos = reactividad.destino_episodio(db, episodio)
+    eventos.registrar_evento(db, destinos, {
+        "tipo": "imagen_clinica", "mensaje": "Hay una nueva imagen clínica para revisar",
+        "paciente_id": paciente_id, "remision_id": episodio["id"] if episodio else None,
+    })
     registrar_auditoria(db, usuario["id"], "imagen_subida", "pacientes", paciente_id,
                         f"{descripcion[:60]} ({modalidad.upper()}) · instancia {instance_id}")
     return {"instance_id": instance_id}
@@ -491,20 +502,29 @@ class ObservacionFHIRIn(BaseModel):
 
 class SimularObservacionIn(BaseModel):
     paciente_id: int
-    valor: float
-    unidad: str = "mg/dL"
+    valor: float = Field(gt=0, lt=2000)
+    unidad: Literal["mg/dL"] = "mg/dL"
 
 
 def _validar_observacion_glucosa(obs: ObservacionFHIRIn) -> Optional[str]:
     if obs.resourceType != "Observation":
         return "Se esperaba un recurso Observation"
-    codigos = [(c.get("system"), c.get("code")) for c in ((obs.code or {}).get("coding") or [])]
-    if ("http://loinc.org", "2339-0") not in codigos:
+    codigos = (obs.code or {}).get("coding")
+    if not isinstance(codigos, list) or not any(
+        isinstance(c, dict) and (c.get("system"), c.get("code")) == ("http://loinc.org", "2339-0")
+        for c in codigos
+    ):
         return "La Observation debe traer el código LOINC 2339-0 (glucosa) con system http://loinc.org"
-    valor = (obs.valueQuantity or {}).get("value")
+    cantidad = obs.valueQuantity or {}
+    valor = cantidad.get("value")
     if not isinstance(valor, (int, float)) or isinstance(valor, bool) or not (0 < valor < 2000):
         return "valueQuantity.value debe ser un número de glucosa válido"
-    if not ((obs.subject or {}).get("reference") or "").startswith("Patient/"):
+    if (cantidad.get("system") != fhir_sync.UCUM or
+        cantidad.get("code", cantidad.get("unit")) != "mg/dL" or
+        cantidad.get("unit", "mg/dL") != "mg/dL"):
+        return "La glucosa debe expresarse en mg/dL con el sistema UCUM"
+    referencia = (obs.subject or {}).get("reference")
+    if not isinstance(referencia, str) or not re.fullmatch(r"Patient/[A-Za-z0-9.-]{1,64}", referencia):
         return "subject.reference debe apuntar a un Patient"
     return None
 
@@ -524,7 +544,7 @@ def _auditar_webhook_rechazado(request, motivo: str) -> None:
 
 @app.post("/fhir/observacion", tags=["R21 FHIR reactivo"], status_code=202)
 @app.put("/fhir/observacion/Observation/{observation_id}", tags=["R21 FHIR reactivo"], status_code=202)
-async def recibir_observacion_fhir(
+def recibir_observacion_fhir(
     observacion: ObservacionFHIRIn,
     request: Request,
     observation_id: Optional[str] = None,
@@ -540,8 +560,6 @@ async def recibir_observacion_fhir(
     el fhir_observation_id como clave de idempotencia: si ya procesamos esa
     Observation, no volvemos a notificar.
     """
-    import fhir_sync
-    from eventos import publicar
 
     # R29 · Entrada externa autenticada: solo quien conoce el secreto (HAPI FHIR lo
     # envía en la cabecera X-Webhook-Secret de la Subscription) puede avisar. Sin
@@ -560,73 +578,30 @@ async def recibir_observacion_fhir(
         _auditar_webhook_rechazado(request, problema)
         raise HTTPException(status_code=422, detail=problema)
 
-    # 0. Idempotencia: ¿ya procesamos esta Observation?
-    obs_id = observacion.id or observation_id or "desconocido"
-
-    conn = psycopg2.connect(PG_CONNECTION_STRING)
+    obs_id = observacion.id or observation_id
+    if not obs_id or not re.fullmatch(r"[A-Za-z0-9.-]{1,64}", obs_id) or (observation_id and observation_id != obs_id):
+        raise HTTPException(422, "La Observation debe tener un id válido y consistente")
+    referencia = observacion.subject["reference"]
     try:
-        cur = conn.cursor()
-        cur.execute(
-            """CREATE TABLE IF NOT EXISTS fhir_observaciones_procesadas (
-                   fhir_id TEXT PRIMARY KEY,
-                   paciente_id INTEGER,
-                   valor NUMERIC,
-                   procesado_en TIMESTAMP DEFAULT now()
-               );"""
-        )
-        cur.execute(
-            "SELECT 1 FROM fhir_observaciones_procesadas WHERE fhir_id = %s;",
-            (obs_id,),
-        )
-        ya_procesada = cur.fetchone() is not None
+        paciente_id = fhir_sync.paciente_id_por_fhir_reference(referencia, reintentar=True)
+    except requests.RequestException as exc:
+        raise HTTPException(503, "No se pudo resolver el paciente en HAPI FHIR") from exc
+    if paciente_id is None:
+        return {"recibido": False, "motivo": "paciente no encontrado"}
 
-        if ya_procesada:
-            print(f"[FHIR] Observation {obs_id} ya procesada; reintento ignorado")
-            cur.close()
-            return {"recibido": True, "motivo": "ya procesada", "fhir_id": obs_id}
-
-        # 1. Identificar al paciente por subject.reference
-        referencia = (observacion.subject or {}).get("reference") or ""
-        paciente_id = fhir_sync.paciente_id_por_fhir_reference(referencia)
-        if paciente_id is None:
-            print(f"[FHIR] Observation recibida sin paciente conocido: {referencia}")
-            cur.close()
-            return {"recibido": False, "motivo": "paciente no encontrado"}
-
-        # 2. Extraer el valor de glucosa
-        valor = (observacion.valueQuantity or {}).get("value")
-        unidad = (observacion.valueQuantity or {}).get("unit") or "mg/dL"
-
-        # 3. Marcar como procesada ANTES de notificar (evita race conditions)
-        cur.execute(
-            """INSERT INTO fhir_observaciones_procesadas (fhir_id, paciente_id, valor)
-               VALUES (%s, %s, %s) ON CONFLICT (fhir_id) DO NOTHING;""",
-            (obs_id, paciente_id, valor),
-        )
+    from contextlib import closing
+    valor = observacion.valueQuantity["value"]
+    with closing(psycopg2.connect(PG_CONNECTION_STRING)) as conn, conn, conn.cursor() as cur:
+        cur.execute("""INSERT INTO fhir_observaciones_procesadas (fhir_id, paciente_id, valor)
+                       VALUES (%s, %s, %s) ON CONFLICT (fhir_id) DO NOTHING;""",
+                    (obs_id, paciente_id, valor))
         if not cur.rowcount:
             return {"recibido": True, "motivo": "ya procesada", "fhir_id": obs_id}
-        conn.commit()
-
-        # 4. Notificar a los clínicos activos
-        cur.execute(
-            """SELECT id FROM usuarios
-               WHERE activo = TRUE AND rol IN ('medico','especialista','admin');"""
-        )
-        responsables = [f[0] for f in cur.fetchall()]
-        cur.close()
-    finally:
-        conn.close()
-
-    # 5. Publicar evento
-    publicar(responsables, {
-        "tipo": "observacion_fhir",
-        "mensaje": f"Glucosa {valor} {unidad} recibida por FHIR para el paciente {paciente_id}",
-        "paciente_id": paciente_id,
-        "valor_glucosa": valor,
-        "unidad": unidad,
-        "origen": "FHIR",
-        "fhir_observation_id": obs_id,
-    })
+        episodio = reactividad.episodio_activo(conn, paciente_id)
+        reactividad.registrar_observaciones(conn, episodio, paciente_id, [{
+            "tipo": "Glucosa", "codigo_loinc": "2339-0", "valor": valor, "unidad": "mg/dL",
+        }], tipo="observacion_fhir", valor_glucosa=valor, unidad="mg/dL",
+            origen="FHIR", fhir_observation_id=obs_id)
 
     return {"recibido": True, "paciente_id": paciente_id, "valor": valor, "fhir_id": obs_id}
 
@@ -719,6 +694,9 @@ def fhir_crear_observacion(observacion: ObservacionFHIRIn, db=Depends(get_db),
     exigir_asignacion_clinica(db, paciente_id, usuario)
     recurso = observacion.model_dump(exclude_none=True)
     recurso.pop("id", None)
+    recurso.pop("meta", None)
+    recurso["valueQuantity"] = {"value": recurso["valueQuantity"]["value"],
+                               "unit": "mg/dL", "system": fhir_sync.UCUM, "code": "mg/dL"}
     recurso["status"] = recurso.get("status") or "final"
     try:
         creado = fhir_sync.crear_recurso_fhir(recurso)

@@ -1090,12 +1090,16 @@ async function vistaNotificaciones() {
       <div id="notif-lista">${cargando("Cargando notificaciones…")}</div>
     </section></div>`;
 
+  let solicitud = 0;
+  const vista = $("#notif-lista");
   async function cargar() {
-    $("#notif-lista").innerHTML = cargando();
+    const turno = ++solicitud;
+    const vigente = () => vista.isConnected && turno === solicitud;
     try {
       const soloNoLeidas = $("#notif-no-leidas").checked;
       const url = soloNoLeidas ? "/notificaciones?leidas=false" : "/notificaciones";
       const [notifs, pend] = await Promise.all([API.get(url), API.get("/pendientes")]);
+      if (!vigente()) return;
       $("#notif-total").textContent = `${notifs.length} notificación${notifs.length === 1 ? "" : "es"}`;
 
       $("#notif-kpis").innerHTML = `<div class="kpis">
@@ -1131,12 +1135,13 @@ async function vistaNotificaciones() {
         } catch (e) { toast(e.message, "error"); b.disabled = false; b.textContent = "Marcar leída"; }
       }));
     } catch (e) {
-      $("#notif-lista").innerHTML = `<div class="vacio">${esc(e.message)}</div>`;
+      if (vigente()) vista.innerHTML = `<div class="vacio">${esc(e.message)}</div>`;
     }
   }
 
   $("#notif-no-leidas").addEventListener("change", cargar);
   $("#notif-ref").addEventListener("click", cargar);
+  vista.addEventListener("actualizar", cargar);
   cargar();
 }
 
@@ -1372,3 +1377,11 @@ async function simularObservacionFHIR(paciente, boton) {
   else if (d?.exp) salir(AVISO_SESION_VENCIDA);
   else API.salir();
 })();
+
+
+document.addEventListener("trazared:evento", ({ detail }) => {
+  if (sesion.seccion !== "remitir" || !detail.interconsulta_id) return;
+  const tab = detail.tipo === "remision_creada" ? "bandeja" : "enviadas";
+  const actual = $(`[data-tab="${tab}"].activa`, $("#contenido"));
+  if (actual && !document.activeElement?.matches("#remitir-contenido input")) actual.click();
+});

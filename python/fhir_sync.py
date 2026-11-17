@@ -375,7 +375,7 @@ def crear_subscription_fhir(max_intentos: int = 10, espera_seg: int = 3) -> dict
     return resultado
 
 
-def paciente_id_por_fhir_reference(reference: str):
+def paciente_id_por_fhir_reference(reference: str, *, reintentar=False):
     """Dada una referencia FHIR 'Patient/abc-123', devuelve el id de Postgres
     o None si no se encuentra."""
     if not reference or "/" not in reference:
@@ -383,6 +383,8 @@ def paciente_id_por_fhir_reference(reference: str):
     fhir_id = reference.split("/")[-1]
     try:
         r = requests.get(f"{FHIR_BASE_URL}/Patient/{fhir_id}", headers=HEADERS, timeout=10)
+        if reintentar and r.status_code not in (200, 404, 410):
+            r.raise_for_status()
         if r.status_code != 200:
             return None
         patient = r.json()
@@ -396,6 +398,8 @@ def paciente_id_por_fhir_reference(reference: str):
                 cur.close(); conn.close()
                 return fila[0] if fila else None
     except requests.RequestException:
+        if reintentar:
+            raise
         return None
     return None
 

@@ -24,8 +24,6 @@ const Notificaciones = (() => {
       pintarBandeja(bandeja);
       pintarPendientes(pend);
     } catch { /* si falla, no bloquea la pantalla */ }
-    // Auto-reparación: si el canal en vivo se cayó, se vuelve a abrir.
-    if (window.Eventos && !Eventos.conectado()) Eventos.iniciar();
   }
 
   function pintarBandeja(lista) {

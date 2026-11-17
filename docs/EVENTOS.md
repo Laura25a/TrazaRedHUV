@@ -1,200 +1,25 @@
-# EVENTOS.md — Catálogo de eventos del sistema reactivo (R19, R20)
+# Eventos y notificaciones de TrazaRed
 
-Este es el documento que pide R19: **qué evento existe, quién lo dispara, a
-quién llega y qué reacción provoca**. Lo escribe la Persona 4 (sistema
-reactivo), que es quien implementa las reacciones en `python/eventos.py`.
+El stream autenticado `GET /api/eventos/stream` lee la bandeja del usuario en PostgreSQL cada dos segundos. Nginx mantiene abierta la respuesta SSE sin almacenar sus fragmentos. El navegador conserva el ID del último mensaje y lo envía en `Last-Event-ID` al reconectar durante la sesión. Al abrir una sesión nueva, la campana carga los avisos anteriores desde `GET /api/notificaciones`. Solo el dueño puede marcar un aviso como leído.
 
-## Cómo funciona
+`registrar_evento(db, destinatarios, evento)` deja el aviso dentro de la transacción de origen. Las interconsultas, las entradas clínicas de socios, el webhook FHIR y las decisiones del análisis usan esa transacción. `publicar()` abre una transacción propia para avisos de operaciones ya confirmadas, como el bloqueo de cuenta.
 
-La regla del equipo es que **el módulo que detecta un hecho NO notifica ni
-factura por su cuenta**: llama a `publicar()` y la Persona 4 decide qué pasa.
-
-```python
-from eventos import publicar, ids_con_rol
-
-publicar(ids_con_rol(db, "admin"), {
-    "tipo": "usuario_bloqueado",
-    "mensaje": "La cuenta medico@huv.gov.co se bloqueó por 3 intentos fallidos",
-    "usuario_afectado": "medico@huv.gov.co",
-})
-```
-
-`publicar(destinatarios, evento)` hace tres cosas, en este orden, y **nunca
-lanza excepciones** (un aviso fallido no puede tumbar un login ni una remisión):
-
-1. **Reacciona (R19/R20):** según `tipo`, crea la factura automática
-   (`reporte_aprobado`), la alerta crítica (`alerta_critica`) o audita el
-   origen FHIR (`observacion_fhir`).
-2. **Bandea (R18):** guarda una fila en la tabla `notificaciones` por cada
-   destinatario. La bandeja sobrevive a recargas y solo el dueño la ve.
-3. **Empuja en vivo (R17):** entrega el evento por el canal SSE
-   (`GET /api/eventos/stream`) a los destinatarios conectados.
-
-El evento es un dict con `tipo` y `mensaje` (obligatorios) y, cuando aplique,
-`paciente_id`, `reporte_id`, `remision_id`, `responsable_id`,
-`usuario_afectado`, `nivel`. La `fecha` (ISO, UTC) la agrega `publicar()`.
-
-## Catálogo de eventos
-
-| Evento (`tipo`) | Quién lo dispara | Destinatarios | Reacción automática | Dónde se ve |
-|---|---|---|---|---|
-| `usuario_bloqueado` | `auth.py` (Persona 1), al 3er intento fallido | todos los `admin` (`ids_con_rol(db, "admin")`) | — (la notificación ES la reacción) | bandeja + canal vivo + toast |
-| `remision_creada` | `remisiones.py` (Persona 3), al crear la remisión | el `especialista` que la recibe | — | bandeja + canal vivo |
-| `remision_aceptada` | `remisiones.py` (Persona 3), al aceptar | el médico que remitió | — | bandeja + canal vivo |
-| `reporte_aprobado` | `ia.py` (Persona 2), al aprobar un reporte | los clínicos (`medico`, `especialista`) | **crea sola la factura** en MongoDB (colección `facturas`) con `reporte_id` y `servicio: "analisis_ia"` (R19) | bandeja + canal vivo + factura en contabilidad |
-| `alerta_critica` | `ia.py` (Persona 2), cuando la probabilidad pasa el umbral crítico | los clínicos | **crea la alerta** en estado `activa` (R20) con `responsable_id` si llega | barra de alertas + canal vivo + toast |
-| `observacion_fhir` | rest-hook de HAPI (Persona 3), al llegar una `Observation` | el médico responsable | **audita** el evento con origen FHIR (R13) | bandeja + canal vivo + auditoría |
-| `alerta_escalada` | `eventos.py` (hilo de escalamiento), si una alerta pasa del plazo sin reconocer | todos los `admin` | marca la alerta como `escalada` (R20) | bandeja + canal vivo + toast |
-
-### Eventos externos (proyecto final: interoperabilidad y seguridad)
-
-Vienen de **fuera** del sistema (otra institución) o de un control de seguridad. Usan el mismo
-`publicar()`: bandeja, canal en vivo y auditoría, sin camino paralelo.
-
-| Evento (`tipo`) | Quién lo dispara | Destinatarios | Reacción automática | Dónde se ve |
-|---|---|---|---|---|
-| `remision_externa_recibida` | `interop.py`, cuando llega y se valida un `Bundle` del sistema socio (`POST /interop/Bundle`, 201 o 202) | todos los `especialista` y `admin` | crea la remisión (`origen_externo`), sus observaciones y, si el paciente no existe, lo deja *por conciliar*; sube el contador `remisiones_recibidas`; audita `interop_remision_recibida` con `origen=externo` | bandeja + canal vivo + toast + Interoperabilidad › Recibidas |
-| `respuesta_socio` | `interop.py`, cuando el socio responde con un `Task` (`POST /interop/Task`) | el médico que envió la remisión y los `admin` | actualiza el estado de la remisión (aceptada / rechazada); audita `interop_respuesta_recibida` | bandeja + canal vivo + toast + Interoperabilidad › Enviadas |
-| `interop_rechazo` | `interop.py`, cuando un mensaje del socio no pasa la validación (400 o 422) | todos los `admin` | **no guarda ningún dato clínico**; registra el mensaje como rechazado y audita `interop_rechazo` con el motivo | bandeja + canal vivo + Interoperabilidad › Mensajes |
-| `alerta_critica` (origen externo) | `interop.py`, si llega una `Observation` de glucosa crítica (menor de 54 o desde 300 mg/dL) | los clínicos | **crea la alerta** activa hasta que se reconozca (R20) | barra de alertas + canal vivo + toast |
-| `incidente_seguridad` | `seguridad.py`: intento de inyección al asistente, orden escondida en datos o firma inválida del socio | todos los `admin` | guarda el incidente con usuario e IP; al 3.er intento en 10 min, bloqueo temporal de 15 min (R25) | bandeja + canal vivo + Seguridad › Incidentes y bloqueos |
-
-**Privacidad del canal (R17):** los tipos `remision_creada`, `remision_aceptada`,
-`reporte_aprobado`, `alerta_critica`, `alerta_escalada`, `observacion_fhir`,
-`remision_externa_recibida` y `respuesta_socio` son **clínicos**: aunque un módulo los dirija por error a un `paciente` o a un
-`contable`, el canal SSE no se los entrega.
-
-## Flujos automáticos (R19)
-
-| Disparador | Reacción |
+| Evento | Destinatario y efecto |
 |---|---|
-| El médico remite un paciente | El especialista recibe notificación (bandeja y canal en vivo). Paciente y contable no reciben nada. |
-| El especialista acepta la remisión | El médico remitente recibe notificación. |
-| El clínico aprueba un reporte de IA | Se crea sola una factura en MongoDB con `reporte_id`. |
-| Una cuenta se bloquea por 3 intentos fallidos | El admin recibe notificación con el usuario afectado. |
+| `remision_creada`, `remision_aceptada` (interconsulta) | Aviso al especialista al recibir y al remitente al aceptar. Las bandejas abiertas se actualizan en vivo. |
+| `observacion_clinica`, `observacion_fhir`, `interop_resultado` | Aviso al responsable del episodio. Si el mensaje identifica únicamente al paciente, se usa un solo episodio abierto inequívoco. Si no hay responsable, recibe el aviso administración. |
+| `imagen_clinica` | Aviso al responsable al guardar el anexo. El archivo queda disponible para revisión clínica. |
+| `alerta_critica` | Crea la alerta dirigida y auditada junto con el aviso. Los clínicos ven y reconocen las suyas. Administración supervisa las alertas. |
+| `alerta_escalada` | Si sigue activa tras `ESCALAMIENTO_SEGUNDOS` (600 por defecto), el proceso interno marca el escalamiento y guarda en la misma transacción un aviso por administrador. Ante una falla de escritura, se vuelve a intentar. |
+| `alerta_reconocida` | Audita el reconocimiento y actualiza la barra de alertas en las sesiones del responsable y de administración. |
+| `reporte_pendiente` | Avisa al responsable al quedar disponible un borrador automático KTAS. |
+| `reporte_aprobado` | La decisión clínica y su nota van a auditoría. La bandeja de contabilidad recibe un aviso sin identificador de paciente y se solicita la factura automática. Si falla MongoDB, la solicitud queda pendiente y se reintenta. |
+| `remision_externa_recibida`, `respuesta_socio` | Avisos en Interoperabilidad al recibir un Bundle o una respuesta Task, con las mismas reglas de roles y contrato de socios. |
+| `usuario_bloqueado`, `incidente_seguridad` | Aviso a administración. |
 
-## Alertas críticas (R20)
+## Criterios de la demostración
 
-1. `alerta_critica` crea la alerta `activa` (campo `nivel`, por defecto
-   `critico`) y la empuja en vivo con un `tipo` que contiene "alerta".
-2. En el frontend aparece una **barra persistente** ("N alertas críticas sin
-   reconocer") con el detalle desplegable; no se cierra sola.
-3. Solo `medico` / `especialista` (y `admin`) la reconocen con una nota
-   (`POST /api/alertas/{id}/reconocer`); `paciente` y `contable` reciben 403.
-4. La creación y el reconocimiento quedan en la **auditoría**.
-5. **Escalamiento:** si nadie la reconoce en `ESCALAMIENTO_SEGUNDOS` (variable
-   de entorno, **600 s por defecto**), un hilo interno de la API marca la
-   alerta como `escalada` y avisa a los `admin` con el evento
-   `alerta_escalada`. En la demo se puede bajar a 15 s para mostrarlo.
-
-## Canal en tiempo real (R17)
-
-- `GET /api/eventos/stream?token=...` (Server-Sent Events, `text/event-stream`).
-  El `EventSource` del navegador no envía cabeceras, por eso el token también va
-  como parámetro de consulta. Sin token válido: 401.
-- Cada evento es un JSON con `tipo`, `mensaje`, `fecha` y `paciente_id` cuando
-  aplique (más los datos del hecho). Llega en menos de 8 s desde el hecho, sin
-  sondeo; el frontend no hace polling para verlo (solo un respaldo de 60 s).
-- Nginx ya tiene `proxy_buffering off` para `/api/eventos/` (sin eso el túnel
-  retiene los eventos y el sistema parece lento).
-- El servidor responde `: ping` cada 20 s para mantener viva la conexión.
-
-## Contrato de integración para la Persona 2 (IA) y la Persona 3 (flujo clínico)
-
-No hay que tocar `eventos.py`: llamen a `publicar()` desde su módulo, que corre
-**dentro del proceso de la API** (importante: solo el proceso de la API puede
-entregar eventos en vivo a los navegadores conectados).
-
-```python
-# En ia.py — al APROBARSE un reporte de IA (R19: factura automática):
-from eventos import publicar, ids_con_rol
-publicar(ids_con_rol(db, "medico", "especialista"), {
-    "tipo": "reporte_aprobado",
-    "mensaje": f"Reporte de IA {reporte_id} aprobado por el clínico",
-    "paciente_id": paciente_id,
-    "reporte_id": reporte_id,
-})
-
-# En ia.py — cuando la probabilidad pasa el umbral crítico (R20):
-publicar(ids_con_rol(db, "medico", "especialista"), {
-    "tipo": "alerta_critica",
-    "mensaje": f"Paciente crítico: glucosa {glucosa} mg/dL con riesgo alto ({prob})",
-    "paciente_id": paciente_id,
-    "reporte_id": reporte_id,
-    "responsable_id": usuario["id"],   # opcional: clínico responsable
-    "nivel": "critico",
-})
-
-# En remisiones.py — al CREAR la remisión (R19):
-publicar(ids_con_rol(db, "especialista"), {
-    "tipo": "remision_creada",
-    "mensaje": f"Nueva remisión del paciente {paciente_id} a {institucion_destino}",
-    "paciente_id": paciente_id,
-    "remision_id": remision_id,
-})
-
-# En remisiones.py — al ACEPTAR la remisión (R19):
-publicar([medico_remitente_id], {
-    "tipo": "remision_aceptada",
-    "mensaje": f"La remisión {remision_id} fue aceptada",
-    "paciente_id": paciente_id,
-    "remision_id": remision_id,
-})
-
-# En fhir.py (rest-hook de HAPI) — al llegar una Observation (R21/R19):
-publicar([medico_responsable_id], {
-    "tipo": "observacion_fhir",
-    "mensaje": f"Nueva Observation de glucosa (LOINC 2339-0) para el paciente {paciente_id}",
-    "paciente_id": paciente_id,
-})
-```
-
-Detalles del contrato que ya consumen los endpoints de la Persona 4:
-
-- `GET /api/pendientes` cuenta los reportes pendientes buscando una tabla
-  llamada `reportes_ia` o `ml_reports` con columna `estado` (`'pendiente'`).
-  **Persona 2:** si su tabla se llama distinto, avíselo para ajustar la consulta.
-- La factura automática se inserta en la colección **`facturas`** de MongoDB
-  (`trazared_huv`) con: `paciente_id`, `servicio: "analisis_ia"`, `valor`
-  (variable `VALOR_ANALISIS_IA`, 80000 por defecto), `fecha`, `estado_pago:
-  "pendiente"`, `reporte_id` y `origen: "automatico"`. **Persona 3:** su
-  `contable_listar` debe leer esta colección; el `valor` lo puede fijar con la
-  variable de entorno.
-
-## Diagrama de eventos
-
-```mermaid
-flowchart TD
-    A[auth.py · 3er intento fallido] -->|usuario_bloqueado| P[publicar en eventos.py]
-    R1[remisiones.py · remisión creada] -->|remision_creada| P
-    R2[remisiones.py · remisión aceptada] -->|remision_aceptada| P
-    I1[ia.py · reporte aprobado] -->|reporte_aprobado| P
-    I2[ia.py · caso crítico] -->|alerta_critica| P
-    F[fhir.py · Observation recibida] -->|observacion_fhir| P
-    T[hilo de escalamiento] -->|alerta_escalada| P
-
-    P --> B[(bandeja: tabla notificaciones)]
-    P --> S[canal SSE /api/eventos/stream]
-    P --> C{reacción}
-
-    C -->|reporte_aprobado| FA[(facturas en MongoDB)]
-    C -->|alerta_critica| AL[(alertas: activa → reconocida)]
-    C -->|observacion_fhir| AU[(auditoría con origen FHIR)]
-
-    S --> N1[navegador del médico]
-    S --> N2[navegador del especialista]
-    S --> N3[navegador del admin]
-    B --> N1
-    B --> N2
-    B --> N3
-```
-
-## Dónde vive cada cosa
-
-| Pieza | Archivo |
-|---|---|
-| `publicar()`, reactores, hilo de escalamiento, SSE y endpoints | `python/eventos.py` |
-| Tablas `notificaciones` y `alertas` | `db/schema.sql` (sección R18/R20, idempotente) |
-| Canal en vivo, bandeja, contadores y alerta desplegable | `frontend/js/eventos.js`, `notificaciones.js`, `alertas.js`, `css/reactivo.css` |
-| Ruta SSE sin buffer en nginx | `docker/nginx.conf` (`location /api/eventos/`) |
-| Pruebas de este bloque | `pruebas/probar_persona4.py` |
+- El webhook R21 exige glucosa LOINC 2339-0 en mg/dL con sistema UCUM. Su ID de FHIR se confirma junto con la notificación para no repetirla si HAPI reenvía el aviso.
+- Las alertas de signos vitales usan algunos extremos de la tabla [NEWS2 del Royal College of Physicians](https://www.rcp.ac.uk/media/eczf5mvm/news2-chart-3_news-observation-chart_2022_0_0.pdf), incluida la escala 1 de saturación. Para glucosa, la demo conserva el perfil local de menos de 54 o desde 300 mg/dL. Estas reglas requieren validación institucional para uso asistencial.
+- El borrador automático KTAS requiere presión sistólica y diastólica, pulso, respiración, saturación y temperatura del mismo episodio, con una separación máxima de 30 minutos entre lecturas. Las categorías no observadas se envían al modelo como faltantes. El borrador solo entra a la historia tras la aprobación documentada de un médico o especialista. Ambas decisiones exigen nota.
+- Las pruebas de estos flujos viven en `pruebas/test_integridad.py`. Cubren las sesiones simultáneas, la reconexión, el control por destinatario, el reintento, la revisión clínica y el recálculo concurrente.

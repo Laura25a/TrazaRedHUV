@@ -401,11 +401,11 @@ def test_reportes_ia_y_auditoria_son_atomicos(entorno, autorizaciones, monkeypat
         with monkeypatch.context() as parche:
             parche.setattr(ia, "registrar_auditoria", fallar_sello)
             with pytest.raises(RuntimeError, match="Fallo simulado del sello"):
-                api.post(ruta, headers=medico)
+                api.post(ruta, headers=medico, json={"observaciones": "Revisión sintética"})
         with closing(psycopg2.connect(pg)) as db, db.cursor() as cur:
             cur.execute("SELECT estado FROM reportes_ia WHERE id = %s;", (reporte["id"],))
             assert cur.fetchone() == ("pendiente",)
-        assert comprobar(api.post(ruta, headers=medico), 200)["estado"] == estado
+        assert comprobar(api.post(ruta, headers=medico, json={"observaciones": "Revisión sintética"}), 200)["estado"] == estado
         with closing(psycopg2.connect(pg)) as db, db.cursor() as cur:
             cur.execute("""SELECT accion FROM auditoria
                             WHERE tabla = 'reportes_ia' AND registro_id = %s AND hash IS NOT NULL
@@ -517,7 +517,8 @@ def test_navegador_ficha_identidad_y_correccion(entorno, autorizaciones):
                 correcta = fecha.input_value()
                 fecha.fill("1999-01-01")
                 pagina.get_by_role("button", name="Radicar", exact=True).click()
-                expect(pagina.locator(".error-form")).to_contain_text("entre el nacimiento y la fecha de radicación")
+                expect(pagina.locator("#m-fec-error")).to_contain_text("no puede ser anterior al nacimiento")
+                expect(fecha).to_have_attribute("aria-invalid", "true")
                 fecha.fill(correcta)
                 with pagina.expect_response(lambda r: r.url.endswith("/remisiones") and r.request.method == "POST") as respuesta:
                     pagina.get_by_role("button", name="Radicar", exact=True).click()
@@ -686,6 +687,13 @@ def test_agente_contexto_seudonimo_y_navegador(entorno, autorizaciones, monkeypa
                 id_creado = aprobada.value.json()["remision_id"]
                 assert comprobar(http.get(f"/remisiones/{id_creado}", headers=medico), 200)["paciente_id"] == a
                 expect(pagina.locator("#ast-chat")).to_contain_text("Aprobada por ti")
+
+                aviso = "Asistente bloqueado temporalmente. Intenta más tarde."
+                pagina.route("**/agente/chat", lambda ruta: ruta.fulfill(status=403, json={"detail": aviso}))
+                pagina.locator("#ast-texto").fill("Consulta de prueba")
+                pagina.locator("#ast-enviar").click()
+                expect(pagina.locator("#ast-chat")).to_contain_text(aviso)
+                pagina.unroute("**/agente/chat")
 
                 pagina.evaluate("id => ir('ficha', { remision: id })", rid)
                 dictado = pagina.get_by_role("dialog", name="Dictar llamada")
@@ -1035,3 +1043,214 @@ def test_observaciones_y_prediccion_validan_signos_coherentes(entorno, autorizac
             comprobar(api.post(ruta, headers=medico, json={
                 "paciente_id": ficha["id"], "remision_id": rid, "sbp": 90, "dbp": 90,
             }), 422)
+
+
+def test_webhook_dirigido_y_reintento_atomico(entorno, autorizaciones, monkeypatch):
+    main, api, pg = entorno
+    admin, medico, colega = (autorizaciones[n] for n in ("auditor", "medico", "colega"))
+    ficha = comprobar(paciente(api, admin), 201)
+    comprobar(api.post("/remisiones", headers=medico, json=datos_remision(ficha["id"])), 201)
+    monkeypatch.setattr(main.fhir_sync, "paciente_id_por_fhir_reference", lambda _, **opciones: ficha["id"])
+    hapi = []
+    monkeypatch.setattr(main.fhir_sync, "crear_recurso_fhir", lambda recurso: hapi.append(recurso) or {"id": "obs-prueba"})
+    recurso = {
+        "resourceType": "Observation", "subject": {"reference": "Patient/sintetico"},
+        "code": {"coding": [{"system": "http://loinc.org", "code": "2339-0"}]},
+        "valueQuantity": {"system": main.fhir_sync.UCUM, "unit": "mmHg", "value": 320},
+    }
+    comprobar(api.post("/fhir/Observation", headers=medico, json=recurso), 422)
+    assert not hapi
+    recurso["valueQuantity"]["unit"] = "mg/dL"
+    comprobar(api.post("/fhir/Observation", headers=colega, json=recurso), 404)
+    comprobar(api.post("/fhir/Observation", headers=medico, json=recurso), 201)
+    assert hapi[0]["valueQuantity"]["code"] == "mg/dL"
+
+    recurso["id"] = "obs-prueba"
+    webhook = {"X-Webhook-Secret": main.seguridad.secreto_webhook()}
+
+    def falla(*args):
+        raise RuntimeError("Interrupción en la bandeja")
+
+    with monkeypatch.context() as parche:
+        parche.setattr(main.eventos, "_guardar_notificaciones", falla)
+        with pytest.raises(RuntimeError, match="Interrupción en la bandeja"):
+            api.put("/fhir/observacion/Observation/obs-prueba", headers=webhook, json=recurso)
+    with closing(psycopg2.connect(pg)) as db, db.cursor() as cur:
+        cur.execute("SELECT 1 FROM fhir_observaciones_procesadas WHERE fhir_id = 'obs-prueba';")
+        assert cur.fetchone() is None
+    for _ in range(2):
+        comprobar(api.put("/fhir/observacion/Observation/obs-prueba", headers=webhook, json=recurso), 202)
+    bandeja = comprobar(api.get("/notificaciones", headers=medico), 200)
+    propios = [n for n in bandeja if n.get("fhir_observation_id") == "obs-prueba"]
+    assert sorted(n["tipo"] for n in propios) == ["alerta_critica", "observacion_fhir"]
+    for otros in (colega, admin):
+        assert not any(n.get("fhir_observation_id") == "obs-prueba"
+                       for n in comprobar(api.get("/notificaciones", headers=otros), 200))
+    alerta = next(n["alerta_id"] for n in propios if n["tipo"] == "alerta_critica")
+    comprobar(api.post(f"/alertas/{alerta}/reconocer", headers=colega, json={"nota": "No soy responsable"}), 404)
+    with closing(psycopg2.connect(pg)) as db, db, db.cursor() as cur:
+        cur.execute("UPDATE alertas SET creada_en = now() - interval '1 day' WHERE id = %s;", (alerta,))
+    with monkeypatch.context() as parche:
+        parche.setattr(main.eventos, "_guardar_notificaciones", falla)
+        with pytest.raises(RuntimeError, match="Interrupción en la bandeja"):
+            main.eventos._escalar_vencidas()
+    with closing(psycopg2.connect(pg)) as db, db.cursor() as cur:
+        cur.execute("SELECT escalada FROM alertas WHERE id = %s;", (alerta,))
+        assert cur.fetchone() == (False,)
+    with ThreadPoolExecutor(max_workers=2) as hilos:
+        list(hilos.map(lambda _: main.eventos._escalar_vencidas(), range(2)))
+    assert sum(n["tipo"] == "alerta_escalada" and n["alerta_id"] == alerta
+               for n in comprobar(api.get("/notificaciones", headers=admin), 200)) == 1
+    comprobar(api.post(f"/alertas/{alerta}/reconocer", headers=medico, json={"nota": "Visto"}), 200)
+    comprobar(api.post(f"/notificaciones/{propios[0]['id']}/leer", headers=colega), 403)
+    comprobar(api.post(f"/notificaciones/{propios[0]['id']}/leer", headers=medico), 200)
+
+
+def test_toma_completa_y_revision_en_navegador(entorno, autorizaciones, monkeypatch):
+    import io
+    import uvicorn
+    from PIL import Image
+    from fastapi import HTTPException
+    from playwright.sync_api import sync_playwright, expect
+
+    main, api, pg = entorno
+    admin, medico, colega = (autorizaciones[n] for n in ("auditor", "medico", "colega"))
+    ficha = comprobar(paciente(api, admin), 201)
+    remision = comprobar(api.post("/remisiones", headers=medico, json=datos_remision(ficha["id"])), 201)
+    pid, rid = ficha["id"], remision["id"]
+
+    def registrar(codigo, valor, tipo="Signo de prueba", **extra):
+        return comprobar(api.post("/observaciones", headers=medico, json={
+            "remision_id": rid, "codigo_loinc": codigo, "valor": valor, "tipo": tipo, **extra,
+        }), 201)
+
+    llamadas = []
+    def inferir(payload):
+        llamadas.append(payload)
+        if len(llamadas) == 1:
+            raise HTTPException(503, "Modelo temporalmente no disponible")
+        return {"version_modelo": "toma-sintetica", "probabilidad": 0.8, "critico": False, "nivel": "urgente"}
+    monkeypatch.setattr(main.ia, "llamar_modelo", inferir)
+    registrar("8480-6", 120, valor_complementario=80)
+    for codigo, valor in (("8867-4", 75), ("9279-1", 16), ("59408-5", 97)):
+        registrar(codigo, valor)
+    main.ia.procesar_analisis_automaticos()
+    assert not llamadas
+    monkeypatch.setattr(main.pacs, "dicomize", lambda *args: "imagen-sintetica")
+    archivo = io.BytesIO()
+    Image.new("L", (10, 10)).save(archivo, "PNG")
+    especialista = autenticado(api, "especialista")
+    id_especialista = comprobar(api.get("/me", headers=especialista), 200)["id"]
+
+    with socket.socket() as puerto:
+        puerto.bind(("127.0.0.1", 0))
+        puerto.listen()
+        base = f"http://127.0.0.1:{puerto.getsockname()[1]}"
+        servidor = uvicorn.Server(uvicorn.Config(main.app, lifespan="off", log_level="error"))
+        hilo = threading.Thread(target=servidor.run, kwargs={"sockets": [puerto]}, daemon=True)
+        hilo.start()
+        try:
+            with sync_playwright() as control:
+                navegador = control.chromium.launch()
+                paginas = {}
+                for usuario in ("medico", "especialista", "colega"):
+                    pagina = navegador.new_page()
+                    pagina.goto(base + "/app/")
+                    pagina.locator("#login-usuario").fill(f"{usuario}@pruebas.test")
+                    pagina.locator("#login-clave").fill(CLAVE_PRUEBA)
+                    pagina.locator("#form-login button[type=submit]").click()
+                    pagina.wait_for_function("Eventos.conectado()")
+                    paginas[usuario] = pagina
+                pagina, receptor, ajeno = (paginas[n] for n in ("medico", "especialista", "colega"))
+                for sesion in (pagina, receptor):
+                    sesion.locator('[data-seccion="remitir"]').click()
+                    expect(sesion.locator("#remitir-contenido")).to_be_visible()
+                solicitud = comprobar(api.post("/remitir", headers=medico, json={
+                    "paciente_id": pid, "especialista_id": id_especialista, "motivo": "Prueba viva de interconsulta",
+                }), 201)
+                receptor.locator(f'[data-aceptar="{solicitud["id"]}"]').click()
+                expect(pagina.locator("#remitir-contenido tr").filter(
+                    has_text="Prueba viva de interconsulta")).to_contain_text("Aceptada")
+                pagina.locator('[data-seccion="revision"]').click()
+                pagina.evaluate("Eventos.detener()")
+                registrar("8310-5", 37)
+                main.ia.procesar_analisis_automaticos()
+                assert len(llamadas) == 1
+                with closing(psycopg2.connect(pg)) as db, db, db.cursor() as cur:
+                    cur.execute("UPDATE analisis_automaticos_pendientes SET intentar_en = now() WHERE remision_id = %s;", (rid,))
+                main.ia.procesar_analisis_automaticos()
+                main.ia.procesar_analisis_automaticos()
+                assert len(llamadas) == 2
+                assert llamadas[-1]["id_seudonimo"] == main.ia.seudonimo(pid)
+                assert llamadas[-1]["modo_llegada"] is None and llamadas[-1]["saturacion"] == 97
+                reporte, = comprobar(api.get(f"/ia/reportes?paciente_id={pid}", headers=medico), 200)
+                assert reporte["automatico"] and reporte["estado"] == "pendiente"
+                assert not comprobar(api.get(f"/ia/reportes?paciente_id={pid}", headers=colega), 200)
+                historia = f"/pacientes/{pid}/historia"
+                assert comprobar(api.get(historia, headers=medico), 200)["reportes_ia"] == []
+                ruta = f"/ia/reportes/{reporte['id']}/aprobar"
+                comprobar(api.post(ruta, headers=medico), 422)
+                comprobar(api.post(ruta, headers=medico, json={"observaciones": "  "}), 422)
+                comprobar(api.post(ruta, headers=colega, json={"observaciones": "Ajeno"}), 404)
+                with pagina.expect_request(lambda r: r.url.endswith("/eventos/stream")) as canal:
+                    pagina.evaluate("() => { Eventos.iniciar(); }")
+                assert canal.value.header_value("last-event-id") is not None
+                fila = pagina.locator(f'#rev-lista tr[data-id="{reporte["id"]}"]')
+                expect(fila).to_contain_text("Automático")
+                fila.get_by_role("button", name="Aprobar", exact=True).click()
+                expect(fila.get_by_role("textbox")).to_be_focused()
+                fila.get_by_role("textbox").fill("Se validó la toma sintética.")
+                with pagina.expect_response(lambda r: r.url.endswith(ruta)) as revision:
+                    fila.get_by_role("button", name="Aprobar", exact=True).click()
+                assert revision.value.status == 200
+                assert len(comprobar(api.get(historia, headers=medico), 200)["reportes_ia"]) == 1
+
+                comprobar(api.post(f"/pacientes/{pid}/imagenes", headers=medico, files={
+                    "archivo": ("prueba.png", archivo.getvalue(), "image/png"),
+                }), 201)
+                registrar("59408-5", 89)
+                pagina.locator("#btn-campana").click()
+                panel = pagina.locator("#panel-notif")
+                expect(panel).to_contain_text("Hay una nueva imagen clínica")
+                expect(panel).to_contain_text("Valores para revisión prioritaria")
+                expect(pagina.locator("#alertas-contenedor")).to_contain_text("sin reconocer")
+                ajeno.locator("#btn-campana").click()
+                expect(ajeno.locator("#panel-notif")).not_to_contain_text("Hay una nueva imagen clínica")
+                expect(ajeno.locator("#alertas-contenedor")).not_to_contain_text("Valores para revisión prioritaria")
+                navegador.close()
+        finally:
+            servidor.should_exit = True
+            hilo.join(timeout=5)
+
+
+def test_lote_descarta_pronostico_si_asiento_cierra(entorno, autorizaciones, monkeypatch):
+    main, api, pg = entorno
+    admin, medico = (autorizaciones[n] for n in ("auditor", "medico"))
+    ficha = comprobar(paciente(api, admin), 201)
+    remision = comprobar(api.post("/remisiones", headers=medico, json=datos_remision(ficha["id"])), 201)
+    rid = remision["id"]
+    visto = threading.Event()
+    continuar = threading.Event()
+    alias = main.ia.seudonimo(ficha["id"])
+
+    def pronosticar(carga):
+        if carga["id_seudonimo"] != alias:
+            return None
+        visto.set()
+        assert continuar.wait(5)
+        return {"probabilidad_efectiva": 0.15, "probabilidad_al_radicar": 0.15,
+                "riesgo_estancamiento": False, "momento": "radicacion", "version_modelo": "obsoleto"}
+
+    monkeypatch.setattr(main.registro, "_pedir_pronostico", pronosticar)
+    with ThreadPoolExecutor(max_workers=1) as hilo:
+        lote = hilo.submit(api.post, "/registro/ia/recalcular", headers=admin)
+        try:
+            assert visto.wait(5)
+            comprobar(api.post(f"/registro/remisiones/{rid}/cierre", headers=medico,
+                               json={"resultado": "rechazada", "nota": "Cierre simultáneo"}), 200)
+        finally:
+            continuar.set()
+        assert comprobar(lote.result(timeout=12), 200)["cambiaron"] == 1
+    with closing(psycopg2.connect(pg)) as db, db.cursor() as cur:
+        cur.execute("SELECT 1 FROM pronosticos_remision WHERE remision_id = %s AND version_modelo = 'obsoleto';", (rid,))
+        assert cur.fetchone() is None
