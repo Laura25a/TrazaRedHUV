@@ -21,6 +21,7 @@ nombre ni documento (R12, mismo seudónimo de ia.py) y guarda cada pronóstico
 en pronosticos_remision para saber, al cierre, si la IA acertó.
 """
 import json
+from concurrent.futures import ThreadPoolExecutor
 import re
 from datetime import datetime, timezone
 from statistics import median
@@ -140,6 +141,12 @@ def pronosticar(db, asiento: dict, contactos: list, usuario_id: Optional[int], g
     p = _pedir_pronostico(_payload_ia(asiento, contactos, _signos(db, asiento["id"])))
     if p is None or not guardar:
         return p
+    _guardar_pronostico(db, asiento, contactos, p, usuario_id)
+    return p
+
+
+def _guardar_pronostico(db, asiento: dict, contactos: list, p: dict, usuario_id: Optional[int]) -> None:
+    """Escribe el pronóstico solo si cambió frente al último (es un evento más del registro)."""
     cur = db.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
     cur.execute("""SELECT probabilidad_efectiva, contactos, version_modelo FROM pronosticos_remision
                     WHERE remision_id = %s ORDER BY id DESC LIMIT 1;""", (asiento["id"],))
@@ -158,7 +165,6 @@ def pronosticar(db, asiento: dict, contactos: list, usuario_id: Optional[int], g
                      json.dumps(detalle, default=str), usuario_id))
         db.commit()
     cur.close()
-    return p
 
 
 def clasificar_respuesta(texto: str) -> dict:
@@ -742,14 +748,23 @@ def ia_resumen(db=Depends(get_db), usuario=Depends(requiere_rol(*ROLES_CLINICOS)
 def ia_recalcular(db=Depends(get_db), usuario=Depends(requiere_rol("admin"))):
     """Pronostica TODAS las remisiones abiertas (útil después de cargar el dataset
     o de reentrenar). Las que no cambian no se vuelven a escribir."""
-    abiertas = libro.asientos(db, usuario, ["r.estado IN ('pendiente','en_gestion','aceptada')"])
+    abiertas = [a for a in libro.asientos(db, usuario, ["r.estado IN ('pendiente','en_gestion','aceptada')"])
+                if a["estado"] not in libro.ESTADOS_CERRADOS]
+    # Una sola consulta a Mongo para todas las bitácoras y las llamadas a la IA en
+    # paralelo (son independientes); las escrituras en PostgreSQL siguen en serie
+    # sobre la misma conexión. Con cientos de remisiones abiertas, en serie pasaba
+    # de 40 s y el tester cortaba por tiempo.
+    contactos = libro.cargar_contactos([a["id"] for a in abiertas])
+    cargas = [_payload_ia(a, contactos[a["id"]], _signos(db, a["id"])) for a in abiertas]
+    with ThreadPoolExecutor(max_workers=8) as hilos:
+        respuestas = list(hilos.map(_pedir_pronostico, cargas))
     hechos = fallos = 0
-    for a in abiertas:
-        p = pronosticar(db, a, libro.cargar_contactos([a["id"]])[a["id"]], usuario["id"])
+    for a, p in zip(abiertas, respuestas):
         if p is None:
             fallos += 1
-        else:
-            hechos += 1
+            continue
+        _guardar_pronostico(db, a, contactos[a["id"]], p, usuario["id"])
+        hechos += 1
     registrar_auditoria(db, usuario["id"], "pronosticos_recalculados", "modelo", None,
                         f"{hechos} remisiones abiertas · {fallos} sin respuesta de la IA")
     return {"recalculadas": hechos, "sin_respuesta": fallos}
