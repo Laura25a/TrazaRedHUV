@@ -18,12 +18,13 @@ import psycopg2
 import psycopg2.extras
 from bson import ObjectId
 from fastapi import APIRouter, Depends, HTTPException, Query
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from auth import ROLES_CLINICOS, con_zona, db_mongo, get_db, get_usuario_actual, registrar_auditoria, requiere_rol
 from causas import causa_por_reglas
 from eventos import publicar
 import fhir_sync
+from validacion_clinica import PAD, PAS, SIGNOS, codigo_signo, validar_presion, validar_signo
 from validaciones import bloquear_remision, hoy_bogota, institucion_del_catalogo
 
 router = APIRouter(tags=["Remisiones"])
@@ -86,10 +87,32 @@ class RemisionPacienteOut(BaseModel):
 
 class ObservacionCreate(BaseModel):
     remision_id: int
-    tipo: str
+    tipo: str = Field(min_length=1)
     codigo_loinc: Optional[str] = None
-    valor: float
+    valor: float = Field(allow_inf_nan=False)
     unidad: Optional[str] = None
+    valor_complementario: Optional[float] = Field(default=None, allow_inf_nan=False)
+
+    @model_validator(mode="after")
+    def comprobar_signo(self):
+        self.tipo = self.tipo.strip()
+        if not self.tipo:
+            raise ValueError("Indica el tipo de observación.")
+        codigo_tipo = codigo_signo(self.tipo)
+        if codigo_tipo and self.codigo_loinc and self.codigo_loinc != codigo_tipo:
+            raise ValueError("El código LOINC no corresponde al signo indicado.")
+        self.codigo_loinc = self.codigo_loinc or codigo_tipo
+        if self.codigo_loinc in SIGNOS:
+            signo = validar_signo(self.codigo_loinc, self.valor, self.unidad)
+            self.tipo, self.unidad = signo.tipo, signo.unidad
+        if self.valor_complementario is not None:
+            if self.codigo_loinc not in (PAS, PAD):
+                raise ValueError("El valor complementario solo aplica para presión arterial.")
+            otro = PAD if self.codigo_loinc == PAS else PAS
+            validar_signo(otro, self.valor_complementario, self.unidad)
+            presion = {self.codigo_loinc: self.valor, otro: self.valor_complementario}
+            validar_presion(presion[PAS], presion[PAD])
+        return self
 
 
 class ObservacionOut(BaseModel):
@@ -330,20 +353,33 @@ def listar_observaciones(remision_id: Optional[int] = Query(None), db=Depends(ge
 def crear_observacion(observacion: ObservacionCreate, db=Depends(get_db),
                       usuario=Depends(get_usuario_actual)):
     bloquear_remision(db, observacion.remision_id, usuario, exigir_abierta=True)
-    cur = db.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-    try:
-        cur.execute(
-            """INSERT INTO observaciones (remision_id, tipo, codigo_loinc, valor, unidad)
-               VALUES (%s, %s, %s, %s, %s)
-               RETURNING *;""",
-            (observacion.remision_id, observacion.tipo, observacion.codigo_loinc,
-             observacion.valor, observacion.unidad),
-        )
-    except psycopg2.errors.ForeignKeyViolation:
-        db.rollback(); cur.close()
-        raise HTTPException(status_code=400, detail="remision_id no existe")
-    fila = cur.fetchone()
-    cur.close()
+    codigo = observacion.codigo_loinc
+    with db.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+        otro = {PAS: PAD, PAD: PAS}.get(codigo)
+        complemento = observacion.valor_complementario
+        if otro and complemento is None:
+            cur.execute(
+                """SELECT valor, unidad FROM observaciones
+                    WHERE remision_id = %s AND codigo_loinc = %s
+                    ORDER BY fecha_observacion DESC, id DESC LIMIT 1;""",
+                (observacion.remision_id, otro),
+            )
+            anterior = cur.fetchone()
+            if anterior:
+                presion = {codigo: observacion.valor, otro: float(anterior["valor"])}
+                try:
+                    validar_signo(otro, presion[otro], anterior["unidad"])
+                    validar_presion(presion[PAS], presion[PAD])
+                except ValueError as exc:
+                    raise HTTPException(422, f"{exc} Si es una nueva toma, registra ambos valores juntos.") from exc
+        insertar = """INSERT INTO observaciones (remision_id, tipo, codigo_loinc, valor, unidad)
+                      VALUES (%s, %s, %s, %s, %s) RETURNING *;"""
+        cur.execute(insertar, (observacion.remision_id, observacion.tipo, codigo,
+                               observacion.valor, observacion.unidad))
+        fila = cur.fetchone()
+        if otro and complemento is not None:
+            signo = SIGNOS[otro]
+            cur.execute(insertar, (observacion.remision_id, signo.tipo, otro, complemento, signo.unidad))
     registrar_auditoria(db, usuario["id"], "observacion_creada", "remisiones", observacion.remision_id)
     return fila
 

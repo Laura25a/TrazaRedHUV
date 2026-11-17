@@ -1,0 +1,10 @@
+**
+!ml/
+!ml/*.py
+!ml/requirements.txt
+!ml/data/
+!ml/data/*.csv
+!ml/modelo/
+!ml/modelo/*.joblib
+!python/
+!python/validacion_clinica.py

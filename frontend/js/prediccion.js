@@ -41,7 +41,7 @@ async function vistaPrediccion() {
       <p>Ingresa los datos del paciente y el modelo calcula la probabilidad de que sea urgente (KTAS 1 a 3).</p></div></div>
     <section class="tarjeta"><div class="agr-panel">
       <div class="agr-nota">${icono("info")}<p>
-        <strong>¿Cómo funciona?</strong> Los campos vacíos se completan con la mediana de los pacientes de entrenamiento.
+        <strong>¿Cómo funciona?</strong> Los campos numéricos sin dato se procesan con la estrategia indicada en la evaluación del modelo.
         Sin número de paciente solo se calcula (no se guarda nada). Con número de paciente se crea un reporte
         <em>pendiente</em> que un médico debe aprobar o rechazar. El resultado orienta, no decide.</p></div>
       <form id="pred-form" class="pred-form" novalidate>
@@ -53,10 +53,15 @@ async function vistaPrediccion() {
           <button type="button" class="btn btn-secundario" id="pred-limpiar">Limpiar</button></div>
       </form>
       <div id="pred-resultado" aria-live="polite"></div>
+      <div id="pred-evaluacion"></div>
     </div></section></div>`;
 
   let umbrales = { umbral: null, umbral_critico: null };
-  try { const m = await API.get("/modelo"); umbrales = { umbral: m.umbral, umbral_critico: m.umbral_critico }; } catch { /* se muestra sin umbrales */ }
+  API.get("/modelo").then(m => {
+    umbrales = { umbral: m.umbral, umbral_critico: m.umbral_critico };
+    const bloque = $("#pred-evaluacion");
+    if (bloque && m.evaluacion) bloque.innerHTML = predEvaluacion(m);
+  }).catch(() => { /* la predicción sigue disponible sin estadísticas */ });
 
   const dolor = $("#pred-dolor"), nrs = $("#pred-nrs_dolor");
   const sincronizarDolor = () => { nrs.disabled = dolor.value === "0"; if (nrs.disabled) nrs.value = ""; };
@@ -104,6 +109,33 @@ async function vistaPrediccion() {
       boton.disabled = false;
     }
   });
+}
+
+function predEvaluacion(m) {
+  const e = m.evaluacion;
+  const fmt = n => n == null ? "—" : agrNum(n, 3);
+  const nombres = { mediana: "Mediana", faltantes_nativos: "Faltantes nativos de XGBoost" };
+  const ensayos = [...e.candidatos].sort((a, b) => b.auc_validacion - a.auc_validacion);
+  const candidatos = ensayos.map(c => `<tr><td>${esc(nombres[c.estrategia])}</td>
+    <td>${c.parametros.max_depth} / ${c.parametros.n_estimators} / ${agrNum(c.parametros.learning_rate, 2)}</td>
+    <td>${fmt(c.auc_entrenamiento)}</td><td>${fmt(c.auc_validacion)}</td><td>${fmt(c.brecha)}</td></tr>`).join("");
+  const grupos = Object.entries(e.subgrupos).flatMap(([estrategia, valores]) =>
+    Object.entries(valores).map(([nombre, g]) => `<tr><td>${esc(nombres[estrategia])}</td>
+      <td>${esc(nombre)}</td><td>${g.n}</td><td>${fmt(g.sensibilidad)}</td><td>${fmt(g.especificidad)}</td></tr>`)).join("");
+  const c = m.metricas.matriz_confusion;
+  return `<details style="margin-top:1rem"><summary>Evaluación del modelo de urgencia</summary>
+    <p>Estrategia elegida: <strong>${esc(nombres[e.imputacion_elegida])}</strong>.
+      AUC de prueba ${fmt(m.metricas.auc_prueba)} en ${e.prueba.n_prueba} filas reservadas.
+      Umbral ${agrNum(m.umbral, 2)} · VN ${c.TN} · FP ${c.FP} · FN ${c.FN} · VP ${c.TP}.</p>
+    <h4>Búsqueda de hiperparámetros · ${e.prueba.folds} particiones estratificadas</h4>
+    <div class="tabla-scroll"><table class="ia-tabla"><thead><tr><th>Faltantes</th>
+      <th>Profundidad / árboles / tasa</th><th>AUC entrenamiento</th><th>AUC validación</th><th>Brecha</th>
+      </tr></thead><tbody>${candidatos}</tbody></table></div>
+    <h4>Resultados por grupo en desarrollo</h4>
+    <div class="tabla-scroll"><table class="ia-tabla"><thead><tr><th>Faltantes</th><th>Grupo</th><th>N</th>
+      <th>Sensibilidad</th><th>Especificidad</th></tr></thead><tbody>${grupos}</tbody></table></div>
+    <p class="tenue">Semilla ${e.prueba.semilla} · SHA-256 del CSV <code style="overflow-wrap:anywhere">${esc(e.prueba.dataset_sha256)}</code></p>
+  </details>`;
 }
 
 function predResultado(r, umbrales, guardado, pid) {

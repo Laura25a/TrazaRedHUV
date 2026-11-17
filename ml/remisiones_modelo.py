@@ -47,6 +47,7 @@ import xgboost
 from sklearn.compose import ColumnTransformer
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.impute import SimpleImputer
+from sklearn.inspection import permutation_importance
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score, brier_score_loss, f1_score, roc_auc_score
 from sklearn.model_selection import StratifiedGroupKFold, StratifiedKFold, cross_val_predict
@@ -54,10 +55,13 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
 from xgboost import XGBClassifier
 
+from entrenar import guardar_paquete
+
 BASE = Path(__file__).parent
 DATOS = BASE / "data"
 RUTA_MODELO = BASE / "modelo" / "remisiones_modelo.joblib"
 SEMILLA = 42
+VERSION_EVALUACION = 1
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Catálogos
@@ -151,7 +155,7 @@ def grupo_motivo(motivo: str) -> str:
 # ─────────────────────────────────────────────────────────────────────────────
 def cargar_datos():
     d = pd.read_csv(DATOS / "dataset_analitico.csv")
-    r = pd.read_csv(DATOS / "remisiones.csv")[["ref", "motivo"]].rename(columns={"ref": "remision_ref"})
+    r = pd.read_csv(DATOS / "remisiones.csv")[["ref", "motivo", "paciente_ref"]].rename(columns={"ref": "remision_ref"})
     g = pd.read_csv(DATOS / "gestiones_contacto.csv")
     d = d.merge(r, on="remision_ref", how="left")
     d["grupo_motivo"] = d["motivo"].map(grupo_motivo)
@@ -217,7 +221,7 @@ def _pipeline(con_gestion: bool) -> Pipeline:
                           ("oh", OneHotEncoder(handle_unknown="ignore"))]), COLS_CAT),
     ])
     clf = XGBClassifier(n_estimators=250, max_depth=3, learning_rate=0.05, subsample=0.9,
-                        colsample_bytree=0.9, eval_metric="logloss", random_state=SEMILLA)
+                        colsample_bytree=0.9, eval_metric="logloss", random_state=SEMILLA, n_jobs=1)
     return Pipeline([("prep", prep), ("clf", clf)])
 
 
@@ -288,10 +292,37 @@ def _tiempos_aceptacion(d: pd.DataFrame) -> dict:
     return tabla
 
 
+def particion_temporal(d: pd.DataFrame, g: pd.DataFrame):
+    """Separa por fecha de radicación y exige conocer cada cierre de desarrollo al corte."""
+    cerradas = d[d["grupo"].isin(["efectiva", "fallida"])].copy()
+    fechas = pd.to_datetime(cerradas["fecha_solicitud"]).dt.tz_localize("America/Bogota")
+    dias = fechas.drop_duplicates().sort_values()
+    corte = dias.iloc[int(len(dias) * 0.8)]
+    prueba = cerradas[fechas >= corte]
+    # En la simulación, el último contacto marca el desenlace.
+    desenlace = cerradas["remision_ref"].map(g.groupby("remision_ref")["fecha"].max())
+    desarrollo = cerradas[(fechas < corte) & (desenlace < corte)
+                           & ~cerradas["paciente_ref"].isin(prueba["paciente_ref"])]
+    return desarrollo, prueba, corte
+
+
+def _permutacion(modelo, X, y):
+    perm = permutation_importance(modelo, X, y, scoring="roc_auc", n_repeats=15,
+                                  random_state=SEMILLA, n_jobs=1)
+    return sorted(
+        [{"variable": columna, "caida_auc": round(float(media), 4),
+          "desviacion": round(float(desviacion), 4)}
+         for columna, media, desviacion in zip(X.columns, perm.importances_mean, perm.importances_std)],
+        key=lambda fila: -fila["caida_auc"],
+    )
+
+
 def entrenar_remisiones(guardar: bool = True) -> dict:
     d, g = cargar_datos()
-    cerradas = d[d["grupo"].isin(["efectiva", "fallida"])].reset_index(drop=True)
-    X1, y1 = cerradas[COLS_NUM + COLS_BIN + COLS_CAT], cerradas["efectiva"]
+    desarrollo, prueba, corte = particion_temporal(d, g)
+    g_entrena = g[g["remision_ref"].isin(desarrollo["remision_ref"])]
+    columnas_base = COLS_NUM + COLS_BIN + COLS_CAT
+    X1, y1 = desarrollo[columnas_base], desarrollo["efectiva"]
 
     # Modelo 1 — radicación (validación cruzada estratificada, 5 particiones)
     cv1 = StratifiedKFold(n_splits=5, shuffle=True, random_state=SEMILLA)
@@ -299,13 +330,18 @@ def entrenar_remisiones(guardar: bool = True) -> dict:
     m1 = _pipeline(False).fit(X1, y1)
 
     # Modelo 2 — gestión (fotos en el tiempo, validación AGRUPADA por remisión)
-    fotos = fotos_de_gestion(d, g)
-    X2, y2, grupos = fotos[COLS_NUM + COLS_BIN + COLS_CAT + COLS_GESTION], fotos["efectiva"], fotos["remision_ref"]
+    columnas_gestion = columnas_base + COLS_GESTION
+    fotos = fotos_de_gestion(desarrollo, g_entrena)
+    X2, y2, grupos = fotos[columnas_gestion], fotos["efectiva"], fotos["remision_ref"]
     cv2 = StratifiedGroupKFold(n_splits=5, shuffle=True, random_state=SEMILLA)
     p2 = cross_val_predict(_pipeline(True), X2, y2, cv=cv2, groups=grupos, method="predict_proba")[:, 1]
     m2 = _pipeline(True).fit(X2, y2)
 
-    clasif, n_textos = _clasificador_respuestas(g)
+    X1_test, y1_test = prueba[columnas_base], prueba["efectiva"]
+    # Una foto por remisión, tomada después de su primer contacto no terminal.
+    fotos_prueba = fotos_de_gestion(prueba, g).drop_duplicates("remision_ref", keep="first")
+    X2_test, y2_test = fotos_prueba[columnas_gestion], fotos_prueba["efectiva"]
+    clasif, n_textos = _clasificador_respuestas(g_entrena)
 
     # Pronóstico para las abiertas (borderline): lo que el libro necesita priorizar
     abiertas = d[d["grupo"] == "borderline"]
@@ -318,24 +354,32 @@ def entrenar_remisiones(guardar: bool = True) -> dict:
         "modelo_radicacion": m1,
         "modelo_gestion": m2,
         "clasificador_respuestas": clasif,
-        "tasas_instituciones": _tasas_instituciones(d, g),
-        "tiempos_aceptacion": _tiempos_aceptacion(d),
-        "instituciones": sorted(g["institucion_contactada"].unique().tolist()),
+        "tasas_instituciones": _tasas_instituciones(desarrollo, g_entrena),
+        "tiempos_aceptacion": _tiempos_aceptacion(desarrollo),
+        "instituciones": sorted(g_entrena["institucion_contactada"].unique().tolist()),
         "metricas": {
             "radicacion": _metricas(y1.values, p1),
             "gestion": _metricas(y2.values, p2),
             "clasificador_textos": n_textos,
         },
         "importancias": {"radicacion": _importancias(m1), "gestion": _importancias(m2)},
+        "evaluacion_temporal": {
+            "version": VERSION_EVALUACION, "corte": corte.date().isoformat(),
+            "fin_prueba": str(prueba["fecha_solicitud"].max()),
+            "origen": "sintético", "n_desarrollo": len(desarrollo),
+            "radicacion": _metricas(y1_test, m1.predict_proba(X1_test)[:, 1]),
+            "gestion": _metricas(y2_test, m2.predict_proba(X2_test)[:, 1]),
+            "permutacion": {"radicacion": _permutacion(m1, X1_test, y1_test),
+                            "gestion": _permutacion(m2, X2_test, y2_test)},
+        },
         "abiertas": {"n": int(len(abiertas)), "prob_media": round(float(p_abiertas.mean()), 3),
                      "en_riesgo": int((p_abiertas < 0.4).sum())},
-        "datos": {"remisiones": int(len(d)), "cerradas": int(len(cerradas)),
+        "datos": {"remisiones": int(len(d)), "cerradas": int(d["grupo"].isin(["efectiva", "fallida"]).sum()),
                   "fotos_gestion": int(len(fotos)), "contactos": int(len(g))},
         "librerias": {"sklearn": sklearn.__version__, "xgboost": xgboost.__version__},
     }
     if guardar:
-        RUTA_MODELO.parent.mkdir(parents=True, exist_ok=True)
-        joblib.dump(paquete, RUTA_MODELO)
+        guardar_paquete(paquete, RUTA_MODELO)
     return paquete
 
 

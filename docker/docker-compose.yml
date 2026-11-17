@@ -106,17 +106,23 @@ services:
       orthanc:
         condition: service_started
       ml:
-        condition: service_started
+        condition: service_healthy
 
   # ── Servicio de IA (imagen propia: ml/Dockerfile) — R05, R10, R12 ──
   # No publica puertos ni tiene ruta en nginx: solo la api le habla (http://ml:8001),
   # y la api le quita los datos personales antes (capa de seudonimización, R12).
   ml:
     build:
-      context: ../ml
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: ml/Dockerfile
     container_name: trazared_ml
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "from urllib.request import urlopen; urlopen('http://127.0.0.1:8001/health', timeout=3)"]
+      interval: 5s
+      timeout: 4s
+      retries: 6
+      start_period: 120s
     environment:
       TZ: America/Bogota
     volumes:

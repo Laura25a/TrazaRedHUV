@@ -18,10 +18,11 @@ from typing import Optional
 import httpx
 import psycopg2.extras
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from auth import SECRET_KEY, get_db, get_usuario_actual, registrar_auditoria, requiere_rol
 from eventos import ids_con_rol, publicar
+from validacion_clinica import validar_presion
 
 router = APIRouter(tags=["IA"])
 
@@ -37,9 +38,8 @@ CAMPOS_CLINICOS = (
 
 
 # ── Modelos de entrada ────────────────────────────────────────────────────
-class AnalisisIn(BaseModel):
-    # Mismos rangos que valida el servicio ml: así el error sale aquí, claro, y no como "IA caída"
-    paciente_id: int
+class PrediccionIn(BaseModel):
+    """Variables de predicción, con o sin asociación al historial clínico."""
     sexo: Optional[int] = Field(None, ge=1, le=2)
     edad: Optional[int] = Field(None, ge=0, le=120)
     pacientes_por_hora: Optional[int] = Field(None, ge=0, le=200)
@@ -54,6 +54,15 @@ class AnalisisIn(BaseModel):
     fr: Optional[float] = Field(None, ge=4, le=80)
     temperatura: Optional[float] = Field(None, ge=30, le=45)
     saturacion: Optional[float] = Field(None, ge=0, le=100)
+
+    @model_validator(mode="after")
+    def comprobar_presion(self):
+        validar_presion(self.sbp, self.dbp)
+        return self
+
+
+class AnalisisIn(PrediccionIn):
+    paciente_id: int
     remision_id: Optional[int] = None
 
 
@@ -431,24 +440,6 @@ def detalle_clusters(
 ):
       return _pedir_a_ml("GET", "/clusters/detalle", espera=120)
   
-
-class PrediccionIn(BaseModel):
-    """Mismos campos y rangos que AnalisisIn, pero sin paciente ni remisión: es una consulta suelta."""
-    sexo: Optional[int] = Field(None, ge=1, le=2)
-    edad: Optional[int] = Field(None, ge=0, le=120)
-    pacientes_por_hora: Optional[int] = Field(None, ge=0, le=200)
-    modo_llegada: int = Field(3, ge=1, le=7)
-    lesion: int = Field(1, ge=1, le=2)
-    mental: int = Field(1, ge=1, le=4)
-    dolor: int = Field(0, ge=0, le=1)
-    nrs_dolor: Optional[float] = Field(None, ge=0, le=10)
-    sbp: Optional[float] = Field(None, ge=40, le=300)
-    dbp: Optional[float] = Field(None, ge=20, le=200)
-    fc: Optional[float] = Field(None, ge=20, le=250)
-    fr: Optional[float] = Field(None, ge=4, le=80)
-    temperatura: Optional[float] = Field(None, ge=30, le=45)
-    saturacion: Optional[float] = Field(None, ge=0, le=100)
-
 
 @router.post("/ia/predecir")
 def predecir_sin_guardar(

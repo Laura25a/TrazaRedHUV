@@ -1,6 +1,6 @@
 # Datasets de TrazaRed HUV
 
-Este documento describe los dos datasets reales que usa el sistema (imágenes y datos tabulares), cómo se agruparon los pacientes y cómo se eligió, entrenó y evaluó el modelo de IA. Todas las cifras salen del cuaderno `semana9_final.ipynb`.
+Este documento describe los dos datasets reales que usa el sistema (imágenes y datos tabulares), cómo se agruparon los pacientes y cómo se eligió, entrenó y evaluó el modelo de IA. Las secciones iniciales recogen las cifras del cuaderno `semana9_final.ipynb`. Al final se documenta la evaluación reproducible del servicio desplegado.
 
 ## Imagen
 
@@ -223,3 +223,57 @@ reportes de IA **aprobados** del paciente abierto (`rag.motor.historia_aprobada`
 
 **Defensa del corpus (R25).** Un documento es un dato, no una orden: si un fragmento trae algo
 como «ignora tus instrucciones», se tacha antes de llegar al modelo y queda el incidente.
+
+## Evaluación reproducible de los modelos desplegados
+
+### Urgencia KTAS
+
+`ml/entrenar.py` compara 24 configuraciones XGBoost en los mismos cinco folds
+estratificados de desarrollo. Varía profundidad, número de árboles, tasa de aprendizaje
+y tratamiento de faltantes. La mediana se ajusta dentro de cada fold. La alternativa
+conserva los faltantes numéricos, para que cada árbol aprenda qué rama seguir cuando
+no se tomó una medición. Las categorías se codifican en ambos pipelines.
+
+La selección usa el AUC medio de validación. El entrenamiento registra las brechas
+por candidato y compara sensibilidad y especificidad por edad, sexo y disponibilidad
+de SpO₂. Esas comparaciones exploran diferencias en los folds usados para seleccionar
+el modelo. El 20 % reservado solo evalúa la configuración ganadora al final. Su
+manifiesto contiene SHA-256 del CSV original, semilla y posiciones de fila
+empezando en cero después del encabezado, conservadas al limpiar el CSV. No contiene
+identificadores clínicos. El paquete y `GET /modelo` guardan las métricas y el manifiesto,
+y el panel **Predicción de urgencia → Evaluación del modelo de urgencia** muestra la
+comparación. El umbral de urgencia sigue siendo 0,40. En el CSV versionado se seleccionó
+la mediana, con AUC 0,834 en validación cruzada y 0,760 en las 254 filas reservadas.
+El cuaderno original reportó 0,765 en prueba. La búsqueda permite reproducir y explicar
+la selección, y su AUC en prueba fue ligeramente inferior al reportado en el cuaderno.
+
+### Pronóstico de remisiones
+
+`ml/remisiones_modelo.py` separa por día de radicación y reserva el tramo posterior.
+Desarrollo solo usa remisiones cerradas con último contacto anterior al corte,
+sin compartir pacientes con prueba. La validación interna de la gestión agrupa las
+fotos por remisión. La prueba externa al desarrollo mide el pronóstico al radicar
+y después del primer contacto no terminal, con una sola foto por remisión en
+esta segunda métrica.
+
+El panel **Pronósticos de remisiones** muestra las métricas del tramo reservado y
+el efecto de permutar cada variable original sobre su AUC, con su desviación en
+15 permutaciones. El peso interno de XGBoost se muestra por separado. Una caída
+cercana a cero o negativa puede aparecer por redundancia entre variables o por
+variación de la muestra. Las dos ventanas proceden del mismo generador sintético.
+Estas cifras no estiman el rendimiento real en el HUV.
+
+### Inferencia visual sobre estudios PACS
+
+El flujo previsto parte del anexo **Imágenes** de una remisión. La API conserva
+el control de acceso a la ficha y recupera el estudio de Orthanc. Un servicio
+interno recibiría solo los píxeles y los atributos técnicos necesarios, sin
+nombre, documento ni otros metadatos identificables. La inferencia devolvería
+la versión del modelo, modalidad y resultado como propuesta pendiente de revisión
+humana, ligada al estudio con auditoría.
+
+Antes de habilitar ese flujo se requiere definir la tarea y la modalidad, disponer
+de estudios etiquetados para esa tarea, separar entrenamiento, validación y prueba por paciente, manteniendo juntos
+los estudios del mismo paciente, y evaluar también en otro centro o periodo. La evaluación debe incluir calidad de imagen,
+estratos relevantes y casos en los que el modelo debe abstenerse. El PACS actual
+permite consultar las imágenes y mantiene la inferencia visual en fase de diseño.

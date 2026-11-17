@@ -40,6 +40,7 @@ from causas import CAUSAS, causa_de, causa_por_reglas
 from eventos import ids_con_rol, publicar
 from ia import ML_URL, seudonimo
 from validaciones import bloquear_remision
+from validacion_clinica import SIGNOS, validar_presion, validar_signo
 
 router = APIRouter(tags=["Registro de remisiones"])
 
@@ -47,8 +48,6 @@ HUV = "Hospital Universitario del Valle"
 ROLES_LIBRO = (*ROLES_CLINICOS, "eps")
 ESTADOS_TEXTO = {"pendiente": "Sin gestión", "en_gestion": "En curso", "aceptada": "Aceptada",
                  "rechazada": "Rechazada", "completada": "Trasladado"}
-LOINC = {"8867-4": "fc", "8480-6": "pas", "8462-4": "pad", "9279-1": "fr",
-         "59408-5": "spo2", "8310-5": "temp", "9269-2": "glasgow"}
 GRAVE = re.compile(r"uci|ventilaci|neurocirug|hemodinam|hemodi[aá]lisis|choque|severo|infarto|hemorragia|politrauma",
                    re.IGNORECASE)
 
@@ -109,9 +108,18 @@ def _payload_ia(asiento: dict, contactos: list, signos: list) -> dict:
                        "respuesta": c.get("respuesta") or ""} for c in contactos],
     }
     for s in signos:
-        campo = LOINC.get(s.get("codigo_loinc"))
-        if campo:
-            datos[campo] = s["valor"]
+        codigo = s.get("codigo_loinc")
+        if codigo in SIGNOS:
+            try:
+                signo = validar_signo(codigo, s["valor"], s.get("unidad"))
+            except ValueError:
+                continue  # lecturas históricas registradas antes de esta validación
+            datos[signo.campo] = s["valor"]
+    try:
+        validar_presion(datos.get("pas"), datos.get("pad"))
+    except ValueError:
+        datos.pop("pas")
+        datos.pop("pad")
     return datos
 
 

@@ -916,17 +916,36 @@ function formularioVital(r, recargar) {
     titulo: `Signo vital · remisión #${r.id}`, textoBoton: "Registrar",
     campos: `<div class="campo"><label for="m-vit">Signo vital (código LOINC)</label><select id="m-vit" name="loinc">${VITALES.map(v => `<option value="${v.loinc}">${esc(v.tipo)} · ${v.loinc}</option>`).join("")}</select></div>
       <div class="fila"><div class="campo"><label for="m-val">Valor</label><input id="m-val" name="valor" type="number" step="any" required></div>
-        <div class="campo"><label>Unidad (UCUM)</label><input id="m-uni" disabled></div></div><p class="tenue" id="m-rango" style="margin:-.3rem 0 .9rem"></p>`,
+        <div class="campo"><label for="m-uni">Unidad (UCUM)</label><input id="m-uni" disabled></div></div>
+      <div class="campo" id="m-pareja" hidden><label for="m-complemento" id="m-etq-complemento"></label>
+        <input id="m-complemento" name="complemento" type="number" step="any" disabled></div>
+      <p class="tenue" id="m-rango" style="margin:-.3rem 0 .9rem"></p>`,
     alAbrir(form) {
       const s = $("#m-vit", form);
-      const f = () => { const v = VITAL[s.value]; $("#m-uni", form).value = v.unidad; $("#m-rango", form).textContent = `Rango de referencia en adultos: ${v.min} – ${v.max} ${unidadBonita(v.unidad)}`; };
+      const complemento = $("#m-complemento", form);
+      const f = () => {
+        const v = VITAL[s.value];
+        const presion = ["8480-6", "8462-4"].includes(v.loinc);
+        $("#m-uni", form).value = v.unidad;
+        $("#m-rango", form).textContent = `Rango de referencia en adultos: ${v.min} – ${v.max} ${unidadBonita(v.unidad)}`;
+        $("#m-pareja", form).hidden = !presion;
+        complemento.disabled = !presion;
+        complemento.required = presion;
+        complemento.value = "";
+        $("#m-etq-complemento", form).textContent = v.loinc === "8480-6" ? "Diastólica (mmHg)" : "Sistólica (mmHg)";
+      };
       s.addEventListener("change", f); f();
     },
     async alGuardar(d) {
       const v = VITAL[d.loinc];
       if (d.valor === "" || isNaN(+d.valor)) throw new Error("Escribe un valor numérico.");
-      await API.post("/observaciones", { remision_id: r.id, tipo: v.tipo, codigo_loinc: v.loinc, valor: +d.valor, unidad: v.unidad });
-      toast(`${v.tipo} registrada`, "ok");
+      const datos = { remision_id: r.id, tipo: v.tipo, codigo_loinc: v.loinc, valor: +d.valor, unidad: v.unidad };
+      if (["8480-6", "8462-4"].includes(v.loinc)) {
+        if (d.complemento === "" || d.complemento == null) throw new Error("Registra los dos valores de presión.");
+        datos.valor_complementario = +d.complemento;
+      }
+      await API.post("/observaciones", datos);
+      toast(datos.valor_complementario == null ? `${v.tipo} registrada` : "Presión arterial registrada", "ok");
       recargar();
     },
   });

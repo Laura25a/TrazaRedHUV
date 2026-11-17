@@ -606,6 +606,11 @@ async function vistaPronosticos() {
   try { d = await API.get("/registro/ia/resumen"); } catch (e) { $("#p-cuerpo").innerHTML = `<div class="tarjeta vacio">${esc(e.message)}</div>`; return; }
   const m = d.modelo, L = d.en_libro;
   const imp = lista => `<div class="importancias">${(lista || []).map(x => `<div><span>${esc(x.variable.replace(/_/g, " "))}</span><span class="pista"><span style="width:${Math.round(100 * x.importancia / Math.max(...lista.map(y => y.importancia)))}%"></span></span><b>${x.importancia.toFixed(2)}</b></div>`).join("")}</div>`;
+  const temporal = m?.evaluacion_temporal;
+  const tablaPermutacion = lista => `<div class="tabla-scroll"><table class="ia-tabla"><thead><tr>
+    <th>Variable original</th><th>Caída media de AUC</th><th>Desviación</th></tr></thead><tbody>
+    ${lista.map(x => `<tr><td>${esc(x.variable.replace(/_/g, " "))}</td><td>${agrNum(x.caida_auc, 4)}</td>
+      <td>${agrNum(x.desviacion, 4)}</td></tr>`).join("")}</tbody></table></div>`;
   $("#p-cuerpo").innerHTML = `
     <div class="kpis-libro">
       <div class="kpi-libro k-ia"><small>Versión del modelo</small><strong style="font-size:1.1rem">${esc(m ? m.version : "sin servicio")}</strong><span>${m ? `entrenado ${fechaHora(m.entrenado_en)}` : "el servicio ml no respondió"}</span></div>
@@ -618,6 +623,16 @@ async function vistaPronosticos() {
       <section class="tarjeta tarjeta-cuerpo"><h4>Qué pesa más al radicar</h4><p class="tenue" style="margin-bottom:.6rem">Importancia de cada variable en el modelo de radicación (XGBoost)</p>${m ? imp(m.importancias.radicacion) : ""}</section>
       <section class="tarjeta tarjeta-cuerpo"><h4>Qué pesa más durante la gestión</h4><p class="tenue" style="margin-bottom:.6rem">Incluye lo que va dejando la bitácora hasta ese momento</p>${m ? imp(m.importancias.gestion) : ""}</section>
     </div>
+    ${temporal ? `<section class="tarjeta tarjeta-cuerpo" style="margin-top:1rem"><h4>Prueba temporal del pronóstico</h4>
+      <p>Desarrollo: ${temporal.n_desarrollo} remisiones cerradas antes del corte.
+        Prueba sintética del ${esc(temporal.corte)} al ${esc(temporal.fin_prueba)}.</p>
+      <p>AUC al radicar: <strong>${agrNum(temporal.radicacion.auc, 3)}</strong> (${temporal.radicacion.n} remisiones).
+        AUC tras el primer contacto: <strong>${agrNum(temporal.gestion.auc, 3)}</strong> (${temporal.gestion.n} remisiones).</p>
+      <details><summary>Importancia por permutación en la prueba temporal</summary>
+        <p>La caída de AUC mide cuánto cambia el rendimiento al mezclar una variable. Las gráficas anteriores muestran el peso interno de XGBoost.</p>
+        <h5>Al radicar</h5>${tablaPermutacion(temporal.permutacion.radicacion)}
+        <h5>Tras el primer contacto</h5>${tablaPermutacion(temporal.permutacion.gestion)}
+      </details></section>` : ""}
     <section class="tarjeta" style="margin-top:1rem"><div class="tarjeta-cuerpo"><h4>Remisiones abiertas con menor probabilidad de terminar efectivas</h4><p class="tenue">Las que conviene priorizar en la Oficina de Referencia.</p></div>
       <div class="tabla-scroll"><table class="ia-tabla"><thead><tr><th>Radicado</th><th>Paciente</th><th>Receptora</th><th>Intentos</th><th>Abierta</th><th>Pronóstico</th></tr></thead><tbody>
       ${d.mas_riesgo.map(a => `<tr class="clic" data-id="${a.id}"><td class="asiento-num">${esc(a.radicado)}</td><td>${esc(a.paciente_nombre)}<span class="sub">${esc(a.eps)}</span></td>

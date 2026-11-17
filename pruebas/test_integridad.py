@@ -987,3 +987,51 @@ def test_rag_revision_api_y_navegador(entorno, autorizaciones, monkeypatch):
                         AND hash IS NOT NULL AND registro_id = ANY(%s);""", ([aprobado, rechazado, concurrente],))
         assert set(cur.fetchall()) == {(aprobado, "rag_aprobado"), (rechazado, "rag_rechazado"),
                                        (concurrente, "rag_aprobado")}
+
+
+def test_observaciones_y_prediccion_validan_signos_coherentes(entorno, autorizaciones, monkeypatch):
+    import ia
+
+    _, api, _ = entorno
+    admin = autorizaciones["auditor"]
+    medico = autorizaciones["medico"]
+    ficha = comprobar(paciente(api, admin), 201)
+    remision = comprobar(api.post("/remisiones", headers=medico,
+                                  json=datos_remision(ficha["id"])), 201)
+    rid = remision["id"]
+
+    def guardar(tipo, valor, **cambios):
+        return api.post("/observaciones", headers=medico,
+                        json={"remision_id": rid, "tipo": tipo, "valor": valor, **cambios})
+
+    def observaciones():
+        return comprobar(api.get("/observaciones", headers=medico,
+                                 params={"remision_id": rid}), 200)
+
+    comprobar(guardar("Saturación de oxígeno", 101, unidad="%"), 422)
+    comprobar(guardar("Temperatura corporal", 37, unidad="°F"), 422)
+    comprobar(guardar("Frecuencia cardiaca", 80, codigo_loinc="8310-5"), 422)
+    comprobar(guardar("Escala de Glasgow", 13.5), 422)
+    comprobar(guardar("Presión sistólica", 90, valor_complementario=92), 422)
+    comprobar(guardar("Presión diastólica", 72, valor_complementario=400), 422)
+    assert observaciones() == []
+
+    comprobar(guardar("Presión sistólica", 110, unidad="mmHg", valor_complementario=72), 201)
+    comprobar(guardar("Presión diastólica", 120), 422)
+    primera_toma = observaciones()
+    assert [(v["codigo_loinc"], float(v["valor"]), v["unidad"]) for v in primera_toma] == [
+        ("8480-6", 110, "mm[Hg]"), ("8462-4", 72, "mm[Hg]"),
+    ]
+    assert primera_toma[0]["fecha_observacion"] == primera_toma[1]["fecha_observacion"]
+    # El último valor de la toma anterior no debe impedir registrar una toma completa.
+    comprobar(guardar("Presión diastólica", 120, valor_complementario=150), 201)
+    assert len(observaciones()) == 4
+
+    with monkeypatch.context() as parche:
+        def sin_modelo(*args, **kwargs):
+            pytest.fail("Una presión incoherente no debe llegar al modelo")
+        parche.setattr(ia.httpx, "post", sin_modelo)
+        for ruta in ("/ia/predecir", "/ia/asignar", "/ia/analizar"):
+            comprobar(api.post(ruta, headers=medico, json={
+                "paciente_id": ficha["id"], "remision_id": rid, "sbp": 90, "dbp": 90,
+            }), 422)

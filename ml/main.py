@@ -14,20 +14,28 @@ ni pasa por el túnel). Solo la API le habla, por http://ml:8001, y es la API
 la que quita los datos personales antes de llamarlo.
 """
 from pathlib import Path
+from threading import Lock
 from typing import Optional
 from agrupacion import detalle_clusters, resumen_clusters
-from entrenar import entrenar, RUTA_CSV
+from entrenar import entrenar, RUTA_CSV, VERSION_EVALUACION
 import joblib
 import numpy as np
 import pandas as pd
 from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
+from validacion_clinica import validar_presion
 
 app = FastAPI(title="TrazaRed HUV · servicio de IA", version="0.1.0")
 
 # El modelo se carga una sola vez, al arrancar
 RUTA_MODELO = Path(__file__).parent / "modelo" / "ktas_modelo.joblib"
-paquete = joblib.load(RUTA_MODELO) if RUTA_MODELO.exists() else None
+try:
+    paquete = joblib.load(RUTA_MODELO) if RUTA_MODELO.exists() else None
+except Exception as exc:  # un volumen pudo venir de otra versión de las librerías
+    print(f"[ml] No se pudo leer el modelo KTAS: {exc}")
+    paquete = None
+
+bloqueo_ktas, bloqueo_remisiones = Lock(), Lock()
 
 # 1.x fue la regresión logística; 2.x es XGBoost
 VERSION_MAYOR = 2
@@ -59,6 +67,12 @@ class DatosClinicos(BaseModel):
     saturacion: Optional[float] = Field(None, ge=0, le=100)
 
 
+    @model_validator(mode="after")
+    def comprobar_presion(self):
+        validar_presion(self.sbp, self.dbp)
+        return self
+
+
 # Nombre del contrato -> nombre de columna con el que se entrenó el modelo
 COLUMNAS = {
     "sexo": "Sex", "edad": "Age", "pacientes_por_hora": "Patients number per hour",
@@ -75,17 +89,19 @@ def health():
 
 @app.get("/modelo")
 def modelo():
-    if paquete is None:
+    p = paquete
+    if p is None:
         raise HTTPException(503, "Modelo no cargado")
     claves = ("version", "algoritmo", "metricas", "umbral", "umbral_critico",
-              "fecha", "sklearn", "xgboost")
+              "fecha", "sklearn", "xgboost", "evaluacion")
     # .get: un modelo guardado antes del cambio no tiene "algoritmo" ni "xgboost"
-    return {k: paquete.get(k) for k in claves}
+    return {k: p.get(k) for k in claves}
 
 
 @app.post("/predecir")
 def predecir(d: DatosClinicos):
-    if paquete is None:
+    p = paquete
+    if p is None:
         raise HTTPException(503, "Modelo no cargado")
 
     datos = d.model_dump()
@@ -97,18 +113,18 @@ def predecir(d: DatosClinicos):
 
     fila = {col: (np.nan if datos[k] is None else datos[k]) for k, col in COLUMNAS.items()}
     X = pd.DataFrame([fila])
-    X[paquete["columnas_num"]] = X[paquete["columnas_num"]].astype(float)
+    X[p["columnas_num"]] = X[p["columnas_num"]].astype(float)
 
-    prob = float(paquete["modelo"].predict_proba(X)[0, 1])
-    critico = prob >= paquete["umbral_critico"]
-    urgente = prob >= paquete["umbral"]
+    prob = float(p["modelo"].predict_proba(X)[0, 1])
+    critico = prob >= p["umbral_critico"]
+    urgente = prob >= p["umbral"]
     return {
         "id_seudonimo": d.id_seudonimo,
         "probabilidad": round(prob, 4),
         "urgente": urgente,
         "critico": critico,
         "nivel": "critico" if critico else ("urgente" if urgente else "no urgente"),
-        "version_modelo": paquete["version"],
+        "version_modelo": p["version"],
     }
 
 
@@ -120,12 +136,19 @@ def siguiente_version(actual):
     return f"{mayor}.{menor + 1}"
 
 
+# Actualiza también los volúmenes persistentes creados con versiones anteriores.
+if not paquete or (paquete.get("evaluacion") or {}).get("version") != VERSION_EVALUACION:
+    paquete = entrenar(siguiente_version(paquete["version"]) if paquete else f"{VERSION_MAYOR}.0")
+
+
 @app.post("/entrenar")
 def reentrenar():
     global paquete
-    version = siguiente_version(paquete["version"]) if paquete else f"{VERSION_MAYOR}.0"
-    paquete = entrenar(version)
-    return {"version": paquete["version"], "metricas": paquete["metricas"]}
+    with bloqueo_ktas:
+        version = siguiente_version(paquete["version"])
+        nuevo = entrenar(version)
+        paquete = nuevo
+    return {"version": nuevo["version"], "metricas": nuevo["metricas"]}
 
 
 # R07: agrupamiento de pacientes reales y sintéticos (lógica en agrupacion.py)
@@ -163,7 +186,7 @@ def _cargar_o_entrenar_remisiones():
     de nuevo al arrancar (tarda unos segundos)."""
     try:
         p = rem.cargar_paquete()
-        if p is not None:
+        if p and (p.get("evaluacion_temporal") or {}).get("version") == rem.VERSION_EVALUACION:
             return p
     except Exception as e:          # pickle de otra versión
         print(f"[ml] no se pudo cargar el modelo de remisiones ({e}); se reentrena")
@@ -210,7 +233,12 @@ class DatosRemision(BaseModel):
     spo2: Optional[float] = Field(None, ge=0, le=100)
     temp: Optional[float] = Field(None, ge=30, le=45)
     glasgow: Optional[float] = Field(None, ge=3, le=15)
-    contactos: List[ContactoBitacora] = []
+    contactos: List[ContactoBitacora] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def comprobar_presion(self):
+        validar_presion(self.pas, self.pad)
+        return self
 
 
 class TextoRespuesta(BaseModel):
@@ -221,7 +249,7 @@ class TextoRespuesta(BaseModel):
 def modelo_remisiones():
     p = _rem()
     return {k: p[k] for k in ("version", "entrenado_en", "metricas", "importancias",
-                              "abiertas", "datos", "librerias")}
+                              "abiertas", "datos", "librerias", "evaluacion_temporal")}
 
 
 @app.post("/remisiones/pronostico")
@@ -253,5 +281,7 @@ def asignar_paciente(d: DatosClinicos):
 @app.post("/remisiones/entrenar")
 def reentrenar_remisiones():
     global paquete_rem
-    paquete_rem = rem.entrenar_remisiones()
-    return {"version": paquete_rem["version"], "metricas": paquete_rem["metricas"]}
+    with bloqueo_remisiones:
+        nuevo = rem.entrenar_remisiones()
+        paquete_rem = nuevo
+    return {"version": nuevo["version"], "metricas": nuevo["metricas"]}
