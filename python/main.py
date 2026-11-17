@@ -57,6 +57,7 @@ app = FastAPI(
     title="API TrazaRed HUV",
     description="API de trazabilidad de remisiones y traslados de pacientes del HUV, con roles y FHIR.",
     version="3.0.0",
+    root_path=os.getenv("TRAZARED_API_ROOT_PATH", ""),
 )
 
 # ----------------------------------------------------------------------------
