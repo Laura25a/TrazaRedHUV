@@ -1,7 +1,7 @@
 # Imagen de la API de TrazaRed HUV.
 # Se construye desde la RAÍZ del proyecto (context: .. en docker-compose.yml),
 # por eso las rutas de COPY son relativas a la raíz.
-FROM python:3.11-slim
+FROM python:3.11-slim@sha256:07d4824036af339fa1b6ef769cc99d9c10a141769538b52b3b597c84f7a7b535
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
@@ -11,7 +11,8 @@ WORKDIR /app
 
 # 1) Dependencias primero: si solo cambia el código, Docker reutiliza esta capa
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+COPY requirements-api.lock.txt .
+RUN pip install --no-cache-dir -r requirements.txt -c requirements-api.lock.txt && pip check
 
 # 2) Código de la API y la interfaz (main.py también la publica en /app)
 COPY python/ ./python/

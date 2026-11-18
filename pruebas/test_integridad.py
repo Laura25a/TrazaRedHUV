@@ -103,6 +103,108 @@ def datos_remision(paciente_id, **cambios):
             "estado": "pendiente", "convenio_vigente": False, **cambios}
 
 
+@pytest.mark.parametrize("nombre", ["fechas_imposibles", "gestiones_huerfanas", "conciliacion_202"])
+def test_escenarios_del_entregable(entorno, autorizaciones, monkeypatch, tmp_path, nombre):
+    import json
+    import interop
+    import re
+    import yaml
+    sys.path.insert(0, str(RAIZ / "scripts"))
+    from escenarios_integridad import ejecutar_escenario
+
+    _, api, _ = entorno
+    secreto = secrets.token_hex(32)
+    monkeypatch.setattr(interop, "SECRETO_FEDERADO", secreto)
+    roles = {"admin": autorizaciones["auditor"], "medico": autorizaciones["medico"]}
+    resultados = []
+    llamadas = []
+    def peticion(metodo, ruta, rol=None, headers=None, **opciones):
+        r = api.request(metodo, ruta, headers={**roles.get(rol, {}), **(headers or {})}, **opciones)
+        llamadas.append((metodo, ruta, r.status_code))
+        return r
+    def guardar(requisito, caso, estado, detalle, http=None):
+        resultados.append(dict(requisito=requisito, caso=caso, estado=estado, detalle=detalle, http=http))
+    ejecutar_escenario(nombre, peticion, guardar, secreto)
+    salida = Path(os.getenv("TRAZARED_EVIDENCIA_ENTREGA", str(tmp_path)))
+    salida.mkdir(parents=True, exist_ok=True)
+    (salida / f"{nombre}.json").write_text(json.dumps(resultados, ensure_ascii=False, indent=2))
+    assert resultados and all(r["estado"] == "pasa" for r in resultados), resultados
+    contrato = yaml.safe_load((RAIZ / "tester.yaml").read_text())["escenarios_integridad"][nombre]
+    for paso in contrato["pasos"]:
+        patron = re.escape(paso["path"]).replace(r"\{id\}", r"\d+")
+        assert any(m == paso["metodo"] and re.fullmatch(patron, ruta) and codigo == paso["espera_codigo"]
+                   for m, ruta, codigo in llamadas), paso
+    assert all(any(r["caso"].endswith("." + i) for r in resultados) for i in contrato["indicadores"])
+
+
+def test_entregable_conciliacion_en_navegador(entorno, autorizaciones, monkeypatch, tmp_path):
+    import interop
+    import pacs
+    import uvicorn
+    from playwright.sync_api import expect, sync_playwright
+    sys.path.insert(0, str(RAIZ / "scripts"))
+    from escenarios_integridad import Escenario, preparar_conciliacion
+
+    main, api, _ = entorno
+    secreto = secrets.token_hex(32)
+    monkeypatch.setattr(interop, "SECRETO_FEDERADO", secreto)
+    monkeypatch.setattr(pacs, "list_images", lambda _: [])
+    def peticion(metodo, ruta, rol=None, headers=None, **opciones):
+        return api.request(metodo, ruta, headers={**(autorizaciones["auditor"] if rol else {}),
+                                                **(headers or {})}, **opciones)
+    def guardar(_requisito, caso, estado, _detalle, _http=None):
+        assert estado == "pasa", caso
+    e = Escenario(peticion, guardar, "R30", "navegador")
+    provisional, p = preparar_conciliacion(e, secreto)
+    salida = Path(os.getenv("TRAZARED_EVIDENCIA_ENTREGA", str(tmp_path)))
+    salida.mkdir(parents=True, exist_ok=True)
+    with socket.socket() as puerto:
+        puerto.bind(("127.0.0.1", 0))
+        puerto.listen()
+        base = f"http://127.0.0.1:{puerto.getsockname()[1]}"
+        servidor = uvicorn.Server(uvicorn.Config(main.app, lifespan="off", log_level="error"))
+        hilo = threading.Thread(target=servidor.run, kwargs={"sockets": [puerto]}, daemon=True)
+        hilo.start()
+        try:
+            with sync_playwright() as control:
+                navegador = control.chromium.launch()
+                pagina = navegador.new_page(viewport={"width": 1440, "height": 1000})
+                errores = []
+                pagina.on("pageerror", lambda error: errores.append(type(error).__name__))
+                pagina.goto(base + "/app/")
+                pagina.locator("#login-usuario").fill("auditor@pruebas.test")
+                pagina.locator("#login-clave").fill(CLAVE_PRUEBA)
+                pagina.locator("#form-login button[type=submit]").click()
+                expect(pagina.locator("#vista-app")).to_be_visible()
+                pagina.locator('[data-seccion="interop"]').click()
+                pagina.get_by_role("button", name="Por conciliar", exact=True).click()
+                boton = pagina.locator(f'[data-conciliar="{provisional}"]')
+                expect(boton).to_be_visible()
+                pagina.screenshot(path=str(salida / "conciliacion-pendiente.png"), full_page=True)
+                boton.click()
+                expect(pagina.get_by_role("heading", name="Conciliar paciente FHIR")).to_be_visible()
+                pagina.locator("#itp-documento").fill(p["documento"])
+                with pagina.expect_response(lambda r: r.url.endswith(f"/interop/conciliaciones/{provisional}")
+                                            and r.request.method == "POST") as respuesta:
+                    pagina.get_by_role("button", name="Confirmar coincidencia", exact=True).click()
+                assert respuesta.value.status == 200
+                expect(boton).to_have_count(0)
+                pagina.screenshot(path=str(salida / "conciliacion-resuelta.png"), full_page=True)
+                pagina.reload()
+                pagina.locator('[data-seccion="interop"]').click()
+                pagina.get_by_role("button", name="Por conciliar", exact=True).click()
+                expect(pagina.locator("#itp-cuerpo")).not_to_contain_text("Cargando")
+                expect(pagina.locator(f'[data-conciliar="{provisional}"]')).to_have_count(0)
+                assert not errores
+                navegador.close()
+        finally:
+            servidor.should_exit = True
+            hilo.join(timeout=10)
+    historia = comprobar(api.get(f"/pacientes/{p['id']}/historia", headers=autorizaciones["auditor"]), 200)
+    assert len(historia["observaciones"]) == 1
+    assert float(historia["observaciones"][0]["valor"]) == 123
+
+
 def test_identidad_fechas_y_ficha_parcial(entorno, autorizaciones):
     from validaciones import hoy_bogota
 
@@ -501,7 +603,12 @@ def test_documentos_en_navegador(entorno, autorizaciones, monkeypatch, tmp_path)
                 aviso.value.close()
                 pagina.locator("#login-usuario").fill("medico@pruebas.test")
                 pagina.locator("#login-clave").fill(CLAVE_PRUEBA)
-                pagina.locator("#form-login button[type=submit]").click()
+                # Esperar la respuesta real de autenticación antes de exigir la vista.
+                # La espera DOM de 5 s podía vencer durante el hash bajo carga de build.
+                with pagina.expect_response(lambda r: r.url.endswith("/login")
+                                            and r.request.method == "POST") as ingreso:
+                    pagina.locator("#form-login button[type=submit]").click()
+                assert ingreso.value.status == 200
                 expect(pagina.locator("#vista-app")).to_be_visible()
                 pagina.locator('[data-seccion="pacientes"]').click()
                 pagina.locator(f'tr[data-pac="{p["id"]}"] td').first.click()

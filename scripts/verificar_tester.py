@@ -11,6 +11,7 @@ from pathlib import Path
 import re
 from secrets import token_urlsafe
 import sys
+import subprocess
 import time
 from urllib.parse import quote, urlsplit
 from uuid import uuid4
@@ -19,6 +20,8 @@ from zoneinfo import ZoneInfo
 from dotenv import dotenv_values
 import requests
 import yaml
+
+from escenarios_integridad import ejecutar_escenario
 
 
 RAIZ = Path(__file__).resolve().parents[1]
@@ -95,7 +98,23 @@ class Verificador:
 
     def guardar(self, requisito, caso, estado, detalle, codigo=None):
         self.resultados.append(dict(requisito=requisito, caso=caso, estado=estado,
-                                    detalle=detalle, http=codigo))
+                                    detalle=detalle, http=codigo,
+                                    comprobacion="contrato_basico"))
+
+    def comprobar_integridad(self):
+        for nombre, caso in self.contrato.get("escenarios_integridad", {}).items():
+            faltan = set(caso["rol_requerido"]) - self.tokens.keys()
+            if faltan:
+                self.guardar(caso["requisito"], nombre, "pendiente", "Falta autenticación de prueba")
+                continue
+            def guardar(*args):
+                self.guardar(*args)
+                self.resultados[-1]["comprobacion"] = "flujo_integridad"
+            try:
+                ejecutar_escenario(nombre, self.peticion, guardar,
+                    secreto(self.contrato["secretos"]["secreto_federado"], self.entorno))
+            except (requests.RequestException, ValueError, KeyError) as error:
+                guardar(caso["requisito"], nombre, "falla", type(error).__name__)
 
     def preparar(self):
         for rol, cuenta in self.contrato["usuarios"].items():
@@ -357,7 +376,8 @@ def main():
     casos = contrato["rutas"] | contrato["rutas_final"]
     try:
         salud = v.peticion("GET", "/health")
-        v.guardar("R04", "salud_publica", "pasa" if salud.ok else "falla", "API pública por HTTPS", salud.status_code)
+        completa = salud.ok and all(salud.json().get(k) == "ok" for k in ("api", "postgres", "mongo", "pacs", "fhir"))
+        v.guardar("R04", "salud_publica", "pasa" if completa else "falla", "API y dependencias por HTTPS", salud.status_code)
         v.preparar()
         v.comprobar_acceso()
     except (requests.RequestException, ValueError, KeyError) as error:
@@ -375,12 +395,18 @@ def main():
             estado, detalle, codigo = "falla", type(error).__name__, None
         v.guardar(por_ruta.get(nombre, "CONTRATO"), nombre, estado, detalle, codigo)
         time.sleep(0.12)
-    v.guardar("R33", "demostracion_equipo_socio", "pendiente", "Verificación conjunta manual")
+    v.comprobar_integridad()
+    v.guardar("R33", "demostracion_equipo_socio", "pendiente", "L05: sin ejecutar hasta nueva orden")
+    v.resultados[-1]["comprobacion"] = "manual_no_ejecutada"
     resumen = {}
     for fila in v.resultados:
         resumen.setdefault(fila["requisito"], Counter())[fila["estado"]] += 1
     reporte = {"url": url, "fecha": datetime.now().astimezone().isoformat(),
-               "total_rutas_yaml": len(casos), "resumen_por_requisito": resumen, "resultados": v.resultados}
+               "revision_local": subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=RAIZ, text=True).strip(),
+               "sha256_contrato": hashlib.sha256(texto.encode()).hexdigest(),
+               "total_rutas_yaml": len(casos), "total_escenarios_integridad": len(contrato.get("escenarios_integridad", {})),
+               "alcance": "Contrato básico y escenarios de integridad; no certifica automáticamente todos los requisitos ni R33",
+               "resumen_por_requisito": resumen, "resultados": v.resultados}
     args.salida.write_text(json.dumps(reporte, indent=2, ensure_ascii=False) + "\n")
     print(dict(Counter(fila["estado"] for fila in v.resultados)))
     return 1 if any(fila["estado"] == "falla" for fila in v.resultados) else 0

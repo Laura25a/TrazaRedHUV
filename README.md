@@ -606,3 +606,11 @@ La URL predeterminada sale de `tester.yaml`. El reporte JSON guarda el resultado
 código HTTP de cada caso por requisito, sin copiar cuerpos de respuesta ni credenciales.
 Los casos pendientes requieren revisar sus dependencias o completar una prueba manual.
 La demostración con el equipo socio (R33) se hace por separado.
+
+### Sustentación y evidencia reproducible
+
+La guía [docs/SUSTENTACION.md](docs/SUSTENTACION.md) reúne el arranque con imágenes y
+dependencias fijadas, la comprobación pública de lectura, las pruebas API/Chromium
+con bases desechables y la entrega privada al docente. `tester.yaml` declara también
+los escenarios completos de fechas imposibles, gestiones huérfanas y conciliación FHIR
+de `202` a ficha asociada. L05/R33 permanece pendiente hasta nueva orden del dueño.

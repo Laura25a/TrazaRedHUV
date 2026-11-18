@@ -1,4 +1,5 @@
 # TrazaRed HUV — todo el proyecto dockerizado (Corte 2, R05)
+# Imágenes externas fijadas por digest; actualización deliberada con pruebas.
 # Un solo comando levanta los 9 servicios:   docker compose up -d --build
 #
 #   internet ──▶ cloudflared (túnel HTTPS) ──┐
@@ -38,7 +39,7 @@ services:
   db:
     # Semana 12: Postgres 16 con la extensión pgvector (vectores del RAG en la misma base).
     # Es la misma versión mayor (16): el volumen pgdata que ya existe sirve tal cual.
-    image: pgvector/pgvector:pg16
+    image: pgvector/pgvector:pg16@sha256:484e838076e04939d27d3e176e91c86eea96236126023be8d3059761122e579f
     container_name: trazared_db
     restart: unless-stopped
     environment:
@@ -63,7 +64,7 @@ services:
 
   # ── Servicio 2: base documental (bitácora de gestiones de contacto) ──
   mongo:
-    image: mongo:7
+    image: mongo:7@sha256:884c055bff8b7144ca44830d01826facd3083b33c4dea44b94a1476c62de3c32
     container_name: trazared_mongo
     restart: unless-stopped
     environment:
@@ -144,7 +145,7 @@ services:
   # El navegador nunca le habla directo: todo pasa por la api (token + rol +
   # auditoría). El puerto 8042 se publica SOLO en tu equipo, para el laboratorio.
   orthanc:
-    image: orthancteam/orthanc:25.5.1
+    image: orthancteam/orthanc:25.5.1@sha256:d43f30de2aa3807338242faeba33498225d0b5032bb58b8fed7188296c504759
     container_name: trazared_orthanc
     restart: unless-stopped
     environment:
@@ -160,7 +161,7 @@ services:
 
   # ── Servicio 4: interfaz gráfica servida por nginx ──
   front:
-    image: nginx:alpine
+    image: nginx:alpine@sha256:fed7e14be83cbd2661a75cdc5b872d936cf155d46c327084d30b8df19ae88d72
     container_name: trazared_front
     restart: unless-stopped
     volumes:
@@ -179,7 +180,7 @@ services:
   # Verla: docker compose logs cloudflared | findstr trycloudflare
   #        o http://localhost:2000/quicktunnel  (campo "hostname")
   cloudflared:
-    image: cloudflare/cloudflared:latest
+    image: cloudflare/cloudflared:latest@sha256:b94b96edf2c9c4360f8879c8580cfaa99077f19c849ec595ca2f711b27d4f344
     container_name: trazared_cloudflared
     restart: unless-stopped
     command: tunnel --no-autoupdate --metrics 0.0.0.0:2000 --url http://front:80
@@ -194,7 +195,7 @@ services:
   #   docker compose --profile tunel-fijo up -d
   #   docker compose stop cloudflared
   cloudflared-fijo:
-    image: cloudflare/cloudflared:latest
+    image: cloudflare/cloudflared:latest@sha256:b94b96edf2c9c4360f8879c8580cfaa99077f19c849ec595ca2f711b27d4f344
     container_name: trazared_cloudflared_fijo
     restart: unless-stopped
     profiles: ["tunel-fijo"]
@@ -209,7 +210,7 @@ services:
 
   # ── Servicio 5: base propia de HAPI FHIR ──
   fhir-db:
-    image: postgres:15
+    image: postgres:15@sha256:2663a9f0fde52de94f5dad3603a1942359f49472f1017c1a6d64f66bfedacb40
     container_name: trazared_fhir_db
     environment:
       POSTGRES_USER: hapi
@@ -222,7 +223,7 @@ services:
 
   # ── Servicio 6: servidor FHIR R4 (interoperabilidad) ──
   hapi-fhir:
-    image: hapiproject/hapi:latest
+    image: hapiproject/hapi:latest@sha256:0ff86aac4c7bd13a1ee226444a70263bb46ed1c28ef543c30a44f865b80ca04e
     container_name: trazared_hapi_fhir
     depends_on:
       - fhir-db

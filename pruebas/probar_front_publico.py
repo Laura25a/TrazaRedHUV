@@ -6,7 +6,7 @@ from urllib.parse import urlsplit
 from playwright.sync_api import expect, sync_playwright
 
 
-def verificar_entrada(navegador, origen, ruta, ruta_final, movil):
+def verificar_entrada(navegador, origen, ruta, ruta_final, movil, captura=None):
     vista = {"width": 390, "height": 844} if movil else {"width": 1440, "height": 900}
     pagina = navegador.new_page(viewport=vista)
     respuestas, fallos = [], []
@@ -39,8 +39,12 @@ def verificar_entrada(navegador, origen, ruta, ruta_final, movil):
         boton = pagina.get_by_role("button", name="Mostrar contraseña")
         boton.click()
         expect(pagina.locator("#login-clave")).to_have_attribute("type", "text")
+        assert pagina.evaluate("document.documentElement.scrollWidth <= innerWidth"), "Desbordamiento horizontal"
+        if captura:
+            pagina.screenshot(path=str(captura), full_page=True)
         etiqueta = "móvil" if movil else "escritorio"
         print(f"{ruta} OK ({etiqueta}). {sum(map(len, recursos.values()))} recursos; estilos y controles activos.")
+        return sum(map(len, recursos.values()))
     finally:
         pagina.close()
 

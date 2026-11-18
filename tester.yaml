@@ -8,7 +8,7 @@
 
 equipo: "TrazaRed HUV"
 version: "Proyecto final"
-fecha: "2026-10-18"
+fecha: "2026-11-17"
 
 # URL pública del túnel de Cloudflare (HTTPS, no localhost)
 url_publica: "https://trazared.kogcake.com"
@@ -628,3 +628,48 @@ rutas_final:
   # ── R33 · Demostración cruzada en vivo ────────────────────────────────────
   # Manual. Eventos del canal SSE (R17): remision_externa_recibida (especialista),
   # respuesta_socio (médico que remitió), interop_rechazo (admin). Ver docs/INTEROP.md.
+
+
+# L04: flujos compuestos ejecutados por scripts/verificar_tester.py y pytest.
+# Los indicadores se comprueban además de los códigos; no equivalen a R33.
+escenarios_integridad:
+  fechas_imposibles:
+    requisito: L04
+    rol_requerido: [admin]
+    pasos:
+      - {metodo: POST, path: /pacientes, espera_codigo: 422, variante: nacimiento_futuro}
+      - {metodo: POST, path: /remisiones, espera_codigo: 422, variante: anterior_al_nacimiento}
+      - {metodo: POST, path: /remisiones, espera_codigo: 422, variante: solicitud_futura}
+      - {metodo: GET, path: /remisiones, espera_codigo: 200, indicador: sin_nuevas_remisiones_invalidas}
+    indicadores: [ficha_invalida_no_persistida, remisiones_invalidas_no_persistidas]
+  gestiones_huerfanas:
+    requisito: L04
+    rol_requerido: [admin]
+    pasos:
+      - {metodo: GET, path: "/remisiones/{id}", espera_codigo: 404}
+      - {metodo: POST, path: /gestiones-contacto, espera_codigo: 404}
+      - {metodo: POST, path: "/registro/remisiones/{id}/gestiones", espera_codigo: 404}
+      - {metodo: GET, path: /gestiones-contacto, espera_codigo: 200, indicador: sin_nuevas_bitacoras}
+    indicadores: [mongo_no_crea_huerfanos]
+  conciliacion_202:
+    requisito: R30
+    rol_requerido: [admin, medico]
+    secreto: secreto_federado
+    pasos:
+      - {metodo: POST, path: /interop/socios, espera_codigo: 201}
+      - {metodo: POST, path: /oauth/token, espera_codigo: 200}
+      - {metodo: POST, path: /interop/Observation, espera_codigo: 202, variante: desconocido_firmado}
+      - {metodo: POST, path: /interop/Observation, espera_codigo: 409, variante: mensaje_repetido}
+      - {metodo: GET, path: /interop/conciliaciones, espera_codigo: 200}
+      - {metodo: POST, path: /pacientes, espera_codigo: 201}
+      - {metodo: POST, path: "/interop/conciliaciones/{id}", espera_codigo: 422, variante: documento_distinto}
+      - {metodo: POST, path: "/interop/conciliaciones/{id}", espera_codigo: 403, variante: medico_sin_rol}
+      - {metodo: POST, path: "/interop/conciliaciones/{id}", espera_codigo: 200, variante: identidad_coincidente}
+      - {metodo: POST, path: "/interop/conciliaciones/{id}", espera_codigo: 200, variante: repeticion_idempotente}
+      - {metodo: GET, path: "/pacientes/{id}/historia", espera_codigo: 200}
+    indicadores: [pendiente_resuelto, repeticion_sin_duplicados, observacion_conservada_en_historia]
+
+verificacion_manual:
+  L05_R33:
+    estado: pendiente
+    motivo: "Sin implementar ni ejecutar hasta nueva orden del dueño. El socio sintético no acredita otra aplicación real."

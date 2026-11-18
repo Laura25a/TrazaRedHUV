@@ -2,3 +2,6 @@
 pytest==9.2.0
 playwright==1.65.2
 pypdf==7.1.0
+
+# Lectura del contrato y comprobación de entrega.
+PyYAML==6.0.3

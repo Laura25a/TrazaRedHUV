@@ -1,0 +1,929 @@
+{
+  "fecha_utc": "2026-11-17T20:52:16.548165+00:00",
+  "revision_base": "f5ced796fb98f870f3cf068afcf8cda6fcc4e297",
+  "fuente_verificada": "Árbol de trabajo sobre la revisión base; los cambios aún no tienen commit propio",
+  "comando_local": "bash scripts/probar_integracion.sh /tmp/trazared-s12-venv/bin/python ../evidencia-trazared/sustentacion-2026-11-17",
+  "salida_local": "50 passed, 11 warnings in 118.68s (0:01:58)",
+  "exit_local": 0,
+  "pruebas_locales": [
+    {
+      "caso": "test_escenarios_del_entregable[fechas_imposibles]",
+      "estado": "pasa",
+      "segundos": 12.145
+    },
+    {
+      "caso": "test_escenarios_del_entregable[gestiones_huerfanas]",
+      "estado": "pasa",
+      "segundos": 0.506
+    },
+    {
+      "caso": "test_escenarios_del_entregable[conciliacion_202]",
+      "estado": "pasa",
+      "segundos": 1.304
+    },
+    {
+      "caso": "test_entregable_conciliacion_en_navegador",
+      "estado": "pasa",
+      "segundos": 7.671
+    },
+    {
+      "caso": "test_identidad_fechas_y_ficha_parcial",
+      "estado": "pasa",
+      "segundos": 0.69
+    },
+    {
+      "caso": "test_catalogo_fechas_estados_y_correccion_parcial",
+      "estado": "pasa",
+      "segundos": 0.852
+    },
+    {
+      "caso": "test_bitacora_sin_huerfanos_ni_reescrituras",
+      "estado": "pasa",
+      "segundos": 1.063
+    },
+    {
+      "caso": "test_concurrencia_de_correcciones_y_primer_contacto",
+      "estado": "pasa",
+      "segundos": 1.02
+    },
+    {
+      "caso": "test_referencias_facturas_y_un_solo_cobro",
+      "estado": "pasa",
+      "segundos": 1.057
+    },
+    {
+      "caso": "test_historia_documental",
+      "estado": "pasa",
+      "segundos": 2.001
+    },
+    {
+      "caso": "test_facturacion_documental_concurrente",
+      "estado": "pasa",
+      "segundos": 0.765
+    },
+    {
+      "caso": "test_recibo_documental",
+      "estado": "pasa",
+      "segundos": 1.614
+    },
+    {
+      "caso": "test_pago_y_anulacion_documental_no_se_sobrescriben",
+      "estado": "pasa",
+      "segundos": 0.307
+    },
+    {
+      "caso": "test_factura_documental_ia_solo_tras_aprobar_y_reintenta",
+      "estado": "pasa",
+      "segundos": 0.362
+    },
+    {
+      "caso": "test_documentos_en_navegador",
+      "estado": "pasa",
+      "segundos": 13.899
+    },
+    {
+      "caso": "test_restricciones_sql_sin_api",
+      "estado": "pasa",
+      "segundos": 0.292
+    },
+    {
+      "caso": "test_seguridad_alta_acceso_transporte_y_auditoria",
+      "estado": "pasa",
+      "segundos": 1.573
+    },
+    {
+      "caso": "test_interconsulta_y_auditoria_son_atomicas",
+      "estado": "pasa",
+      "segundos": 0.633
+    },
+    {
+      "caso": "test_reportes_ia_y_auditoria_son_atomicos",
+      "estado": "pasa",
+      "segundos": 0.722
+    },
+    {
+      "caso": "test_navegador_ficha_identidad_y_correccion",
+      "estado": "pasa",
+      "segundos": 21.825
+    },
+    {
+      "caso": "test_agente_contexto_seudonimo_y_navegador",
+      "estado": "pasa",
+      "segundos": 23.045
+    },
+    {
+      "caso": "test_limites_del_agente_y_del_rag",
+      "estado": "pasa",
+      "segundos": 0.004
+    },
+    {
+      "caso": "test_taller_agente_imc_grasa_y_formatos",
+      "estado": "pasa",
+      "segundos": 0.027
+    },
+    {
+      "caso": "test_rag_citas_verificadas_y_evaluacion",
+      "estado": "pasa",
+      "segundos": 0.129
+    },
+    {
+      "caso": "test_rag_pgvector_sincroniza_corpus",
+      "estado": "pasa",
+      "segundos": 0.42
+    },
+    {
+      "caso": "test_rag_revision_api_y_navegador",
+      "estado": "pasa",
+      "segundos": 9.548
+    },
+    {
+      "caso": "test_observaciones_y_prediccion_validan_signos_coherentes",
+      "estado": "pasa",
+      "segundos": 0.639
+    },
+    {
+      "caso": "test_webhook_dirigido_y_reintento_atomico",
+      "estado": "pasa",
+      "segundos": 0.793
+    },
+    {
+      "caso": "test_toma_completa_y_revision_en_navegador",
+      "estado": "pasa",
+      "segundos": 10.432
+    },
+    {
+      "caso": "test_lote_descarta_pronostico_si_asiento_cierra",
+      "estado": "pasa",
+      "segundos": 0.389
+    },
+    {
+      "caso": "test_normativa_circulacion_bitacora",
+      "estado": "pasa",
+      "segundos": 1.253
+    },
+    {
+      "caso": "test_normativa_documento_y_limites",
+      "estado": "pasa",
+      "segundos": 1.086
+    },
+    {
+      "caso": "test_rechaza_observacion_fuera_del_perfil[dato0]",
+      "estado": "pasa",
+      "segundos": 0.002
+    },
+    {
+      "caso": "test_rechaza_observacion_fuera_del_perfil[dato1]",
+      "estado": "pasa",
+      "segundos": 0.001
+    },
+    {
+      "caso": "test_rechaza_observacion_fuera_del_perfil[dato2]",
+      "estado": "pasa",
+      "segundos": 0.001
+    },
+    {
+      "caso": "test_rechaza_observacion_fuera_del_perfil[dato3]",
+      "estado": "pasa",
+      "segundos": 0.001
+    },
+    {
+      "caso": "test_conserva_observacion_valida",
+      "estado": "pasa",
+      "segundos": 0.001
+    },
+    {
+      "caso": "test_tipos_de_bundle_no_son_intercambiables[transaction]",
+      "estado": "pasa",
+      "segundos": 0.001
+    },
+    {
+      "caso": "test_tipos_de_bundle_no_son_intercambiables[batch]",
+      "estado": "pasa",
+      "segundos": 0.001
+    },
+    {
+      "caso": "test_tipos_de_bundle_no_son_intercambiables[message]",
+      "estado": "pasa",
+      "segundos": 0.001
+    },
+    {
+      "caso": "test_tipos_de_bundle_no_son_intercambiables[document]",
+      "estado": "pasa",
+      "segundos": 0.001
+    },
+    {
+      "caso": "test_tipos_de_bundle_no_son_intercambiables[searchset]",
+      "estado": "pasa",
+      "segundos": 0.001
+    },
+    {
+      "caso": "test_collection_acepta_solo_referencias_consistentes",
+      "estado": "pasa",
+      "segundos": 0.001
+    },
+    {
+      "caso": "test_collection_no_ejecuta_operaciones_de_transaccion",
+      "estado": "pasa",
+      "segundos": 0.001
+    },
+    {
+      "caso": "test_collection_exige_snomed_de_remision",
+      "estado": "pasa",
+      "segundos": 0.001
+    },
+    {
+      "caso": "test_collection_no_acepta_nombre_en_la_identidad",
+      "estado": "pasa",
+      "segundos": 0.002
+    },
+    {
+      "caso": "test_encuentro_acepta_clase_clinica_del_perfil",
+      "estado": "pasa",
+      "segundos": 0.001
+    },
+    {
+      "caso": "test_salud_200_degradada_no_acredita_disponibilidad",
+      "estado": "pasa",
+      "segundos": 0.001
+    },
+    {
+      "caso": "test_css_html_o_desactualizado_no_acredita_frontend",
+      "estado": "pasa",
+      "segundos": 0.002
+    },
+    {
+      "caso": "test_contrato_declara_indicadores_y_r33_pendiente",
+      "estado": "pasa",
+      "segundos": 0.12
+    }
+  ],
+  "escenarios": {
+    "fechas_imposibles": [
+      {
+        "requisito": "L04",
+        "caso": "fechas_imposibles.nacimiento_futuro_422",
+        "estado": "pasa",
+        "detalle": "nacimiento futuro 422",
+        "http": 422
+      },
+      {
+        "requisito": "L04",
+        "caso": "fechas_imposibles.buscar_ficha_rechazada",
+        "estado": "pasa",
+        "detalle": "buscar ficha rechazada",
+        "http": 200
+      },
+      {
+        "requisito": "L04",
+        "caso": "fechas_imposibles.ficha_invalida_no_persistida",
+        "estado": "pasa",
+        "detalle": "ficha invalida no persistida",
+        "http": null
+      },
+      {
+        "requisito": "L04",
+        "caso": "fechas_imposibles.crear_ficha_valida",
+        "estado": "pasa",
+        "detalle": "crear ficha valida",
+        "http": 201
+      },
+      {
+        "requisito": "L04",
+        "caso": "fechas_imposibles.remisiones_antes",
+        "estado": "pasa",
+        "detalle": "remisiones antes",
+        "http": 200
+      },
+      {
+        "requisito": "L04",
+        "caso": "fechas_imposibles.solicitud_anterior_nacimiento_422",
+        "estado": "pasa",
+        "detalle": "solicitud anterior nacimiento 422",
+        "http": 422
+      },
+      {
+        "requisito": "L04",
+        "caso": "fechas_imposibles.solicitud_futura_422",
+        "estado": "pasa",
+        "detalle": "solicitud futura 422",
+        "http": 422
+      },
+      {
+        "requisito": "L04",
+        "caso": "fechas_imposibles.remisiones_despues",
+        "estado": "pasa",
+        "detalle": "remisiones despues",
+        "http": 200
+      },
+      {
+        "requisito": "L04",
+        "caso": "fechas_imposibles.remisiones_invalidas_no_persistidas",
+        "estado": "pasa",
+        "detalle": "remisiones invalidas no persistidas",
+        "http": null
+      }
+    ],
+    "gestiones_huerfanas": [
+      {
+        "requisito": "L04",
+        "caso": "gestiones_huerfanas.remision_inexistente_404",
+        "estado": "pasa",
+        "detalle": "remision inexistente 404",
+        "http": 404
+      },
+      {
+        "requisito": "L04",
+        "caso": "gestiones_huerfanas.bitacoras_antes",
+        "estado": "pasa",
+        "detalle": "bitacoras antes",
+        "http": 200
+      },
+      {
+        "requisito": "L04",
+        "caso": "gestiones_huerfanas.post_legado_huerfano_404",
+        "estado": "pasa",
+        "detalle": "post legado huerfano 404",
+        "http": 404
+      },
+      {
+        "requisito": "L04",
+        "caso": "gestiones_huerfanas.post_registro_huerfano_404",
+        "estado": "pasa",
+        "detalle": "post registro huerfano 404",
+        "http": 404
+      },
+      {
+        "requisito": "L04",
+        "caso": "gestiones_huerfanas.bitacoras_despues",
+        "estado": "pasa",
+        "detalle": "bitacoras despues",
+        "http": 200
+      },
+      {
+        "requisito": "L04",
+        "caso": "gestiones_huerfanas.mongo_no_crea_huerfanos",
+        "estado": "pasa",
+        "detalle": "mongo no crea huerfanos",
+        "http": null
+      }
+    ],
+    "conciliacion_202": [
+      {
+        "requisito": "R30",
+        "caso": "conciliacion_202.crear_socio_aislado",
+        "estado": "pasa",
+        "detalle": "crear socio aislado",
+        "http": 201
+      },
+      {
+        "requisito": "R30",
+        "caso": "conciliacion_202.token_sistema",
+        "estado": "pasa",
+        "detalle": "token sistema",
+        "http": 200
+      },
+      {
+        "requisito": "R30",
+        "caso": "conciliacion_202.pendientes_antes",
+        "estado": "pasa",
+        "detalle": "pendientes antes",
+        "http": 200
+      },
+      {
+        "requisito": "R30",
+        "caso": "conciliacion_202.observacion_desconocida_202",
+        "estado": "pasa",
+        "detalle": "observacion desconocida 202",
+        "http": 202
+      },
+      {
+        "requisito": "R30",
+        "caso": "conciliacion_202.respuesta_operationoutcome",
+        "estado": "pasa",
+        "detalle": "respuesta operationoutcome",
+        "http": null
+      },
+      {
+        "requisito": "R30",
+        "caso": "conciliacion_202.mensaje_repetido_409",
+        "estado": "pasa",
+        "detalle": "mensaje repetido 409",
+        "http": 409
+      },
+      {
+        "requisito": "R30",
+        "caso": "conciliacion_202.pendientes_202",
+        "estado": "pasa",
+        "detalle": "pendientes 202",
+        "http": 200
+      },
+      {
+        "requisito": "R30",
+        "caso": "conciliacion_202.un_pendiente_con_observacion",
+        "estado": "pasa",
+        "detalle": "un pendiente con observacion",
+        "http": null
+      },
+      {
+        "requisito": "R30",
+        "caso": "conciliacion_202.registrar_identidad_local",
+        "estado": "pasa",
+        "detalle": "registrar identidad local",
+        "http": 201
+      },
+      {
+        "requisito": "R30",
+        "caso": "conciliacion_202.crear_identidad_distinta",
+        "estado": "pasa",
+        "detalle": "crear identidad distinta",
+        "http": 201
+      },
+      {
+        "requisito": "R30",
+        "caso": "conciliacion_202.documento_incompatible_422",
+        "estado": "pasa",
+        "detalle": "documento incompatible 422",
+        "http": 422
+      },
+      {
+        "requisito": "R30",
+        "caso": "conciliacion_202.conciliacion_sin_rol_403",
+        "estado": "pasa",
+        "detalle": "conciliacion sin rol 403",
+        "http": 403
+      },
+      {
+        "requisito": "R30",
+        "caso": "conciliacion_202.conciliar_200",
+        "estado": "pasa",
+        "detalle": "conciliar 200",
+        "http": 200
+      },
+      {
+        "requisito": "R30",
+        "caso": "conciliacion_202.destino_local_y_una_observacion",
+        "estado": "pasa",
+        "detalle": "destino local y una observacion",
+        "http": null
+      },
+      {
+        "requisito": "R30",
+        "caso": "conciliacion_202.conciliar_idempotente_200",
+        "estado": "pasa",
+        "detalle": "conciliar idempotente 200",
+        "http": 200
+      },
+      {
+        "requisito": "R30",
+        "caso": "conciliacion_202.repeticion_sin_duplicados",
+        "estado": "pasa",
+        "detalle": "repeticion sin duplicados",
+        "http": null
+      },
+      {
+        "requisito": "R30",
+        "caso": "conciliacion_202.pendientes_finales",
+        "estado": "pasa",
+        "detalle": "pendientes finales",
+        "http": 200
+      },
+      {
+        "requisito": "R30",
+        "caso": "conciliacion_202.pendiente_resuelto",
+        "estado": "pasa",
+        "detalle": "pendiente resuelto",
+        "http": null
+      },
+      {
+        "requisito": "R30",
+        "caso": "conciliacion_202.historia_local",
+        "estado": "pasa",
+        "detalle": "historia local",
+        "http": 200
+      },
+      {
+        "requisito": "R30",
+        "caso": "conciliacion_202.observacion_conservada_en_historia",
+        "estado": "pasa",
+        "detalle": "observacion conservada en historia",
+        "http": null
+      }
+    ]
+  },
+  "comando_publico": "python scripts/verificar_entrega_publica.py --navegador --salida ../evidencia-trazared/sustentacion-2026-11-17/publico.json",
+  "verificacion_publica": {
+    "fecha_utc": "2026-11-17T20:50:30.553268+00:00",
+    "url": "https://trazared.kogcake.com",
+    "revision_local": "f5ced796fb98f870f3cf068afcf8cda6fcc4e297",
+    "cambios_locales": true,
+    "alcance": "GET anónimos y navegador sin sesión; hashes de frontend. No acredita backend idéntico, roles autenticados ni R33.",
+    "resultados": [
+      {
+        "requisito": "L03",
+        "caso": "salud_completa",
+        "estado": "pasa",
+        "http": 200
+      },
+      {
+        "requisito": "L04",
+        "caso": "api_exige_sesion",
+        "estado": "pasa",
+        "http": 401
+      },
+      {
+        "requisito": "L04",
+        "caso": "hapi_protegido",
+        "estado": "pasa",
+        "http": 404
+      },
+      {
+        "requisito": "L04",
+        "caso": "openapi_flujos_actuales",
+        "estado": "pasa",
+        "http": 200
+      },
+      {
+        "requisito": "L03",
+        "caso": "recurso:/index.html",
+        "estado": "pasa",
+        "http": 200,
+        "sha256_local": "9256a162f689c3ae0aab16871aa8b6e03d09f5622ec28dee064832952d221d5d"
+      },
+      {
+        "requisito": "L03",
+        "caso": "recurso:/privacidad.html",
+        "estado": "pasa",
+        "http": 200,
+        "sha256_local": "080c36831d5edf1538c4838b61661c8f4b8186e5e6b873cd9822a664164c8248"
+      },
+      {
+        "requisito": "L03",
+        "caso": "recurso:/css/agrupacion.css",
+        "estado": "pasa",
+        "http": 200,
+        "sha256_local": "abc42387ebe6f7a3dba51d3505d8295f582703d94c5aa15039c1a380b5b6a4a8"
+      },
+      {
+        "requisito": "L03",
+        "caso": "recurso:/css/asistente.css",
+        "estado": "pasa",
+        "http": 200,
+        "sha256_local": "246411dcf3117d368eaddaf6e293a08582111889cb9d04159d0c668f68d58d05"
+      },
+      {
+        "requisito": "L03",
+        "caso": "recurso:/css/burbuja.css",
+        "estado": "pasa",
+        "http": 200,
+        "sha256_local": "3150965e8cac2fd9021598ac767b94759933699a49994abf6f501ac0bc5b4daf"
+      },
+      {
+        "requisito": "L03",
+        "caso": "recurso:/css/estilos.css",
+        "estado": "pasa",
+        "http": 200,
+        "sha256_local": "d070fc7b75b7cfc4b85b5cae5e0f0b06d2f68169483de4fb840758e803bdff56"
+      },
+      {
+        "requisito": "L03",
+        "caso": "recurso:/css/final.css",
+        "estado": "pasa",
+        "http": 200,
+        "sha256_local": "4d4b7fdf9295d4d897bece73452a3c2efd167c60a8fd63b906a81105726107a0"
+      },
+      {
+        "requisito": "L03",
+        "caso": "recurso:/css/reactivo.css",
+        "estado": "pasa",
+        "http": 200,
+        "sha256_local": "a2256c2809d897b89b71bdea74e53e65522a9338effb32daf057b76bd16bc64d"
+      },
+      {
+        "requisito": "L03",
+        "caso": "recurso:/css/registro.css",
+        "estado": "pasa",
+        "http": 200,
+        "sha256_local": "83544b60172b39fa594be1112deffd54c233a24d72bae7ecc4762cbe068bda33"
+      },
+      {
+        "requisito": "L03",
+        "caso": "recurso:/css/visor.css",
+        "estado": "pasa",
+        "http": 200,
+        "sha256_local": "7245a8982a5b1a7dbb51746a3586823354a49073a74ffb13c2360c1706983402"
+      },
+      {
+        "requisito": "L03",
+        "caso": "recurso:/js/agrupacion.js",
+        "estado": "pasa",
+        "http": 200,
+        "sha256_local": "9307c5315c90dc2f2532e264e88a45914d536f23ad88effac3b81a1181abb481"
+      },
+      {
+        "requisito": "L03",
+        "caso": "recurso:/js/agrupacion_rendimiento.js",
+        "estado": "pasa",
+        "http": 200,
+        "sha256_local": "e0562c08bd018578e69098d9e4a2ca4e16e4b275b5d0a4df30e0240ca5807570"
+      },
+      {
+        "requisito": "L03",
+        "caso": "recurso:/js/alertas.js",
+        "estado": "pasa",
+        "http": 200,
+        "sha256_local": "2f15ad788d0572765101859f20a23e7bc76177e27ace96126fab2892d641f680"
+      },
+      {
+        "requisito": "L03",
+        "caso": "recurso:/js/api.js",
+        "estado": "pasa",
+        "http": 200,
+        "sha256_local": "a67bd47ba4e48daec41f2dd3a597df6c141fce37abddc14d6eacb1aa65802f6f"
+      },
+      {
+        "requisito": "L03",
+        "caso": "recurso:/js/app.js",
+        "estado": "pasa",
+        "http": 200,
+        "sha256_local": "bfcb433eb2a03cb0e6fd2e1f174b64b7d2484d5f906f9d43f9d6e5b1c9d3df2a"
+      },
+      {
+        "requisito": "L03",
+        "caso": "recurso:/js/asistente.js",
+        "estado": "pasa",
+        "http": 200,
+        "sha256_local": "d932e9146b6556e196b88e00ce7558b3fbe6516c08fc8cc7afdeb29a065d6a44"
+      },
+      {
+        "requisito": "L03",
+        "caso": "recurso:/js/burbuja.js",
+        "estado": "pasa",
+        "http": 200,
+        "sha256_local": "048a72d08855c529002c40a432ad44a0837465d165432676b23014fd6e053bbe"
+      },
+      {
+        "requisito": "L03",
+        "caso": "recurso:/js/eventos.js",
+        "estado": "pasa",
+        "http": 200,
+        "sha256_local": "e320a477b860c0d9effd19e11a401651feebe21c3f2d32c488dcbbb44a2b6968"
+      },
+      {
+        "requisito": "L03",
+        "caso": "recurso:/js/interop.js",
+        "estado": "pasa",
+        "http": 200,
+        "sha256_local": "0640f57b5ddc5227d2714e4d35b7f83346240a4cf6736f82f227c73c9b64c070"
+      },
+      {
+        "requisito": "L03",
+        "caso": "recurso:/js/notificaciones.js",
+        "estado": "pasa",
+        "http": 200,
+        "sha256_local": "410f44241953ed0ab51df570d2e98adcac848e9ed55c42c43e0cbe7a5c7e4dee"
+      },
+      {
+        "requisito": "L03",
+        "caso": "recurso:/js/prediccion.js",
+        "estado": "pasa",
+        "http": 200,
+        "sha256_local": "ca2a5dee01ceecce7b664c04b3bf5987e31f0e6b4ce075a0997d9e2ee8e56ed8"
+      },
+      {
+        "requisito": "L03",
+        "caso": "recurso:/js/recuperacion.js",
+        "estado": "pasa",
+        "http": 200,
+        "sha256_local": "440ed68c63887b26afb1da2aed89ccb0dc788aae168a6ea2197f09121919eb5f"
+      },
+      {
+        "requisito": "L03",
+        "caso": "recurso:/js/registro.js",
+        "estado": "pasa",
+        "http": 200,
+        "sha256_local": "bef5efb1882ab3b9ac392f277677d72cff388ed1f450ebbaefdd5ee10bd52e7e"
+      },
+      {
+        "requisito": "L03",
+        "caso": "recurso:/js/revision.js",
+        "estado": "pasa",
+        "http": 200,
+        "sha256_local": "1e2ce09f51080e58230e6650975c9dd723bacbe46880091756913082f4f7349f"
+      },
+      {
+        "requisito": "L03",
+        "caso": "recurso:/js/seguridad.js",
+        "estado": "pasa",
+        "http": 200,
+        "sha256_local": "9d23956799513956bc41241a6b54292e7ec2e882c6aeb8046d392795e229a853"
+      },
+      {
+        "requisito": "L03",
+        "caso": "recurso:/js/tablero.js",
+        "estado": "pasa",
+        "http": 200,
+        "sha256_local": "fe1cb3b7e3bd3bc5546c78acb875a045b43fd4b55020905513b0554b57f437d4"
+      },
+      {
+        "requisito": "L03",
+        "caso": "recurso:/js/visor.js",
+        "estado": "pasa",
+        "http": 200,
+        "sha256_local": "70b3a54663dbb7be2e24e29f21a19fab186d2e4cf976a5c42c639515f5243e04"
+      },
+      {
+        "requisito": "L03",
+        "caso": "recurso:/js/voz.js",
+        "estado": "pasa",
+        "http": 200,
+        "sha256_local": "2f51d6ccfb34c304ee55f7c5cb5ad817fd31e317c3e25acb41f25fce738cfc4c"
+      },
+      {
+        "requisito": "L04",
+        "caso": "spa:/",
+        "estado": "pasa",
+        "http": null,
+        "recursos": 26,
+        "captura": "entrada-publica-0.png"
+      },
+      {
+        "requisito": "L04",
+        "caso": "spa:/index.html",
+        "estado": "pasa",
+        "http": null,
+        "recursos": 26,
+        "captura": "entrada-publica-1.png"
+      },
+      {
+        "requisito": "L04",
+        "caso": "spa:/app",
+        "estado": "pasa",
+        "http": null,
+        "recursos": 26,
+        "captura": "entrada-publica-2.png"
+      },
+      {
+        "requisito": "L04",
+        "caso": "spa:/app/",
+        "estado": "pasa",
+        "http": null,
+        "recursos": 26,
+        "captura": "entrada-publica-3.png"
+      },
+      {
+        "requisito": "L04",
+        "caso": "spa:/app/index.html?origen=prueba",
+        "estado": "pasa",
+        "http": null,
+        "recursos": 26,
+        "captura": "entrada-publica-4.png"
+      },
+      {
+        "requisito": "L04",
+        "caso": "spa:/libro/remisiones/",
+        "estado": "pasa",
+        "http": null,
+        "recursos": 26,
+        "captura": "entrada-publica-5.png"
+      },
+      {
+        "requisito": "L05",
+        "caso": "R33_equipo_real",
+        "estado": "pendiente",
+        "motivo": "Sin implementar ni ejecutar hasta nueva orden"
+      }
+    ]
+  },
+  "despliegue": {
+    "trazared_api": {
+      "imagen_id": "sha256:a2bc8d0cbfbc8a01ec5f70098c5e2611250312b93a1b70db486032d732e2ef5f",
+      "fuentes_coincidentes": 40,
+      "dependencias_fijadas_coincidentes": 79
+    },
+    "trazared_ml": {
+      "imagen_id": "sha256:fb31eb6673813134aa9ffd55b37eb9d0555690b90665649180af05d7159ac918",
+      "fuentes_coincidentes": 4,
+      "dependencias_fijadas_coincidentes": 25
+    }
+  },
+  "ml_desplegado": [
+    {
+      "caso": "inferencia_sintetica",
+      "http": 200,
+      "estado": "pasa"
+    },
+    {
+      "caso": "presion_incoherente",
+      "http": 422,
+      "estado": "pasa"
+    },
+    {
+      "caso": "modelo_remisiones",
+      "http": 200,
+      "estado": "pasa"
+    }
+  ],
+  "compose": "Raíz y compatibilidad equivalentes; mismos servicios y volúmenes. Siete imágenes externas coinciden con los digests fijados.",
+  "limites": [
+    "L05/R33 pendiente por orden expresa; no se contactó otro equipo.",
+    "El tester completo con cuentas públicas no se ejecutó en esta tarea.",
+    "Las regresiones autenticadas usan motores efímeros y servicios externos aislados o simulados.",
+    "La disponibilidad corresponde a la fecha de esta comprobación, sin garantía futura.",
+    "Acceso docente, entrega privada de credenciales y ensayo cronometrado requieren coordinación humana."
+  ],
+  "sha256_fuentes": {
+    "db/migracion_persona3.sql": "697342b4946341de9d852beb2d44b722fac19b09783fa1f0ec579b50e03e7000",
+    "db/schema.sql": "8486402e1f6137cfa3489d949bdceb3527248bc8336807d524bd2621e70e13d3",
+    "docker-compose.yml": "cb12e3c6df457f7452168374c84cc194e6d9ca7daf64054b03c0bfdbb8b34c15",
+    "frontend/css/agrupacion.css": "abc42387ebe6f7a3dba51d3505d8295f582703d94c5aa15039c1a380b5b6a4a8",
+    "frontend/css/asistente.css": "246411dcf3117d368eaddaf6e293a08582111889cb9d04159d0c668f68d58d05",
+    "frontend/css/burbuja.css": "3150965e8cac2fd9021598ac767b94759933699a49994abf6f501ac0bc5b4daf",
+    "frontend/css/estilos.css": "d070fc7b75b7cfc4b85b5cae5e0f0b06d2f68169483de4fb840758e803bdff56",
+    "frontend/css/final.css": "4d4b7fdf9295d4d897bece73452a3c2efd167c60a8fd63b906a81105726107a0",
+    "frontend/css/reactivo.css": "a2256c2809d897b89b71bdea74e53e65522a9338effb32daf057b76bd16bc64d",
+    "frontend/css/registro.css": "83544b60172b39fa594be1112deffd54c233a24d72bae7ecc4762cbe068bda33",
+    "frontend/css/visor.css": "7245a8982a5b1a7dbb51746a3586823354a49073a74ffb13c2360c1706983402",
+    "frontend/index.html": "9256a162f689c3ae0aab16871aa8b6e03d09f5622ec28dee064832952d221d5d",
+    "frontend/js/agrupacion.js": "9307c5315c90dc2f2532e264e88a45914d536f23ad88effac3b81a1181abb481",
+    "frontend/js/agrupacion_rendimiento.js": "e0562c08bd018578e69098d9e4a2ca4e16e4b275b5d0a4df30e0240ca5807570",
+    "frontend/js/alertas.js": "2f15ad788d0572765101859f20a23e7bc76177e27ace96126fab2892d641f680",
+    "frontend/js/api.js": "a67bd47ba4e48daec41f2dd3a597df6c141fce37abddc14d6eacb1aa65802f6f",
+    "frontend/js/app.js": "bfcb433eb2a03cb0e6fd2e1f174b64b7d2484d5f906f9d43f9d6e5b1c9d3df2a",
+    "frontend/js/asistente.js": "d932e9146b6556e196b88e00ce7558b3fbe6516c08fc8cc7afdeb29a065d6a44",
+    "frontend/js/burbuja.js": "048a72d08855c529002c40a432ad44a0837465d165432676b23014fd6e053bbe",
+    "frontend/js/eventos.js": "e320a477b860c0d9effd19e11a401651feebe21c3f2d32c488dcbbb44a2b6968",
+    "frontend/js/interop.js": "0640f57b5ddc5227d2714e4d35b7f83346240a4cf6736f82f227c73c9b64c070",
+    "frontend/js/notificaciones.js": "410f44241953ed0ab51df570d2e98adcac848e9ed55c42c43e0cbe7a5c7e4dee",
+    "frontend/js/prediccion.js": "ca2a5dee01ceecce7b664c04b3bf5987e31f0e6b4ce075a0997d9e2ee8e56ed8",
+    "frontend/js/recuperacion.js": "440ed68c63887b26afb1da2aed89ccb0dc788aae168a6ea2197f09121919eb5f",
+    "frontend/js/registro.js": "bef5efb1882ab3b9ac392f277677d72cff388ed1f450ebbaefdd5ee10bd52e7e",
+    "frontend/js/revision.js": "1e2ce09f51080e58230e6650975c9dd723bacbe46880091756913082f4f7349f",
+    "frontend/js/seguridad.js": "9d23956799513956bc41241a6b54292e7ec2e882c6aeb8046d392795e229a853",
+    "frontend/js/tablero.js": "fe1cb3b7e3bd3bc5546c78acb875a045b43fd4b55020905513b0554b57f437d4",
+    "frontend/js/visor.js": "70b3a54663dbb7be2e24e29f21a19fab186d2e4cf976a5c42c639515f5243e04",
+    "frontend/js/voz.js": "2f51d6ccfb34c304ee55f7c5cb5ad817fd31e317c3e25acb41f25fce738cfc4c",
+    "frontend/privacidad.html": "080c36831d5edf1538c4838b61661c8f4b8186e5e6b873cd9822a664164c8248",
+    "ml/Dockerfile": "a610ecf01d9db3b225c08b4931d0e924384a74608ef1f9213f926f7f1694893d",
+    "ml/agrupacion.py": "9bcd1149b20bc8fbe217395bd818f7ac6d2b688dd4fa9618ab70ea2311c9c856",
+    "ml/entrenar.py": "58063c1be28cbcffbfe3fc80b0eae1a642e20e087832b428757e2c55e132dffd",
+    "ml/main.py": "a63fb3d893ec172b1a726362c6085699508f703352c3eba2f81ad2656f87db0b",
+    "ml/remisiones_modelo.py": "e27f86e4b4ce1b3f6236adee32ac9d7f4efb2416d995201e1102506c6fb71a64",
+    "ml/requirements.lock.txt": "2c23baa6e37aab07dc665ee4b27aafd848adf06b1f61717383fe551aa88475b6",
+    "ml/requirements.txt": "1040824036a6b9f8a56b97012527eecc687df5c3a9bbddcd6a36d661736441cd",
+    "pruebas/probar_front_publico.py": "84573d4e85627fd5aba9a0446cc911ea2f80e81c35433c436a841c89bf9d1289",
+    "pruebas/requirements.txt": "f57ced29f36b34642224a275db3496529ffc9d64d9c6c886271fdbb301c2e1a7",
+    "pruebas/test_entregable.py": "8c786273dc5f7e9ef7ea27e895207e857b365e67c60bda37bfab57d03d554d37",
+    "pruebas/test_fhir.py": "0dc938740213030b3b7ab18aca3245cda67ec23337ee557e1ee21abc54c4df8f",
+    "pruebas/test_integridad.py": "17f94add98b999c307854a6032dad7cc7ec529790f609c31afe50cceb9fcb1df",
+    "python/Dockerfile": "12f40157589b9527c819d57c2079e75399b96719f9139c2538b8098e67aaef41",
+    "python/agente/__init__.py": "8e3cc74fe7e74b0395e2266f2c364155abdee14d79de19ca7acdb0431ae5b719",
+    "python/agente/harness.py": "979b2514e53b62ed7b5c4d2219a6537fb56fe76f33eba1f98211ab9c95bd8683",
+    "python/agente/herramientas.py": "013d8ad66c96348514c8ccd885609b8ce17195a806034dff57f0173383e13463",
+    "python/agente/modelo.py": "c223a6f30c7700f4778c6d08ab16d02baa4be131c23ec7db8cc0d8f5ab4d94bc",
+    "python/agente/prompt.py": "00730a9f0d11a5302339c40077d143b87934b0ad245c40683d4b7a49e454928b",
+    "python/agente/router.py": "3d94e06df1724b179f5e25bc918875efd56389e434435b3d40c20dbaf9a49457",
+    "python/agente/simulado.py": "a5f168203ec7b1b1a7d1750ef886ab4e12a15f845f44b52747f7112fe1214789",
+    "python/agente/skills.py": "3c9ab0a7ad800460e8a7bdaf32d3b8364055bf68e0059f5c074c9d5359fd71ad",
+    "python/auth.py": "9032eeb11caaff9191793b5167c23a4695f93e9aec9f8c6fab3817f159d02e17",
+    "python/cargar_dataset.py": "149f2459f05ba5e65c9207f02088ec7fd39907e0ab57e68bc02b57ebf4cef8fd",
+    "python/causas.py": "c0bd2c9d4fc9b9a433ce985db70bff5140dd5c92bb3b91b9ef35ddfd736c137c",
+    "python/contabilidad.py": "b50e34293adc4c0a02e8b3d8507a4c6137d862e6c603fdf9ce9c901677a83964",
+    "python/cripto.py": "13010ba12aab9be825a0a1511b7e23c90c13d770d6e04b44da21c772a16415b2",
+    "python/documento_clinico.py": "4af4b28dd67e68257f2a9717e58c72dfc553bb18a4529e40e7e59c8f12f77244",
+    "python/eventos.py": "0cf129552dd8d0bffdd5ea3b4c0018461ae951a91c7bea1cb5f03a8fbe74f55b",
+    "python/exportes.py": "afb4a5c0cdf68cc0a5ed01cc33534af556e02702c1e18082722472e43d600e07",
+    "python/fhir_sync.py": "e0704e62cdbbb4f93c846ca02536ac65d0afaa11d5bb0ce2a79148c9502a0159",
+    "python/historia.py": "7b6456eafcca8052b4fff8f71cbbd6f76b2011d9f6cd42b8d9a1506a7b64fb4b",
+    "python/ia.py": "e86d8eee93a9a361751fc50a0d9355c8af184aacdc21355f4ca99c25aef00ae6",
+    "python/interop.py": "0854d8568116595026d721f64a2ded0230431f366dee81c4128f0c46243cc9a5",
+    "python/interop_perfil.py": "a534ecdb330d5dc67e911000fe791ab82ba30d1c8347ed094a613a281264429b",
+    "python/libro.py": "7d70e2369c3af0691f3eecf787243a9ae46b1d09eeb82da0983eec037bf86bd2",
+    "python/main.py": "eaabe15cf791a006dd9e849f714e1910b2c0dc12b9ec36f6e0751920a79eaa58",
+    "python/pacs.py": "27105b4254f1fbd46ac60f61a7e846ce5a049f7236f8b3e8df170faa1902a789",
+    "python/rag/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "python/rag/evaluacion.py": "c0581b6bdde7d178fac89c79fbadd857e0d090b4bb6c38af70d1344ca145ff98",
+    "python/rag/evaluacion_generacion.py": "76dbaeea2723d70426914d2a702ba65113f9a8cb6b6e9c5b49ddf4a111091a52",
+    "python/rag/motor.py": "524cfac0f7606ea6e3c5ed12570899b9bb9455465b96adab7b14ac304bfa12f1",
+    "python/rag/router.py": "efef68ef718c82b5a022b2cf138f06eee96389dfe280f721d2dd82c669eb2c5b",
+    "python/reactividad.py": "b6a6019bf502d3fab82e58d42dbc49b51e3454134ac2524aa7c5809be01d4456",
+    "python/recuperacion.py": "8c97a5553f28d9cad5f457b86e250e6b4076f7782878ba78f8b02fd07341f203",
+    "python/registro.py": "eaad4c0db31b9e39016731af20f12d297608c6f1fbe46bd1587beb18f0d5b87a",
+    "python/remisiones.py": "82f911891ccf5cc29bfb97c9a7d224c79b3f52c055526494a4478880546e9b4a",
+    "python/seguridad.py": "7020e0d0e2ea202e9c6f881b054d88c1093695cbd73a2ca047240619904fc228",
+    "python/sembrar_imagenes.py": "2d408eed8eda331329db450cd795e2eaa4466f06e3569ec5a218d92dc141599f",
+    "python/sembrar_imagenes_reales.py": "724ebb35f1b2fe58d7120544d574db03d15872ecc1c25301b049330788b5574c",
+    "python/tablero.py": "8baf397a247c702b5605ab37689b4cf8410e6e34af416489db6613a30b3ade2d",
+    "python/validacion_clinica.py": "67ff03614f554d7ef0493b3d7643933cc139b8511f4492f67d0a4ff91dc18e90",
+    "python/validaciones.py": "1918cf75ef34e75d48673ace964b705a29c6bdaf3936eb28c7f4c5299d8e46d6",
+    "python/voz.py": "9e1964121db4f29029cc74a95af2f83fe79350519e649096d3b7212015c607c4",
+    "requirements-api.lock.txt": "25b3769f8e42ae7f189d06b413d2bc158da460e25f6d5aa7105895d98deb08da",
+    "requirements.txt": "211f1a1b822293f116285401eb9ced05edcfdb3bde196d6b7280e8120c129aec",
+    "scripts/escenarios_integridad.py": "54af21d97a579e04b7a990c7bb3d8fcad980e1c4b2c6e98676303ac57417d73d",
+    "scripts/preparar_tester.py": "cb61c97ebea5ae766c8b6e8afd349f7a5c130acd943aaf232e8084221cbc02a2",
+    "scripts/probar_integracion.sh": "ac6c6668097a1de35610857040a75998262b2f32b5c31d81c2bd6620451a51e8",
+    "scripts/respaldo.sh": "e189d74a9fa6cf6589a6a6c69c6cc69e9a0bb15f9de2bf30104afa18ee47f96d",
+    "scripts/verificar_entrega_publica.py": "fe3bea1a1e46288fee7a8394980e3e51922bb33009c0be3e0337d8566693ad83",
+    "scripts/verificar_tester.py": "f1c0c81eb4e0e9d0cf39374a7540e6afc3339e2e02bb966be50346d0149789aa",
+    "tester.yaml": "ab86b5ff673921dfda09d60f8826c91c3ada890b69c1701f2f8682f53885d710"
+  }
+}
