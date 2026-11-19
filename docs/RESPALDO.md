@@ -24,3 +24,13 @@ Usa un entorno aislado con imágenes compatibles y volúmenes nuevos. El Compose
 4. Levanta los servicios. Comprueba que se puede buscar un paciente autorizado por documento, abrir su historial y un adjunto DICOM previo, consultar la bitácora y una factura, verificar la cadena de auditoría y consultar por su identificador un recurso de HAPI. Comprueba también que ML carga el modelo recuperado.
 
 En una instalación con PostgreSQL, MongoDB o PACS externos, toma las copias en esas instancias mediante sus herramientas administradas. Este script apunta a los servicios y volúmenes locales de Compose.
+
+## Simulacro del 19 de noviembre de 2026
+
+Se ejecutaron `crear` y `restaurar` entre dos proyectos Compose desechables,
+con datos sintéticos. Coincidieron las cinco huellas del manifiesto. Se
+consultó el registro de control en PostgreSQL y MongoDB, se volvió a leer el
+`Patient` por REST en HAPI y se descargó de Orthanc el mismo DICOM byte a byte.
+Orthanc devolvió 401 sin autenticación. Los dos archivos de modelo en el
+volumen de destino coincidieron con el respaldo y el modelo de remisiones
+del respaldo produjo un pronóstico de prueba.

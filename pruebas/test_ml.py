@@ -59,6 +59,16 @@ class EvaluacionML(unittest.TestCase):
         self.assertEqual(e["radicacion"]["n"], len(prueba))
         fotos = rem.fotos_de_gestion(prueba, contactos)
         self.assertEqual(e["gestion"]["n"], fotos.remision_ref.nunique())
+        manifiesto = e["manifiesto"]
+        self.assertEqual(manifiesto["archivos_sha256"], {
+            nombre: hashlib.sha256((rem.DATOS / nombre).read_bytes()).hexdigest()
+            for nombre in rem.ARCHIVOS_DATOS
+        })
+        self.assertEqual(manifiesto["radicacion"], prueba.remision_ref.tolist())
+        self.assertEqual(manifiesto["gestion"], [
+            {"remision_ref": referencia, "contactos_incluidos": 1}
+            for referencia in fotos.remision_ref.drop_duplicates()
+        ])
         base = set(rem.COLS_NUM + rem.COLS_CAT + rem.COLS_BIN)
         for etapa, columnas in (("radicacion", base), ("gestion", base | set(rem.COLS_GESTION))):
             resultados = e["permutacion"][etapa]

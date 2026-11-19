@@ -117,12 +117,25 @@ def main():
     parser.add_argument("--generacion-llm", action="store_true",
                         help="Usa el proveedor configurado para seleccionar pasajes del corpus público.")
     args = parser.parse_args()
+    if args.generacion_llm and not os.getenv("GROQ_API_KEY"):
+        parser.error("--generacion-llm requiere configurar el proveedor del selector")
+    if args.juez and not os.getenv("OPENAI_API_KEY"):
+        parser.error("--juez requiere configurar el proveedor del juez RAGAS")
     if not args.generacion_llm:
         os.environ.pop("GROQ_API_KEY", None)
     os.environ["RAGAS_DO_NOT_TRACK"] = "true"
     filas = recolectar()
     informe = {"fecha_utc": datetime.now(timezone.utc).isoformat(), "revision_corpus": motor.REVISION_CORPUS,
                "embeddings": motor.EMBEBER.nombre, "casos": filas}
+    if args.generacion_llm:
+        intentos = [fila for fila in filas if fila["contextos"]]
+        respaldos = [fila for fila in intentos if fila["modo"] == "extractivo"]
+        informe["selector"] = {
+            "modelo": os.getenv("GROQ_MODEL", os.getenv("MODELO_GROQ", "qwen/qwen3-32b")),
+            "casos_con_contexto": len(intentos), "casos_con_respaldo": len(respaldos),
+        }
+        for fila in respaldos:
+            fila["fallas"].append("selector_uso_respaldo_extractivo")
     try:
         if args.rouge:
             informe["resumen_rouge_l"] = puntuar_rouge(filas)
@@ -133,6 +146,13 @@ def main():
         args.salida.write_text(json.dumps(informe, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     total_fallas = sum(bool(fila["fallas"]) for fila in filas)
     print(f"{len(filas)} casos · {total_fallas} con fallas · informe en {args.salida}")
+    if args.generacion_llm and (not intentos or respaldos):
+        raise SystemExit("La evaluación del selector quedó incompleta. Consulta el informe guardado.")
+    if args.juez and (
+        not any(fila["referencia"] and fila["modo"] != "abstencion" for fila in filas)
+        or any("error_del_juez" in fila["fallas"] for fila in filas)
+    ):
+        raise SystemExit("La evaluación RAGAS quedó incompleta. Consulta el informe guardado.")
 
 
 if __name__ == "__main__":

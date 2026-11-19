@@ -651,6 +651,23 @@ escenarios_integridad:
       - {metodo: POST, path: "/registro/remisiones/{id}/gestiones", espera_codigo: 404}
       - {metodo: GET, path: /gestiones-contacto, espera_codigo: 200, indicador: sin_nuevas_bitacoras}
     indicadores: [mongo_no_crea_huerfanos]
+  catalogo_y_transiciones:
+    requisito: L04
+    rol_requerido: [admin]
+    pasos:
+      - {metodo: POST, path: /remisiones, espera_codigo: 422, variante: institucion_invalida}
+      - {metodo: POST, path: /remisiones, espera_codigo: 422, variante: estado_inicial_invalido}
+      - {metodo: POST, path: /remisiones, espera_codigo: 201, variante: estado_pendiente}
+      - {metodo: PUT, path: "/remisiones/{id}", espera_codigo: 409, variante: salto_de_estado}
+    indicadores: [solo_una_remision_pendiente]
+  semantica_fhir:
+    requisito: L04
+    rol_requerido: [admin]
+    pasos:
+      - {metodo: POST, path: /interop/Bundle, espera_codigo: 422, variante: presiones_incoherentes}
+      - {metodo: POST, path: /interop/Bundle, espera_codigo: 422, variante: unidad_incompatible}
+      - {metodo: POST, path: /interop/Bundle, espera_codigo: 422, variante: snomed_fuera_del_perfil}
+    indicadores: [presiones_incoherentes_operationoutcome, unidad_incompatible_operationoutcome, snomed_fuera_del_perfil_operationoutcome]
   conciliacion_202:
     requisito: R30
     rol_requerido: [admin, medico]

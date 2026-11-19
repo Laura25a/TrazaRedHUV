@@ -20,7 +20,8 @@ import psycopg2.extras
 from langchain.agents import create_agent
 from langchain.agents.middleware import (AgentMiddleware, HumanInTheLoopMiddleware,
                                          ModelCallLimitMiddleware, ModelRequest, dynamic_prompt)
-from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
+from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
+from langchain_core.messages.utils import count_tokens_approximately
 from langgraph.errors import GraphBubbleUp
 from langgraph.types import Command
 
@@ -34,6 +35,7 @@ MAX_PASOS_MODELO = 8          # ModelCallLimit: un modelo confundido no pide her
 HERRAMIENTAS_CON_APROBACION = {"proponer_remision"}
 VENTANA_MENSAJES = 14
 MAX_CONTEXT_BYTES = 24000
+MAX_CONTEXT_TOKENS_ESTIMADOS = 6500
 RETENCION_PAYLOAD_DIAS = 30
 
 
@@ -176,6 +178,14 @@ def _payload_llm(request) -> dict:
     return {"sistema": str(sistema or ""), "mensajes": mensajes}
 
 
+def _tokens_contexto(request, sistema):
+    mensaje = getattr(request, "system_message", None) or SystemMessage(content=sistema)
+    return count_tokens_approximately(
+        [mensaje, *request.messages], tools=getattr(request, "tools", None),
+        chars_per_token=2.5, extra_tokens_per_message=6,
+    )
+
+
 class RegistroLLM(AgentMiddleware):
     """Cada llamada al modelo deja en agente_invocaciones el payload seudonimizado que
     se envió, y una fila en la auditoría. Así se puede comprobar, dato por dato, que
@@ -187,6 +197,10 @@ class RegistroLLM(AgentMiddleware):
         try:
             from auth import registrar_auditoria
             payload = _payload_llm(request)
+            payload["presupuesto_contexto"] = {
+                "tokens_entrada_estimados": _tokens_contexto(request, payload["sistema"]),
+                "limite_tokens_entrada": MAX_CONTEXT_TOKENS_ESTIMADOS,
+            }
             conn = psycopg2.connect(PG_CONNECTION_STRING, connect_timeout=5)
             try:
                 cur = conn.cursor()
@@ -228,8 +242,9 @@ class VentanaContexto(AgentMiddleware):
         # Retira turnos completos para conservar cada llamada junto con sus resultados.
         for inicio in [i for i in inicios if i >= corte or i == inicios[-1]]:
             candidato = request.override(messages=mensajes[inicio:])
-            tamano = len(json.dumps(_payload_llm(candidato), ensure_ascii=False).encode("utf-8"))
-            if tamano <= MAX_CONTEXT_BYTES:
+            payload = _payload_llm(candidato)
+            tamano = len(json.dumps(payload, ensure_ascii=False).encode("utf-8"))
+            if tamano <= MAX_CONTEXT_BYTES and _tokens_contexto(candidato, payload["sistema"]) <= MAX_CONTEXT_TOKENS_ESTIMADOS:
                 return candidato
         raise ContextoExcedido
 

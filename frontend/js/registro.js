@@ -650,6 +650,10 @@ async function vistaPronosticos() {
         Prueba sintética del ${esc(temporal.corte)} al ${esc(temporal.fin_prueba)}.</p>
       <p>AUC al radicar: <strong>${agrNum(temporal.radicacion.auc, 3)}</strong> (${temporal.radicacion.n} remisiones).
         AUC tras el primer contacto: <strong>${agrNum(temporal.gestion.auc, 3)}</strong> (${temporal.gestion.n} remisiones).</p>
+      ${temporal.manifiesto ? `<details><summary>Huellas de los datos de prueba</summary>
+        <ul>${Object.entries(temporal.manifiesto.archivos_sha256).map(([archivo, sha]) =>
+          `<li>${esc(archivo)} <code style="overflow-wrap:anywhere">${esc(sha)}</code></li>`).join("")}</ul>
+      </details>` : ""}
       <details><summary>Importancia por permutación en la prueba temporal</summary>
         <p>La caída de AUC mide cuánto cambia el rendimiento al mezclar una variable. Las gráficas anteriores muestran el peso interno de XGBoost.</p>
         <h5>Al radicar</h5>${tablaPermutacion(temporal.permutacion.radicacion)}

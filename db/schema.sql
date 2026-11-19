@@ -76,6 +76,10 @@ CREATE TABLE IF NOT EXISTS auditoria (
     fecha TIMESTAMP NOT NULL DEFAULT now()
 );
 
+CREATE TABLE IF NOT EXISTS auditoria_operaciones_mongo (
+    operacion UUID PRIMARY KEY
+);
+
 -- ============================================================================
 -- SEMANA 8 — Bloqueo de usuario por intentos fallidos (solo AGREGA, no borra)
 -- ============================================================================

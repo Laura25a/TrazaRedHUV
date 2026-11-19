@@ -16,7 +16,8 @@ import httpx
 from fastapi import HTTPException
 
 ORTHANC_URL = os.getenv("ORTHANC_URL", "http://orthanc:8042")
-ORTHANC_AUTH = (os.getenv("ORTHANC_USER", "api"), os.getenv("ORTHANC_PASSWORD", "orthanc_dev_2026"))
+ORTHANC_USER = os.getenv("ORTHANC_USER", "api")
+ORTHANC_PASSWORD = os.getenv("ORTHANC_PASSWORD")
 
 # Los IDs de Orthanc son 5 grupos de 8 caracteres hexadecimales separados por guiones.
 INSTANCE_ID = re.compile(r"^[0-9a-f]{8}(-[0-9a-f]{8}){4}$")
@@ -28,8 +29,10 @@ MODALIDADES = {"CR": "Radiografía", "DX": "Radiografía digital", "CT": "Tomogr
 
 def orthanc(method: str, path: str, **kwargs) -> httpx.Response:
     """Petición a Orthanc; traduce sus fallos a errores HTTP claros."""
+    if not ORTHANC_PASSWORD:
+        raise HTTPException(status_code=503, detail="Falta configurar la autenticación del PACS")
     try:
-        r = httpx.request(method, ORTHANC_URL + path, auth=ORTHANC_AUTH, timeout=30, **kwargs)
+        r = httpx.request(method, ORTHANC_URL + path, auth=(ORTHANC_USER, ORTHANC_PASSWORD), timeout=30, **kwargs)
     except httpx.HTTPError:
         raise HTTPException(status_code=503, detail="El servidor de imágenes (PACS) no está disponible")
     if r.status_code == 404:
@@ -40,8 +43,10 @@ def orthanc(method: str, path: str, **kwargs) -> httpx.Response:
 
 
 def is_alive() -> bool:
+    if not ORTHANC_PASSWORD:
+        return False
     try:
-        return httpx.get(ORTHANC_URL + "/system", auth=ORTHANC_AUTH, timeout=3).status_code == 200
+        return httpx.get(ORTHANC_URL + "/system", auth=(ORTHANC_USER, ORTHANC_PASSWORD), timeout=3).status_code == 200
     except httpx.HTTPError:
         return False
 

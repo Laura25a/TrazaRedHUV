@@ -34,11 +34,12 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 
 import contabilidad
+import auditoria_mongo
 import exportes
 import libro
 from auth import ROLES_CLINICOS, get_db, get_usuario_actual, registrar_auditoria, requiere_rol
 from causas import CAUSAS, causa_de, causa_por_reglas
-from eventos import ids_con_rol, publicar
+from eventos import ids_con_rol, publicar, registrar_evento
 from ia import ML_URL, seudonimo
 from validaciones import bloquear_remision
 from validacion_clinica import SIGNOS, validar_presion, validar_signo
@@ -615,7 +616,6 @@ def anotar_gestion(remision_id: int, g: GestionIn, db=Depends(get_db),
                    usuario=Depends(requiere_rol("admin", "medico"))):
     k = clasificar_respuesta(g.respuesta)
     bloquear_remision(db, remision_id, usuario, exigir_abierta=True)
-    a, contactos = _asiento(db, usuario, remision_id)
     ahora = datetime.now(timezone.utc)
     contacto = {"fecha": ahora, "medio": g.medio, "institucion_contactada": g.institucion_contactada.strip(),
                 "contactado_por": (g.contactado_por or usuario["nombre"]).strip(), "respuesta": g.respuesta.strip(),
@@ -623,37 +623,46 @@ def anotar_gestion(remision_id: int, g: GestionIn, db=Depends(get_db),
                 "registrado_por": usuario["id"], "registrado_en": ahora}
     col = libro.coleccion_gestiones
     doc = col.find_one({"remision_id": remision_id})
+    pendiente = evento_gestion(usuario, remision_id, [contacto])
+    campo = auditoria_mongo.CAMPO
     if doc:
-        col.update_one({"_id": doc["_id"]}, {"$push": {"contactos": contacto}, "$set": {"actualizado_en": ahora}})
+        oid = doc["_id"]
+        col.update_one({"_id": oid}, {"$push": {"contactos": contacto, campo: pendiente},
+                                      "$set": {"actualizado_en": ahora}})
     else:
-        col.insert_one({"remision_id": remision_id, "contactos": [contacto], "actualizado_en": ahora})
-    nuevo = registrar_contactos(db, usuario, a, [contacto])
+        oid = col.insert_one({"remision_id": remision_id, "contactos": [contacto],
+                              "actualizado_en": ahora, campo: [pendiente]}).inserted_id
+    nuevo = auditoria_mongo.sellar_documento(db, col, oid)
     a, contactos = _asiento(db, usuario, remision_id)
     pron = pronosticar(db, a, contactos, usuario["id"])
     return {"contacto": {**contacto, "registrado_en": ahora}, "clasificacion": k,
             "estado": nuevo or a["estado"], "estado_cambio": nuevo is not None, "pronostico": pron}
 
 
-def registrar_contactos(db, usuario, asiento, contactos):
-    """Avanza el radicado bajo el bloqueo adquirido antes de escribir en Mongo."""
+def evento_gestion(usuario, remision_id, contactos):
     aceptado = next((c for c in contactos if c.get("causa") == "acepta"), None)
-    nuevo = None
-    if aceptado and asiento["estado"] in ("pendiente", "en_gestion"):
-        institucion = aceptado["institucion_contactada"]
-        nuevo = "aceptada"
-        _cambiar_estado(db, usuario, asiento, nuevo, f"{institucion} acepta",
+    return auditoria_mongo.evento(
+        usuario["id"], "gestion_anotada", "remisiones", remision_id, f"Contactos agregados: {len(contactos)}",
+        contacto_aceptado=aceptado["institucion_contactada"] if aceptado else None, total=len(contactos),
+    )
+
+
+def avanzar_por_gestion(db, asiento, pendiente):
+    """Aplica la transición y el aviso dentro de la transacción que sella la gestión."""
+    usuario = {"id": pendiente["actor"]}
+    institucion = pendiente["contacto_aceptado"]
+    if institucion is not None and asiento["estado"] in ("pendiente", "en_gestion"):
+        if asiento.get("creado_por"):
+            registrar_evento(db, [asiento["creado_por"]], {
+                "tipo": "remision_aceptada", "remision_id": asiento["id"], "paciente_id": asiento["paciente_id"],
+                "mensaje": f"{libro.radicado(asiento['id'], asiento['radicada_en'])}: {institucion} aceptó al paciente",
+            })
+        _cambiar_estado(db, usuario, asiento, "aceptada", f"{institucion} acepta",
                         ", institucion_acepta = %s", (institucion,))
-    elif contactos and asiento["estado"] == "pendiente":
-        nuevo = "en_gestion"
-        _cambiar_estado(db, usuario, asiento, nuevo, "primera gestión anotada")
-    registrar_auditoria(db, usuario["id"], "gestion_anotada", "remisiones", asiento["id"],
-                        f"Contactos agregados: {len(contactos)}")
-    if nuevo == "aceptada" and asiento.get("creado_por"):
-        publicar([asiento["creado_por"]], {
-            "tipo": "remision_aceptada", "remision_id": asiento["id"], "paciente_id": asiento["paciente_id"],
-            "mensaje": f"{libro.radicado(asiento['id'], asiento['radicada_en'])}: {institucion} aceptó al paciente",
-        })
-    return nuevo
+        return "aceptada"
+    if pendiente["total"] and asiento["estado"] == "pendiente":
+        _cambiar_estado(db, usuario, asiento, "en_gestion", "primera gestión anotada")
+        return "en_gestion"
 
 
 class CierreIn(BaseModel):

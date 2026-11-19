@@ -186,6 +186,12 @@ acota cada fragmento a 1.200 caracteres, solicita hasta 800 tokens de salida al
 proveedor y puede recurrir a la respuesta extractiva. Los errores de herramientas y del
 modelo y los tiempos agotados registran el actor, la IP y el tipo de error.
 
+El arnés limita a 6.500 tokens estimados la entrada de cada llamada, incluido el
+prompt de sistema, los mensajes, las llamadas y respuestas de herramientas y
+sus esquemas. Conserva además el límite de 24.000 bytes de los mensajes. Recorta
+turnos completos y registra el estimado cuando invoca al proveedor. El conteo
+facturado puede variar según el tokenizador del modelo.
+
 El detalle técnico de las invocaciones tiene una ventana operativa de 30 días. Al
 arrancar la API y al registrar invocaciones se reemplaza el contenido expirado por el
 conteo de mensajes. La ruta de detalle devuelve 410 desde el vencimiento. Los metadatos
@@ -195,8 +201,9 @@ de conservación de la base.
 
 ## Taller del 3 de noviembre
 
-Las tres herramientas del taller se pueden ejecutar con el entorno Python del proyecto
-y valores sintéticos. El dato adicional para calcular masa grasa es el porcentaje
+Las tres herramientas del taller se pueden ejecutar en la sección D del
+[notebook de semanas 12 y 13](../notebooks/semana12_13_rag_y_arnes_trazared.ipynb)
+con el entorno Python del proyecto y valores sintéticos. El dato adicional para calcular masa grasa es el porcentaje
 medido. El ejercicio entrega masa en kg y admite tabla Markdown o XML.
 
 ```bash

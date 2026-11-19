@@ -35,6 +35,7 @@ def test_css_html_o_desactualizado_no_acredita_frontend(tmp_path):
 def test_contrato_declara_indicadores_y_r33_pendiente():
     contrato = yaml.safe_load((RAIZ / "tester.yaml").read_text())
     escenarios = contrato["escenarios_integridad"]
-    assert set(escenarios) == {"fechas_imposibles", "gestiones_huerfanas", "conciliacion_202"}
+    assert set(escenarios) == {"fechas_imposibles", "gestiones_huerfanas", "catalogo_y_transiciones",
+                               "semantica_fhir", "conciliacion_202"}
     assert "observacion_conservada_en_historia" in escenarios["conciliacion_202"]["indicadores"]
     assert contrato["verificacion_manual"]["L05_R33"]["estado"] == "pendiente"

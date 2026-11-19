@@ -79,6 +79,29 @@ def test_collection_exige_snomed_de_remision():
         interop._validar_bundle(b)
 
 
+@pytest.mark.parametrize(("sistolica", "diastolica", "fecha_pad", "valido"), [
+    (120, 80, "2026-05-01T10:00:00Z", True),
+    (90, 90, "2026-05-01T05:00:00-05:00", False),
+    (90, 95, "2026-05-01T11:00:00Z", True),
+    (90, 95, None, False),
+])
+def test_presiones_se_comparan_por_toma(sistolica, diastolica, fecha_pad, valido):
+    from uuid import uuid4
+
+    bundle = bundle_minimo()
+    for codigo, valor, fecha in (("8480-6", sistolica, "2026-05-01T10:00:00Z" if fecha_pad else None),
+                                 ("8462-4", diastolica, fecha_pad)):
+        obs = observacion(codigo, "mm[Hg]", valor)
+        if fecha:
+            obs["effectiveDateTime"] = fecha
+        bundle["entry"].append({"fullUrl": f"urn:uuid:{uuid4()}", "resource": obs})
+    if valido:
+        assert len(interop._validar_bundle(bundle)["observaciones"]) == 2
+    else:
+        with pytest.raises(interop.Rechazo, match="diastólica debe ser menor"):
+            interop._validar_bundle(bundle)
+
+
 def test_collection_no_acepta_nombre_en_la_identidad():
     b = bundle_minimo()
     b["entry"][0]["resource"]["name"] = [{"text": "Paciente sintético"}]

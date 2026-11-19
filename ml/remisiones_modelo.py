@@ -39,6 +39,9 @@ import unicodedata
 from datetime import datetime
 from pathlib import Path
 
+import hashlib
+from io import BytesIO
+
 import joblib
 import numpy as np
 import pandas as pd
@@ -61,7 +64,8 @@ BASE = Path(__file__).parent
 DATOS = BASE / "data"
 RUTA_MODELO = BASE / "modelo" / "remisiones_modelo.joblib"
 SEMILLA = 42
-VERSION_EVALUACION = 1
+VERSION_EVALUACION = 2
+ARCHIVOS_DATOS = ("dataset_analitico.csv", "remisiones.csv", "gestiones_contacto.csv")
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Catálogos
@@ -153,10 +157,12 @@ def grupo_motivo(motivo: str) -> str:
 # ─────────────────────────────────────────────────────────────────────────────
 # Carga de datos
 # ─────────────────────────────────────────────────────────────────────────────
-def cargar_datos():
-    d = pd.read_csv(DATOS / "dataset_analitico.csv")
-    r = pd.read_csv(DATOS / "remisiones.csv")[["ref", "motivo", "paciente_ref"]].rename(columns={"ref": "remision_ref"})
-    g = pd.read_csv(DATOS / "gestiones_contacto.csv")
+def cargar_datos(*, huellas=None):
+    archivos = {nombre: (DATOS / nombre).read_bytes() for nombre in ARCHIVOS_DATOS}
+    if huellas is not None:
+        huellas.update({nombre: hashlib.sha256(contenido).hexdigest() for nombre, contenido in archivos.items()})
+    d, r, g = (pd.read_csv(BytesIO(archivos[nombre])) for nombre in ARCHIVOS_DATOS)
+    r = r[["ref", "motivo", "paciente_ref"]].rename(columns={"ref": "remision_ref"})
     d = d.merge(r, on="remision_ref", how="left")
     d["grupo_motivo"] = d["motivo"].map(grupo_motivo)
     d["sale_del_huv"] = (d["sentido"] == "sale_del_HUV").astype(int)
@@ -205,6 +211,7 @@ def fotos_de_gestion(d: pd.DataFrame, g: pd.DataFrame) -> pd.DataFrame:
             fila = {c: base[c] for c in COLS_NUM + COLS_BIN + COLS_CAT}
             fila.update(variables_gestion(contactos[:k]))
             fila["remision_ref"] = ref
+            fila["contactos_incluidos"] = k
             fila["efectiva"] = int(base["efectiva"])
             filas.append(fila)
     return pd.DataFrame(filas)
@@ -318,7 +325,8 @@ def _permutacion(modelo, X, y):
 
 
 def entrenar_remisiones(guardar: bool = True) -> dict:
-    d, g = cargar_datos()
+    huellas = {}
+    d, g = cargar_datos(huellas=huellas)
     desarrollo, prueba, corte = particion_temporal(d, g)
     g_entrena = g[g["remision_ref"].isin(desarrollo["remision_ref"])]
     columnas_base = COLS_NUM + COLS_BIN + COLS_CAT
@@ -367,6 +375,11 @@ def entrenar_remisiones(guardar: bool = True) -> dict:
             "version": VERSION_EVALUACION, "corte": corte.date().isoformat(),
             "fin_prueba": str(prueba["fecha_solicitud"].max()),
             "origen": "sintético", "n_desarrollo": len(desarrollo),
+            "manifiesto": {
+                "archivos_sha256": huellas,
+                "radicacion": prueba["remision_ref"].tolist(),
+                "gestion": fotos_prueba[["remision_ref", "contactos_incluidos"]].to_dict("records"),
+            },
             "radicacion": _metricas(y1_test, m1.predict_proba(X1_test)[:, 1]),
             "gestion": _metricas(y2_test, m2.predict_proba(X2_test)[:, 1]),
             "permutacion": {"radicacion": _permutacion(m1, X1_test, y1_test),

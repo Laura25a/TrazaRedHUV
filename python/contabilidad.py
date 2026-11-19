@@ -40,6 +40,7 @@ from pydantic import BaseModel, Field
 from pymongo import ReturnDocument
 from pymongo.errors import DuplicateKeyError
 
+import auditoria_mongo
 import exportes
 import libro
 import psycopg2
@@ -315,9 +316,12 @@ def facturar_remision(remision_id: int, db=Depends(get_db),
         "creado_por": usuario["id"], "automatica": False,
         "historial": [{"evento": "facturada", "fecha": ahora, "por": usuario["id"]}],
     }
+    doc[auditoria_mongo.CAMPO] = [auditoria_mongo.evento(
+        usuario["id"], "factura_creada", "remisiones", remision_id,
+        f"{doc['numero']} · {fila['radicado']} · {fila['eps']} · ${doc['valor']:,.0f}",
+    )]
     r = _insertar_factura(doc)
-    registrar_auditoria(db, usuario["id"], "factura_creada", "remisiones", remision_id,
-                        f"{doc['numero']} · {fila['radicado']} · {fila['eps']} · ${doc['valor']:,.0f}")
+    auditoria_mongo.sellar_documento(db, coleccion_facturas, r.inserted_id)
     return _doc_a_dict(coleccion_facturas.find_one({"_id": r.inserted_id}))
 
 
@@ -347,17 +351,21 @@ def _cambiar_factura(factura_id: str, nuevo: str, usuario: dict, db, motivo: Opt
     cambios = {"estado_pago": nuevo, f"{nuevo}_en": ahora}
     if motivo:
         cambios[f"motivo_{nuevo}"] = motivo
+    pendiente = auditoria_mongo.evento(
+        usuario["id"], f"factura_{nuevo}", "remisiones" if doc.get("remision_id") else "facturas",
+        doc.get("remision_id") or doc.get("paciente_id"),
+        f"{doc.get('numero') or oid}{' · ' + motivo if motivo else ''}",
+    )
     doc = coleccion_facturas.find_one_and_update(
         {"_id": oid, "estado_pago": doc.get("estado_pago")},
         {"$set": cambios, "$push": {
-            "historial": {"evento": nuevo, "fecha": ahora, "por": usuario["id"], "motivo": motivo}}},
+            "historial": {"evento": nuevo, "fecha": ahora, "por": usuario["id"], "motivo": motivo},
+            auditoria_mongo.CAMPO: pendiente}},
         return_document=ReturnDocument.AFTER,
     )
     if doc is None:
         raise HTTPException(409, "La factura cambió mientras registrabas la acción. Actualiza el libro")
-    registrar_auditoria(db, usuario["id"], f"factura_{nuevo}", "remisiones" if doc.get("remision_id") else "facturas",
-                        doc.get("remision_id") or doc.get("paciente_id"),
-                        f"{doc.get('numero') or oid}{' · ' + motivo if motivo else ''}")
+    auditoria_mongo.sellar_documento(db, coleccion_facturas, oid)
     return _doc_a_dict(doc)
 
 
@@ -599,6 +607,7 @@ ESTADOS_VALIDOS = ("pendiente", "pagada", "anulada", "glosada")
 
 def _doc_a_dict(doc: dict) -> dict:
     """Convierte ObjectId a str y normaliza fechas con zona."""
+    doc.pop(auditoria_mongo.CAMPO, None)
     doc["_id"] = str(doc["_id"])
     for k in ("fecha", "creado_en", "pagada_en", "glosada_en", "anulada_en"):
         if k in doc:
@@ -702,15 +711,13 @@ def crear_factura(
     datos["fecha"] = datetime.now(timezone.utc)
     datos["creado_en"] = datetime.now(timezone.utc)
     datos["creado_por"] = usuario["id"]
-    resultado = _insertar_factura(datos)
-    nuevo = coleccion_facturas.find_one({"_id": resultado.inserted_id})
-
-    registrar_auditoria(
-        db, usuario["id"], "factura_creada", "facturas",
-        factura.paciente_id,
+    datos[auditoria_mongo.CAMPO] = [auditoria_mongo.evento(
+        usuario["id"], "factura_creada", "facturas", factura.paciente_id,
         f"factura {datos['numero']} · paciente {factura.paciente_id} · {factura.servicio} · ${factura.valor}",
-    )
-    return _doc_a_dict(nuevo)
+    )]
+    resultado = _insertar_factura(datos)
+    auditoria_mongo.sellar_documento(db, coleccion_facturas, resultado.inserted_id)
+    return _doc_a_dict(coleccion_facturas.find_one({"_id": resultado.inserted_id}))
 
 
 @router.put("/facturas/{factura_id}/pagar")
@@ -732,6 +739,7 @@ def crear_factura_ia(paciente_id: int, reporte_id: int, valor: float = 30000):
             existente = coleccion_facturas.find_one({"servicio": "analisis_ia", "reporte_id": reporte_id,
                                                       "estado_pago": {"$ne": "anulada"}})
             if existente:
+                auditoria_mongo.sellar_documento(db, coleccion_facturas, existente["_id"])
                 return str(existente["_id"])
             cur.execute("""SELECT id FROM reportes_ia
                            WHERE id = %s AND paciente_id = %s AND estado = 'aprobado' FOR SHARE;""",
@@ -744,7 +752,9 @@ def crear_factura_ia(paciente_id: int, reporte_id: int, valor: float = 30000):
             "valor": valor, "moneda": "COP", "estado_pago": "pendiente", "reporte_id": reporte_id,
             "remision_id": None, "fecha": ahora, "creado_en": ahora, "creado_por": None,
             "automatica": True, "origen": "automatico",
+            auditoria_mongo.CAMPO: [auditoria_mongo.evento(
+                None, "factura_creada", "facturas", reporte_id, "Factura automática por reporte de IA",
+            )],
         })
-        registrar_auditoria(db, None, "factura_creada", "facturas", reporte_id,
-                            "Factura automática por reporte de IA")
+        auditoria_mongo.sellar_documento(db, coleccion_facturas, resultado.inserted_id)
         return str(resultado.inserted_id)

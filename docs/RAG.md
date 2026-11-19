@@ -155,3 +155,7 @@ medir fidelidad, precisión y exhaustividad del contexto, y relevancia de la
 respuesta. El juez usa la referencia explícita para exhaustividad y el informe
 conserva las abstenciones incorrectas como ceros. `--generacion-llm` activa el
 selector del proveedor de producción para estas preguntas públicas.
+Con ambas opciones, el informe identifica el modelo selector y registra los
+casos en los que recurrió al respaldo extractivo. El comando devuelve error si
+el selector queda sin verificar o si el juez deja fallas de evaluación, y conserva
+el informe para revisar la causa.

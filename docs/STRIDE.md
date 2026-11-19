@@ -180,7 +180,7 @@ apruebe, rige la Ley 1581 de 2012. Conviene verificar su estado antes de sustent
 4. Límite de tasa en memoria y por IP: no resiste un ataque distribuido (D1).
 5. Secretos derivados de `SECRET_KEY` cuando no se definen las variables propias: cómodo para desarrollo; en producción cada llave va en su variable (`.env.example`).
 6. Requiere rotación de cualquier credencial ya distribuida o guardada en el historial del repositorio (I7).
-7. El libro de radicación, las interconsultas y la creación y revisión de reportes de IA sellan la auditoría en la misma transacción que el cambio en PostgreSQL. Las gestiones en Mongo, las notificaciones y la sincronización externa conservan riesgo de fallo parcial.
+7. El libro de radicación, las interconsultas y la creación y revisión de reportes de IA sellan la auditoría en la misma transacción que el cambio en PostgreSQL. Las gestiones y facturas guardan la intención de auditar junto al cambio en Mongo, y la API reintenta el sello por identificador. PostgreSQL confirma una sola vez el sello y, cuando corresponde, la transición de la gestión y su aviso. Ante una interrupción, el cambio en Mongo puede ser visible mientras se confirma su sello. Si el cliente decide repetir una gestión tras un error de conexión, esa petición nueva puede agregar otro contacto.
 
 
 ## Revisión normativa del 17/11/2026

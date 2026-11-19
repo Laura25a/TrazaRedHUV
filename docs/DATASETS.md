@@ -257,11 +257,15 @@ y después del primer contacto no terminal, con una sola foto por remisión en
 esta segunda métrica.
 
 El panel **Pronósticos de remisiones** muestra las métricas del tramo reservado y
-el efecto de permutar cada variable original sobre su AUC, con su desviación en
+el SHA-256 de los tres CSV de entrada y el efecto de permutar cada variable original sobre su AUC, con su desviación en
 15 permutaciones. El peso interno de XGBoost se muestra por separado. Una caída
 cercana a cero o negativa puede aparecer por redundancia entre variables o por
 variación de la muestra. Las dos ventanas proceden del mismo generador sintético.
 Estas cifras no estiman el rendimiento real en el HUV.
+
+El paquete y `GET /remisiones/modelo` del servicio ML conservan también las
+referencias sintéticas exactas de radicación y de las fotos de gestión incluidas
+en el tramo reservado. Cada foto indica cuántos contactos incluye.
 
 ### Inferencia visual sobre estudios PACS
 

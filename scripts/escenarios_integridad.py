@@ -76,14 +76,78 @@ def huerfanos(e):
     e.verificar("mongo_no_crea_huerfanos", not any(r["remision_id"] == rid for r in antes + despues))
 
 
-def preparar_conciliacion(e, secreto_federado):
+def catalogo_y_transiciones(e):
+    p = e.pedir("crear_ficha_valida", "POST", "/pacientes", 201, json=e.paciente())
+    datos = e.remision(p["id"])
+    e.pedir("institucion_invalida_422", "POST", "/remisiones", 422,
+            json={**datos, "institucion_destino": "Sede inexistente " + e.turno})
+    e.pedir("estado_inicial_invalido_422", "POST", "/remisiones", 422,
+            json={**datos, "estado": "aceptada"})
+    remision = e.pedir("crear_remision_valida", "POST", "/remisiones", 201, json=datos)
+    ruta = f"/remisiones/{remision['id']}"
+    e.pedir("salto_de_estado_409", "PUT", ruta, 409, json={**datos, "estado": "completada"})
+    remisiones = e.pedir("remisiones_finales", "GET", "/remisiones", 200)
+    e.verificar("solo_una_remision_pendiente",
+                [(r["id"], r["estado"]) for r in remisiones if r["paciente_id"] == p["id"]]
+                == [(remision["id"], "pendiente")])
+
+
+def socio_sintetico(e, scope):
     """Solo socio nuevo sintético, sin URL externa ni rotación de socios existentes."""
     socio = e.pedir("crear_socio_aislado", "POST", "/interop/socios", 201,
                     json={"nombre": "Socio sintético " + e.turno[:12]})
     cred = socio["credenciales_para_entregar"]
     token = e.pedir("token_sistema", "POST", "/oauth/token", 200, rol=None, data={
         "grant_type": "client_credentials", "client_id": cred["client_id"],
-        "client_secret": cred["client_secret"], "scope": "system/Observation.write"})["access_token"]
+        "client_secret": cred["client_secret"], "scope": scope})["access_token"]
+    return cred, token
+
+
+def mensaje_firmado(recurso, cred, token):
+    cuerpo = json.dumps(recurso).encode()
+    sello, mensaje = str(int(time.time())), str(uuid4())
+    firma = hmac.new(cred["secreto_firma"].encode(), f"{sello}.{mensaje}.".encode() + cuerpo, hashlib.sha256).hexdigest()
+    return {"Authorization": f"Bearer {token}", "X-Timestamp": sello,
+            "X-Message-Id": mensaje, "X-Signature": "v1=" + firma,
+            "Content-Type": "application/fhir+json"}, cuerpo
+
+
+def semantica_fhir(e):
+    cred, token = socio_sintetico(e, "system/Bundle.write")
+    paciente = f"urn:uuid:{uuid4()}"
+    solicitud = {"resourceType": "ServiceRequest", "status": "active", "intent": "order",
+                 "subject": {"reference": paciente}, "reasonCode": [{"text": "Remisión sintética"}],
+                 "identifier": [{"system": "urn:trazared:remision", "value": e.turno}],
+                 "code": {"coding": [{"system": "http://snomed.info/sct", "code": "3457005"}]}}
+    entradas = [{"fullUrl": paciente, "resource": {"resourceType": "Patient",
+                 "identifier": [{"system": "urn:salud-digital:sid-federado", "value": e.turno * 2}]}},
+                {"fullUrl": f"urn:uuid:{uuid4()}", "resource": solicitud}]
+    observaciones = []
+    for codigo, valor in (("8480-6", 90), ("8462-4", 95)):
+        obs = {"resourceType": "Observation", "status": "final", "subject": {"reference": paciente},
+               "code": {"coding": [{"system": "http://loinc.org", "code": codigo}]},
+               "valueQuantity": {"value": valor, "system": "http://unitsofmeasure.org", "code": "mm[Hg]"}}
+        observaciones.append(obs)
+        entradas.append({"fullUrl": f"urn:uuid:{uuid4()}", "resource": obs})
+
+    def rechazar(paso, texto):
+        bundle = {"resourceType": "Bundle", "type": "collection", "entry": entradas}
+        headers, cuerpo = mensaje_firmado(bundle, cred, token)
+        resultado = e.pedir(paso, "POST", "/interop/Bundle", 422, rol=None, headers=headers, data=cuerpo)
+        e.verificar(paso + "_operationoutcome", resultado["resourceType"] == "OperationOutcome"
+                    and any(texto in i.get("diagnostics", "") for i in resultado["issue"]))
+
+    rechazar("presiones_incoherentes", "diastólica debe ser menor")
+    observaciones[1]["valueQuantity"]["value"] = 60
+    observaciones[1]["valueQuantity"]["code"] = "mg/dL"
+    rechazar("unidad_incompatible", "unidad UCUM")
+    observaciones[1]["valueQuantity"]["code"] = "mm[Hg]"
+    solicitud["code"]["coding"][0]["code"] = "404684003"
+    rechazar("snomed_fuera_del_perfil", "SNOMED")
+
+
+def preparar_conciliacion(e, secreto_federado):
+    cred, token = socio_sintetico(e, "system/Observation.write")
     documento = e.turno[:18]
     # El contrato normaliza documentos a mayúsculas antes de calcular el federado.
     federado = hmac.new(secreto_federado.encode(), f"CC|{documento.upper()}".encode(), hashlib.sha256).hexdigest()
@@ -91,12 +155,8 @@ def preparar_conciliacion(e, secreto_federado):
                "subject": {"identifier": {"system": "urn:salud-digital:sid-federado", "value": federado}},
                "code": {"coding": [{"system": "http://loinc.org", "code": "2339-0"}]},
                "valueQuantity": {"value": 123, "system": "http://unitsofmeasure.org", "code": "mg/dL"}}
-    cuerpo = json.dumps(recurso).encode()
-    sello, mensaje = str(int(time.time())), str(uuid4())
-    firma = hmac.new(cred["secreto_firma"].encode(), f"{sello}.{mensaje}.".encode() + cuerpo, hashlib.sha256).hexdigest()
     pendientes = e.pedir("pendientes_antes", "GET", "/interop/conciliaciones", 200)
-    headers = {"Authorization": f"Bearer {token}", "X-Timestamp": sello,
-               "X-Message-Id": mensaje, "X-Signature": "v1=" + firma, "Content-Type": "application/fhir+json"}
+    headers, cuerpo = mensaje_firmado(recurso, cred, token)
     resultado = e.pedir("observacion_desconocida_202", "POST", "/interop/Observation", 202,
                         rol=None, headers=headers, data=cuerpo)
     e.verificar("respuesta_operationoutcome", resultado.get("resourceType") == "OperationOutcome")
@@ -135,6 +195,8 @@ def ejecutar_escenario(nombre, peticion, guardar, secreto_federado=None):
         guardar(e.requisito, nombre, "pendiente", "Falta secreto federado de prueba", None)
         return
     acciones = {"fechas_imposibles": lambda: fechas(e), "gestiones_huerfanas": lambda: huerfanos(e),
+                "catalogo_y_transiciones": lambda: catalogo_y_transiciones(e),
+                "semantica_fhir": lambda: semantica_fhir(e),
                 "conciliacion_202": lambda: conciliacion(e, secreto_federado)}
     try:
         acciones[nombre]()

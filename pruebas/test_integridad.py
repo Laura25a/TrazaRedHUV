@@ -59,6 +59,7 @@ def entorno():
         parche.syspath_prepend(str(RAIZ / "python"))
         import main
         main.contabilidad.preparar_indices_facturas()
+        main.auditoria_mongo.preparar_indices()
         importar_usuario = main.auth.hash_password(CLAVE_PRUEBA)
         with closing(psycopg2.connect(pg)) as db, db, db.cursor() as cur:
             for nombre, rol in (
@@ -103,7 +104,8 @@ def datos_remision(paciente_id, **cambios):
             "estado": "pendiente", "convenio_vigente": False, **cambios}
 
 
-@pytest.mark.parametrize("nombre", ["fechas_imposibles", "gestiones_huerfanas", "conciliacion_202"])
+@pytest.mark.parametrize("nombre", ["fechas_imposibles", "gestiones_huerfanas", "catalogo_y_transiciones",
+                                    "semantica_fhir", "conciliacion_202"])
 def test_escenarios_del_entregable(entorno, autorizaciones, monkeypatch, tmp_path, nombre):
     import json
     import interop
@@ -319,6 +321,55 @@ def test_concurrencia_de_correcciones_y_primer_contacto(entorno, autorizaciones)
     gestiones = comprobar(api.get(f"/gestiones-contacto?remision_id={rid}", headers=h), 200)
     assert len(gestiones) == 1
     assert len({g["respuesta"] for g in gestiones[0]["contactos"]}) == 4
+
+
+def test_auditoria_mongo_recupera_gestion_y_factura_sin_duplicar(entorno, autorizaciones, monkeypatch):
+    import auditoria_mongo as cola
+    from pymongo.errors import AutoReconnect
+
+    _, api, pg = entorno
+    h = autorizaciones["auditor"]
+    p = comprobar(paciente(api, h), 201)
+    r = comprobar(api.post("/remisiones", headers=h, json=datos_remision(p["id"])), 201)
+    rid = r["id"]
+    bitacoras = cola.db_mongo["gestiones_contacto"]
+    facturas = cola.db_mongo["facturas"]
+    with monkeypatch.context() as parche:
+        def falla(*args, **kwargs):
+            raise psycopg2.OperationalError("simulación antes del commit del sello")
+
+        parche.setattr(cola, "registrar_auditoria", falla)
+        with pytest.raises(psycopg2.OperationalError, match="antes del commit"):
+            api.post(f"/registro/remisiones/{rid}/gestiones", headers=h, json={
+                "institucion_contactada": LILI, "respuesta": "Sin respuesta",
+            })
+        with pytest.raises(psycopg2.OperationalError, match="antes del commit"):
+            api.post("/facturas", headers=h, json={"paciente_id": p["id"], "servicio": "consulta", "valor": 50000})
+    bitacora = bitacoras.find_one({"remision_id": rid})
+    factura = facturas.find_one({"paciente_id": p["id"], "servicio": "consulta"})
+    assert len(bitacora["contactos"]) == len(bitacora[cola.CAMPO]) == len(factura[cola.CAMPO]) == 1
+    assert comprobar(api.get(f"/remisiones/{rid}", headers=h), 200)["estado"] == "pendiente"
+
+    # El primer reintento confirma el sello. Otro proceso vuelve a ver el marcador si falla el retiro.
+    actualizar = type(bitacoras).update_one
+    with monkeypatch.context() as parche:
+        def falla_limpieza(self, filtro, cambio, *args, **kwargs):
+            if "$pull" in cambio and cola.CAMPO in cambio["$pull"]:
+                raise AutoReconnect("simulación después del commit")
+            return actualizar(self, filtro, cambio, *args, **kwargs)
+        parche.setattr(type(bitacoras), "update_one", falla_limpieza)
+        cola.reintentar()
+    assert bitacoras.find_one({"_id": bitacora["_id"]})[cola.CAMPO]
+    cola.reintentar()
+    cola.reintentar()
+    assert not bitacoras.find_one({"_id": bitacora["_id"]})[cola.CAMPO]
+    assert not facturas.find_one({"_id": factura["_id"]})[cola.CAMPO]
+    assert comprobar(api.get(f"/remisiones/{rid}", headers=h), 200)["estado"] == "en_gestion"
+    with closing(psycopg2.connect(pg)) as db, db.cursor() as cur:
+        for accion, registro in (("gestion_anotada", rid), ("factura_creada", p["id"])):
+            cur.execute("SELECT count(*) FROM auditoria WHERE accion = %s AND registro_id = %s AND hash IS NOT NULL;",
+                        (accion, registro))
+            assert cur.fetchone()[0] == 1
 
 
 def test_referencias_facturas_y_un_solo_cobro(entorno, autorizaciones):
@@ -610,6 +661,23 @@ def test_documentos_en_navegador(entorno, autorizaciones, monkeypatch, tmp_path)
                     pagina.locator("#form-login button[type=submit]").click()
                 assert ingreso.value.status == 200
                 expect(pagina.locator("#vista-app")).to_be_visible()
+                metrica = {"auc": 0.84, "n": 1}
+                pagina.route("**/registro/ia/resumen", lambda ruta: ruta.fulfill(json={
+                    "en_libro": {"tasa_acierto": None, "cerradas_evaluadas": 0, "en_riesgo": 0, "abiertas": 0},
+                    "mas_riesgo": [],
+                    "modelo": {"version": "rem-prueba", "entrenado_en": "2026-05-01T09:00:00",
+                               "metricas": {"radicacion": metrica, "gestion": metrica},
+                               "importancias": {"radicacion": [], "gestion": []},
+                               "evaluacion_temporal": {
+                                   "n_desarrollo": 4, "corte": "2026-05-01", "fin_prueba": "2026-05-10",
+                                   "radicacion": metrica, "gestion": metrica,
+                                   "permutacion": {"radicacion": [], "gestion": []},
+                                   "manifiesto": {"archivos_sha256": {"remisiones.csv": "a" * 64}},
+                               }},
+                }))
+                pagina.locator('[data-seccion="pronosticos"]').click()
+                pagina.get_by_text("Huellas de los datos de prueba", exact=True).click()
+                expect(pagina.locator("#p-cuerpo code")).to_have_text("a" * 64)
                 pagina.locator('[data-seccion="pacientes"]').click()
                 pagina.locator(f'tr[data-pac="{p["id"]}"] td').first.click()
                 pagina.locator("#anexos summary").click()
@@ -1082,6 +1150,8 @@ def test_agente_contexto_seudonimo_y_navegador(entorno, autorizaciones, monkeypa
                 assert turno["pasos"] == [] and turno["invocaciones"]
                 for inv in turno["invocaciones"]:
                     payload = comprobar(http.get(f"/agente/invocaciones/{inv}/payload", headers=admin), 200)
+                    presupuesto = payload["payload"]["presupuesto_contexto"]
+                    assert 0 < presupuesto["tokens_entrada_estimados"] <= presupuesto["limite_tokens_entrada"]
                     assert not any(valor in json.dumps(payload, ensure_ascii=False)
                                    for valor in (nombre, direccion, correo, documento, telefono))
                 assert comprobar(http.get("/agente/estado", headers=admin), 200)["memoria"].startswith("PostgreSQL")
@@ -1197,6 +1267,10 @@ def test_limites_del_agente_y_del_rag(entorno, monkeypatch):
     assert ventana._recortar(solicitud).messages == [nueva, llamada, resultado]
     with pytest.raises(ContextoExcedido):
         ventana._recortar(solicitud.override(messages=[HumanMessage(content="á" * MAX_CONTEXT_BYTES)]))
+    esquema = {"type": "function", "function": {"name": "consulta",
+               "description": "regla " * 3000, "parameters": {"type": "object"}}}
+    with pytest.raises(ContextoExcedido):
+        ventana._recortar(solicitud.override(messages=[nueva], tools=[esquema]))
 
     def proveedor(url, **opciones):
         assert opciones["json"]["max_completion_tokens"] == 800

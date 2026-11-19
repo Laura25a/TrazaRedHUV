@@ -183,6 +183,11 @@ LOINC aceptados:
 | `9269-2` | Escala de Glasgow | `{score}` |
 | `2339-0` | Glucosa en sangre | `mg/dL` |
 
+En el Bundle, la diastólica debe ser menor que la sistólica de la misma toma.
+El perfil agrupa por instante, con zonas equivalentes normalizadas a UTC.
+Un único par sin fecha también se comprueba. Si hay varios valores distintos
+en una misma toma, usa instantes distintos para identificar cada par.
+
 Ejemplo mínimo:
 
 ```json

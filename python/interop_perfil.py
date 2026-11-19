@@ -5,7 +5,7 @@ import re
 from datetime import datetime, timedelta, timezone
 
 import cripto
-from validacion_clinica import SIGNOS, validar_signo
+from validacion_clinica import PAD, PAS, SIGNOS, validar_presion, validar_signo
 
 SID_FEDERADO = os.getenv("SID_FEDERADO") or cripto.SID_FEDERADO
 SID_REMISION = "urn:trazared:remision"
@@ -157,6 +157,25 @@ def _referencia_coincide(referencia, recurso, por_url):
     return isinstance(url, str) and recurso is not None and por_url.get(url) is recurso
 
 
+def _errores_de_presion(observaciones):
+    tomas = {}
+    for obs in observaciones:
+        if obs["loinc"] in (PAS, PAD):
+            toma = tomas.setdefault(obs["fecha"], {PAS: set(), PAD: set()})
+            toma[obs["loinc"]].add(obs["valor"])
+    for fecha, toma in tomas.items():
+        sistolicas, diastolicas = toma[PAS], toma[PAD]
+        if not sistolicas or not diastolicas:
+            continue
+        if len(sistolicas) != 1 or len(diastolicas) != 1:
+            yield "Observation: indique fechas de toma distintas para pares de presión diferentes."
+            continue
+        try:
+            validar_presion(next(iter(sistolicas)), next(iter(diastolicas)))
+        except ValueError as exc:
+            yield f"Observation ({fecha or 'sin fecha de toma'}): {exc}"
+
+
 def _validar_bundle(b: dict) -> dict:
     """Devuelve las partes ya interpretadas o lanza Rechazo(422) con TODOS los problemas."""
     errores = []
@@ -267,6 +286,7 @@ def _validar_bundle(b: dict) -> dict:
                                      or not _referencia_coincide(o["encounter"], encuentros[0], por_url)):
                 errores.append(f"Observation[{n}].encounter no coincide con el episodio del Bundle")
             observaciones.append(obs)
+    errores.extend(_errores_de_presion(observaciones))
 
     # DiagnosticReport de IA: solo el APROBADO viaja (status final). Nunca uno pendiente ni rechazado.
     reporte = None

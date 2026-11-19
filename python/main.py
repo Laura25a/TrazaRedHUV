@@ -36,6 +36,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 import auth
+import auditoria_mongo
 import contabilidad
 import cripto
 import eventos
@@ -144,12 +145,14 @@ def _suscripcion_fhir_al_arrancar():
 def al_arrancar():
     auth.migrar_base()               # db/schema.sql al día (roles nuevos, columnas nuevas...)
     contabilidad.preparar_indices_facturas()
+    auditoria_mongo.preparar_indices()
     auth.crear_usuarios_iniciales()  # un usuario de prueba por rol
     # En un hilo aparte para no retrasar el arranque de la API mientras
     # HAPI FHIR termina de bootear (puede tardar ~30 s la primera vez).
     threading.Thread(target=_suscripcion_fhir_al_arrancar, daemon=True,
                      name="suscripcion-fhir").start()
     threading.Thread(target=fhir_sync.ejecutar_replica, daemon=True, name="replica-fhir").start()
+    threading.Thread(target=auditoria_mongo.iniciar_reintentos, daemon=True, name="auditoria-mongo").start()
     # IA del libro de radicación: pronostica sola las remisiones abiertas al
     # arrancar y luego cada PRONOSTICO_CADA_MIN minutos (por defecto 30)
     registro.iniciar_pronosticos_automaticos()

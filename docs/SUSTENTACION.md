@@ -95,13 +95,15 @@ entregable, guarda `junit.xml` y evidencia, y elimina exclusivamente sus contene
 al terminar. No carga credenciales de producción. FHIR, PACS y ML externos se aíslan
 o simulan en las pruebas correspondientes; esto no reemplaza las comprobaciones públicas.
 
-Los tres escenarios de `tester.yaml` se ejecutan mediante el mismo código HTTP que usa
+Los cinco escenarios de `tester.yaml` se ejecutan mediante el mismo código HTTP que usa
 `scripts/verificar_tester.py`:
 
 | Escenario | Resultado exigido e indicador |
 |---|---|
 | Fechas | Nacimiento futuro y remisiones antes del nacimiento/futuras dan 422; no aparece la ficha rechazada ni nuevas remisiones inválidas |
 | Huérfanos | Ambas rutas de gestión devuelven 404 para una remisión inexistente; la lista Mongo no aumenta |
+| Catálogo y transiciones | Institución desconocida y estado inicial inválido dan 422. Un salto de estado por PUT da 409 y queda una sola remisión pendiente |
+| Semántica del socio | Un Bundle firmado con presiones incoherentes, UCUM incompatible o SNOMED fuera del perfil devuelve 422 y un OperationOutcome con la causa |
 | Conciliación | Observation firmada de desconocido da 202; duplicado 409; documento distinto 422 y médico sin rol 403; identidad coincidente 200; repetición idempotente; pendiente desaparece y la Observation original queda en la historia |
 
 Además, Chromium prueba **Interoperabilidad → Por conciliar → Conciliar paciente →

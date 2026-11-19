@@ -13,6 +13,7 @@ import json
 from datetime import date, datetime, timezone
 from typing import List, Optional
 
+import auditoria_mongo
 import cripto
 import psycopg2
 import psycopg2.extras
@@ -402,6 +403,7 @@ coleccion_gestiones = db_mongo["gestiones_contacto"]
 
 
 def documento_a_dict(doc):
+    doc.pop(auditoria_mongo.CAMPO, None)
     doc["_id"] = str(doc["_id"])
     doc["actualizado_en"] = con_zona(doc.get("actualizado_en"))
     for c in doc.get("contactos") or []:
@@ -468,17 +470,17 @@ def obtener_gestion(gestion_id: str, db=Depends(get_db),
 @router.post("/gestiones-contacto", status_code=201)
 def crear_gestion(gestion: GestionContactoCreate, db=Depends(get_db),
                    usuario=Depends(requiere_rol("admin", "medico"))):
-    from registro import registrar_contactos
+    from registro import evento_gestion
 
-    asiento = bloquear_remision(db, gestion.remision_id, usuario, exigir_abierta=True)
+    bloquear_remision(db, gestion.remision_id, usuario, exigir_abierta=True)
     datos = gestion.model_dump()
     datos["actualizado_en"] = datetime.now(timezone.utc)
     if coleccion_gestiones.find_one({"remision_id": gestion.remision_id}):
         raise HTTPException(409, "Ya hay una bitácora para esta remisión. Agrega contactos desde el registro")
     datos["contactos"] = contactos_legados(datos["contactos"], usuario)
+    datos[auditoria_mongo.CAMPO] = [evento_gestion(usuario, gestion.remision_id, datos["contactos"])]
     resultado = coleccion_gestiones.insert_one(datos)
-    if datos["contactos"]:
-        registrar_contactos(db, usuario, asiento, datos["contactos"])
+    auditoria_mongo.sellar_documento(db, coleccion_gestiones, resultado.inserted_id)
     return documento_a_dict(coleccion_gestiones.find_one({"_id": resultado.inserted_id}))
 
 
@@ -489,9 +491,9 @@ def actualizar_gestion(gestion_id: str, gestion: GestionContactoCreate, db=Depen
         oid = ObjectId(gestion_id)
     except Exception:
         raise HTTPException(400, "id inválido")
-    from registro import registrar_contactos
+    from registro import evento_gestion
 
-    asiento = bloquear_remision(db, gestion.remision_id, usuario, exigir_abierta=True)
+    bloquear_remision(db, gestion.remision_id, usuario, exigir_abierta=True)
     actual = coleccion_gestiones.find_one({"_id": oid})
     if actual is None:
         raise HTTPException(404, "Gestión de contacto no encontrada")
@@ -511,10 +513,11 @@ def actualizar_gestion(gestion_id: str, gestion: GestionContactoCreate, db=Depen
     pendientes = contactos_legados(nuevos[len(previos):], usuario)
     if pendientes:
         coleccion_gestiones.update_one({"_id": oid}, {
-            "$push": {"contactos": {"$each": pendientes}},
+            "$push": {"contactos": {"$each": pendientes},
+                      auditoria_mongo.CAMPO: evento_gestion(usuario, gestion.remision_id, pendientes)},
             "$set": {"actualizado_en": datetime.now(timezone.utc)},
         })
-        registrar_contactos(db, usuario, asiento, pendientes)
+        auditoria_mongo.sellar_documento(db, coleccion_gestiones, oid)
     return documento_a_dict(coleccion_gestiones.find_one({"_id": oid}))
 
 
