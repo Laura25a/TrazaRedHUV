@@ -190,11 +190,12 @@ citar de aquí: cada respuesta trae el documento y el fragmento usados, y si no 
 soporte lo dice en vez de inventar.
 
 - **Ubicación:** `docs/RAG/corpus/` (un `.md` por documento) → fragmentado en
-  `python/rag/fragmentos.json` (40 fragmentos). Detalle del procesamiento y la evaluación:
+  `python/rag/fragmentos.json` (44 fragmentos). Detalle del procesamiento y la evaluación:
   [`RAG.md`](RAG.md) y [`RAG_evaluacion.md`](RAG_evaluacion.md).
 - **Origen:** guías **docentes** redactadas por el equipo para el curso a partir de normas
   colombianas vigentes y de escalas clínicas de uso público. No son copia de guías con derechos
-  reservados ni reemplazan los protocolos oficiales del HUV.
+  reservados ni reemplazan los protocolos oficiales del HUV. G15, G16, N02 y N03 resumen con palabras
+  del equipo fuentes públicas (OMS/CICR, SCCM y MinSalud), citadas en el encabezado `FUENTE:` de cada archivo.
 - **Sin datos personales:** ningún documento del corpus contiene nombre, documento, teléfono,
   correo ni dirección. La historia del paciente usa el seudónimo `PX-…` (R12).
 
@@ -214,7 +215,11 @@ soporte lo dice en vez de inventar.
 | G12 | Evento cerebrovascular y ventana trombolítica | guía | Tiempos que obligan a remitir |
 | G13 | Deterioro respiratorio y escala NEWS2 | guía | Signos de alarma y UCI |
 | G14 | Hipoglucemia y regla 15-15 | guía | Conducta ante glucosa baja (enlaza con R21) |
+| G15 | Evaluación inicial ABCDE · OMS y CICR, Atención básica de emergencia | guía (fuente pública) | Cómo se valora al paciente agudo antes de decidir la remisión |
+| G16 | Tamizaje de sepsis · Surviving Sepsis Campaign (SCCM) | guía (fuente pública) | Qué escala usar para detectar sepsis y escalar la atención |
 | N01 | Regla de datos para los modelos de IA | norma | Qué puede y qué no puede viajar a un modelo |
+| N02 | Retención de la historia clínica · Resolución 839 de 2017 (MinSalud) | norma | Cuánto tiempo se conserva la historia y por qué nada se borra |
+| N03 | Triage en urgencias · Resolución 5596 de 2015 (MinSalud) | norma | Las cinco categorías de triage y sus tiempos de atención |
 | H01–H05 | Historia de ejemplo de dos pacientes (seudónimos) | historia | Probar que solo entra la historia **aprobada** del paciente abierto |
 
 **Historia aprobada en vivo.** Además del corpus fijo, en cada consulta se leen de la base los
