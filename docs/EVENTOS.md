@@ -15,6 +15,7 @@ El stream autenticado `GET /api/eventos/stream` lee la bandeja del usuario en Po
 | `reporte_pendiente` | Avisa al responsable al quedar disponible un borrador automático KTAS. |
 | `reporte_aprobado` | La decisión clínica y su nota van a auditoría. La bandeja de contabilidad recibe un aviso sin identificador de paciente y se solicita la factura automática. Si falla MongoDB, la solicitud queda pendiente y se reintenta. |
 | `remision_externa_recibida`, `respuesta_socio` | Avisos en Interoperabilidad al recibir un Bundle o una respuesta Task, con las mismas reglas de roles y contrato de socios. |
+| `interop_rechazo` | Rechazo por validación de un Bundle o Task del socio (400 o 422 con OperationOutcome). Nada queda a medias: se revierte la transacción, se guarda el mensaje rechazado con su motivo, se audita con origen externo, socio e IP, y administración recibe el aviso en vivo. |
 | `usuario_bloqueado`, `incidente_seguridad` | Aviso a administración. |
 
 ## Criterios de la demostración

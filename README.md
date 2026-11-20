@@ -609,8 +609,10 @@ La demostración con el equipo socio (R33) se hace por separado.
 
 ### Sustentación y evidencia reproducible
 
-La guía [docs/SUSTENTACION.md](docs/SUSTENTACION.md) reúne el arranque con imágenes y
-dependencias fijadas, la comprobación pública de lectura, las pruebas API/Chromium
-con bases desechables y la entrega privada al docente. `tester.yaml` declara también
+El arranque con imágenes y dependencias fijadas está en la sección de instalación de
+este README; la comprobación pública de lectura la hace `scripts/verificar_entrega_publica.py`
+y las pruebas API/Chromium con bases desechables, `scripts/probar_integracion.sh`.
+La evidencia de la corrida del 17 de noviembre queda en
+[docs/evidencia/2026-11-17-sustentacion.json](docs/evidencia/2026-11-17-sustentacion.json). `tester.yaml` declara también
 los escenarios completos de fechas imposibles, gestiones huérfanas y conciliación FHIR
 de `202` a ficha asociada. L05/R33 permanece pendiente hasta nueva orden del dueño.
