@@ -615,4 +615,4 @@ y las pruebas API/Chromium con bases desechables, `scripts/probar_integracion.sh
 La evidencia de la corrida del 17 de noviembre queda en
 [docs/evidencia/2026-11-17-sustentacion.json](docs/evidencia/2026-11-17-sustentacion.json). `tester.yaml` declara también
 los escenarios completos de fechas imposibles, gestiones huérfanas y conciliación FHIR
-de `202` a ficha asociada. L05/R33 permanece pendiente hasta nueva orden del dueño.
+de `202` a ficha asociada. La remisión de ida y vuelta con el equipo socio (R33) se demuestra en vivo en la sustentación.
