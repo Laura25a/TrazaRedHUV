@@ -93,7 +93,7 @@ def verificar(url, salida, navegador=False):
     else:
         resultados.append(dict(requisito="L04", caso="spa_navegador", estado="pendiente", http=None))
     resultados.append(dict(requisito="L05", caso="R33_equipo_real", estado="pendiente",
-                           motivo="Sin implementar ni ejecutar hasta nueva orden"))
+                           motivo="Se demuestra en vivo en la sustentación con el equipo socio"))
     commit = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=RAIZ, text=True).strip()
     estado = subprocess.check_output(["git", "status", "--porcelain", "--", ".", ":(exclude)pruebas/descargas"],
                                     cwd=RAIZ, text=True)

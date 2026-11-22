@@ -396,7 +396,7 @@ def main():
         v.guardar(por_ruta.get(nombre, "CONTRATO"), nombre, estado, detalle, codigo)
         time.sleep(0.12)
     v.comprobar_integridad()
-    v.guardar("R33", "demostracion_equipo_socio", "pendiente", "L05: sin ejecutar hasta nueva orden")
+    v.guardar("R33", "demostracion_equipo_socio", "pendiente", "Se demuestra en vivo en la sustentación con el equipo socio")
     v.resultados[-1]["comprobacion"] = "manual_no_ejecutada"
     resumen = {}
     for fila in v.resultados:

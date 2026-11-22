@@ -689,4 +689,4 @@ escenarios_integridad:
 verificacion_manual:
   L05_R33:
     estado: pendiente
-    motivo: "Sin implementar ni ejecutar hasta nueva orden del dueño. El socio sintético no acredita otra aplicación real."
+    motivo: "Se demuestra en vivo en la sustentación con el equipo socio asignado. El socio sintético no reemplaza esa demostración."
