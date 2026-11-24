@@ -390,6 +390,10 @@ CREATE TABLE IF NOT EXISTS sistemas_socios (
     creado_en TIMESTAMP NOT NULL DEFAULT now()
 );
 
+-- Acuerdo federado y formato de salida opcionales por socio.
+ALTER TABLE sistemas_socios ADD COLUMN IF NOT EXISTS secreto_federado TEXT;
+ALTER TABLE sistemas_socios ADD COLUMN IF NOT EXISTS perfil_saliente TEXT;
+
 -- Remisiones que cruzan la frontera: de dónde vino o a quién se envió.
 ALTER TABLE remisiones ADD COLUMN IF NOT EXISTS origen_externo BOOLEAN NOT NULL DEFAULT FALSE;
 ALTER TABLE remisiones ADD COLUMN IF NOT EXISTS socio_id INTEGER REFERENCES sistemas_socios(id);

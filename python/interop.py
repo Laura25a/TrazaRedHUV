@@ -269,11 +269,12 @@ def _rechazar(conn, socio, mensaje_id, tipo, r: Rechazo, ip: str) -> JSONRespons
     return respuesta
 
 
-def paciente_por_federado(cur, federado):
+def paciente_por_federado(cur, federado, socio=None):
+    secreto = _secreto_federado(socio)
     cur.execute("SELECT id, documento FROM pacientes WHERE NOT por_conciliar AND conciliado_con IS NULL ORDER BY id;")
     for pid, doc in cur:
         try:
-            calculado = federado_de_paciente(pid, cripto.descifrar(doc, cripto.aad_paciente(pid, "documento")))
+            calculado = cripto.id_federado(cripto.descifrar(doc, cripto.aad_paciente(pid, "documento")), secreto)
         except ValueError:
             continue
         if cripto.iguales(calculado, federado):
@@ -285,9 +286,9 @@ def _bloquear_federado(cur, federado):
     cur.execute("SELECT pg_advisory_xact_lock(hashtextextended(%s, 0));", ("interop:" + federado,))
 
 
-def _resolver_paciente(cur, federado):
+def _resolver_paciente(cur, federado, socio=None):
     _bloquear_federado(cur, federado)
-    paciente_id = paciente_por_federado(cur, federado)
+    paciente_id = paciente_por_federado(cur, federado, socio)
     if paciente_id:
         return paciente_id, True
     cur.execute("""SELECT id FROM pacientes WHERE por_conciliar AND id_federado = %s
@@ -314,8 +315,12 @@ def _insertar_observacion(cur, obs, socio_id, paciente_id, remision_id):
     return fila["id"] if isinstance(fila, dict) else fila[0]
 
 
-def federado_de_paciente(paciente_id: int, documento_claro: str) -> str:
-    return cripto.id_federado(documento_claro, SECRETO_FEDERADO)
+def _secreto_federado(socio: Optional[dict] = None) -> str:
+    return (_leer_secreto(socio, "secreto_federado") if socio else None) or SECRETO_FEDERADO
+
+
+def federado_de_paciente(paciente_id: int, documento_claro: str, socio: Optional[dict] = None) -> str:
+    return cripto.id_federado(documento_claro, _secreto_federado(socio))
 
 
 # ══════════════════════════════════════════════════════════════════════════
@@ -334,7 +339,7 @@ def _recibir_bundle(cabeceras: dict, cuerpo: bytes, ip: str):
         motivo, habia_orden = seguridad.neutralizar(partes["motivo"])       # texto de otro sistema = DATO (R25)
 
         cur = conn.cursor()
-        paciente_id, conciliado = _resolver_paciente(cur, partes["federado"])
+        paciente_id, conciliado = _resolver_paciente(cur, partes["federado"], socio)
         referencia = partes["referencia"]
         cur.execute("SELECT pg_advisory_xact_lock(hashtextextended(%s, 0));",
                     (f"interop:remision:{socio['id']}:{referencia}",))
@@ -417,6 +422,8 @@ def _recibir_task(cabeceras: dict, cuerpo: bytes, ip: str):
         if t.get("status") not in ESTADO_DE_TASK:
             errores.append(f"Task.status debe ser uno de: {', '.join(ESTADO_DE_TASK)}")
         referencia = _identificador(t.get("focus"), SID_REMISION)
+        if not referencia and socio.get("perfil_saliente") == "saludred":
+            referencia = _identificador(t.get("focus"), SID_REMISION_SALUDRED)
         if not referencia:
             errores.append("Task.focus.identifier.value debe traer el número de la remisión que se responde")
         if errores:
@@ -513,7 +520,7 @@ def _recibir_observation(cabeceras: dict, cuerpo: bytes, ip: str):
         if errores:
             raise Rechazo(422, "invalid", errores)
         with conn.cursor() as cur:
-            paciente_id, conciliado = _resolver_paciente(cur, obs["federado"])
+            paciente_id, conciliado = _resolver_paciente(cur, obs["federado"], socio)
         codigo = 201 if conciliado else 202
         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
             episodio = _episodio_observacion(cur, socio["id"], obs, paciente_id)
@@ -586,19 +593,51 @@ def _token_saliente(socio: dict, scope: str) -> str:
     return datos["access_token"]
 
 
+SID_REMISION_SALUDRED = "urn:saludred:referral-request"
+
+
+def _recurso_para_saludred(tipo: str, recurso: dict) -> dict:
+    if tipo == "Task":
+        foco = recurso["focus"]
+        return {**recurso, "focus": {**foco, "identifier": {
+            **foco["identifier"], "system": SID_REMISION_SALUDRED}}}
+    if tipo != "Bundle":
+        return recurso
+    entradas = []
+    for entrada in recurso["entry"]:
+        original = entrada["resource"]
+        clase = original["resourceType"]
+        if clase in ("Encounter", "Consent"):
+            continue
+        adaptado = {k: v for k, v in original.items() if k != "encounter"}
+        if clase == "ServiceRequest":
+            identificador = original["identifier"][0]
+            adaptado.update(id=identificador["value"],
+                            identifier=[{**identificador, "system": SID_REMISION_SALUDRED}],
+                            orderDetail=[{"text": "Valoración clínica"}])
+        entradas.append({**entrada, "resource": adaptado})
+    return {**recurso, "entry": entradas}
+
+
 def _enviar(socio: dict, tipo: str, recurso: dict) -> tuple[int, str, str]:
     """POST firmado al socio. Devuelve (código, mensaje_id, texto de la respuesta)."""
     token = _token_saliente(socio, SCOPE_DE[tipo])
+    es_saludred = socio.get("perfil_saliente") == "saludred"
+    if es_saludred:
+        recurso = _recurso_para_saludred(tipo, recurso)
     cuerpo = json.dumps(recurso, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
     ts, mensaje_id = str(int(time.time())), str(uuid.uuid4())
     secreto = _leer_secreto(socio, "firma_saliente")
     if not secreto:
         raise HTTPException(status_code=409, detail=f"Falta el secreto de firma que {socio['nombre']} nos entregó")
+    nombres = (("X-Interop-Fecha", "X-Interop-Nonce", "X-Interop-Firma") if es_saludred else
+               ("X-Timestamp", "X-Message-Id", "X-Signature"))
+    firma = _firma_esperada(secreto, ts, mensaje_id, cuerpo)
+    cabeceras = {"Authorization": f"Bearer {token}", "Content-Type": "application/fhir+json"}
+    cabeceras.update(zip(nombres, (ts, mensaje_id, firma)))
     try:
-        r = requests.post(socio["url_base"].rstrip("/") + f"/interop/{tipo}", data=cuerpo, timeout=20, allow_redirects=False, headers={
-            "Authorization": f"Bearer {token}", "Content-Type": "application/fhir+json",
-            "X-Timestamp": ts, "X-Message-Id": mensaje_id,
-            "X-Signature": _firma_esperada(secreto, ts, mensaje_id, cuerpo)})
+        r = requests.post(socio["url_base"].rstrip("/") + f"/interop/{tipo}", data=cuerpo,
+                          timeout=20, allow_redirects=False, headers=cabeceras)
     except requests.RequestException as e:
         return 0, mensaje_id, f"sin conexión con {socio['nombre']}: {type(e).__name__}"
     if r.status_code == 401:
@@ -670,7 +709,7 @@ def armar_bundle(cur, remision: dict, paciente: dict, socio: dict, consentimient
     """Patient (identificador federado, sin documento ni teléfono ni dirección),
     ServiceRequest (SNOMED), Observation (LOINC + UCUM), DiagnosticReport SOLO si un
     clínico lo aprobó, y el Consent que autoriza compartir con esa institución."""
-    federado = federado_de_paciente(paciente["id"], paciente["documento"])
+    federado = federado_de_paciente(paciente["id"], paciente["documento"], socio)
     ref_pac = "urn:uuid:" + str(uuid.uuid5(uuid.NAMESPACE_URL, federado))
     sujeto = {"reference": ref_pac, "identifier": {"system": SID_FEDERADO, "value": federado}}
     radicado = _radicado(remision)
@@ -1185,7 +1224,15 @@ def conciliar_paciente(provisional_id: int, body: ConciliarIn, db=Depends(get_db
             raise HTTPException(404, "La ficha local debe estar registrada antes de conciliar")
         paciente_id, cifrado = destino
         documento = cripto.descifrar(cifrado, cripto.aad_paciente(paciente_id, "documento"))
-        if not cripto.iguales(federado_de_paciente(paciente_id, documento), federado):
+        with db.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as socios_cur:
+            socios_cur.execute("""SELECT DISTINCT s.client_id, s.secreto_federado
+                                 FROM interop_mensajes m
+                                 JOIN sistemas_socios s ON s.id = m.socio_id
+                                 WHERE m.paciente_id = %s AND m.estado = 'por_conciliar';""",
+                               (provisional_id,))
+            socios = socios_cur.fetchall()
+        if not all(cripto.iguales(federado_de_paciente(paciente_id, documento, socio), federado)
+                   for socio in (socios or [None])):
             raise HTTPException(422, "El documento no coincide con el identificador federado recibido")
         cur.execute("SELECT conciliado_con FROM pacientes WHERE id = %s FOR UPDATE;", (provisional_id,))
         anterior = cur.fetchone()[0]
@@ -1270,7 +1317,7 @@ def devolver_resultado(remision_id: int, observacion_id: int, db=Depends(get_db)
         if not consentimiento:
             raise HTTPException(403, "Se requiere consentimiento vigente para devolver resultados al socio")
         documento = cripto.descifrar(rem["documento"], cripto.aad_paciente(rem["paciente_id"], "documento"))
-        federado = federado_de_paciente(rem["paciente_id"], documento)
+        federado = federado_de_paciente(rem["paciente_id"], documento, socio)
         sujeto = _referencia_logica("Patient", SID_FEDERADO, federado)
         obs["fecha_observacion"] = obs["instante"]
         recurso = _recurso_observacion(obs, sujeto, rem["referencia_externa"], rem["encuentro_fhir"])
